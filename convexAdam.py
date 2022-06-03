@@ -1,13 +1,16 @@
 """
-Adapted from code written by Mattias Paul
+Heavily adapted from code written by Mattias Paul
 """
 
+from functools import lru_cache
+import json
 from pathlib import Path
 from typing import Tuple
 
+import einops
 import nibabel as nib
 import numpy as np
-import einops
+from scipy.ndimage import map_coordinates
 from scipy.ndimage.interpolation import zoom as zoom
 import torch
 import torch.nn as nn
@@ -16,10 +19,33 @@ from tqdm import tqdm
 import typer
 
 from common import FileMapping, fmapping_func
+from metrics import compute_dice
 
 app = typer.Typer()
 
 # correlation layer: dense discretised displacements to compute SSD cost volume with box-filter
+@lru_cache(maxsize=None)
+def identity_grid(size: Tuple[int, ...]):
+    vectors = [np.arange(0, s) for s in size]
+    grids = np.meshgrid(*vectors, indexing="ij")
+    grid = np.stack(grids, axis=0)
+    return grid
+
+
+def apply_displacement_field(disp_field: np.array, image: np.array) -> np.array:
+    has_channel = len(image.shape) == 4
+    if has_channel:
+        image = image[0, ...]
+    size = image.shape
+    assert len(size) == 3
+
+    id_grid = identity_grid(size)
+    moved_image = map_coordinates(image, id_grid + disp_field, order=1)
+    if has_channel:
+        moved_image = moved_image[None, ...]
+    return moved_image
+
+
 def correlate(
     mind_fix: torch.Tensor,
     mind_mov: torch.Tensor,
@@ -189,7 +215,10 @@ def adam_optimization(
         optimizer.zero_grad()
 
         disp_sample = F.avg_pool3d(
-            F.avg_pool3d(net[0].weight, 3, stride=1, padding=1), 3, stride=1, padding=1,
+            F.avg_pool3d(net[0].weight, 3, stride=1, padding=1),
+            3,
+            stride=1,
+            padding=1,
         ).permute(0, 2, 3, 4, 1)
         reg_loss = (
             lambda_weight
@@ -237,12 +266,12 @@ def main(
     fixed_directory: Path,
     seg_directory: Path,
     save_directory: Path,
-    displacement_directory: Path,
     mov2fixed: FileMapping = FileMapping.identity,
     grid_sp: int = 2,
     disp_hw: int = 3,
     lambda_weight: float = 1.25,
     iterations: int = 100,
+    warp_images: bool = False,
 ):
     """
     Performs intra-subject registration
@@ -251,9 +280,9 @@ def main(
     save_directory.mkdir(exist_ok=True)
 
     moving_files = list(moving_directory.iterdir())
-    displacement_directory.mkdir(exist_ok=True)
     mov2fixed_func = fmapping_func(mov2fixed)
     H, W, D = nib.load(moving_files[0]).shape
+    dice_measurements = {}
 
     for movingf in tqdm(moving_files):
         fixedf = fixed_directory / mov2fixed_func(movingf.name)
@@ -357,19 +386,27 @@ def main(
             fitted_grid * grid_sp, size=(H, W, D), mode="trilinear", align_corners=False
         )
 
-        moved = torch.nn.functional.grid_sample(
-                einops.repeat(moving, 'd h w -> n c d h w', n=1, c=1).cuda(),
-                disp_hr.permute((0,2,3,4,1))
-        ).squeeze().detach().cpu().numpy()
+        disp_np = disp_hr.detach().cpu().numpy()
 
-        # TODO: compute dice coefficient
-        moved_seg = torch.nn.functional.grid_sample(
-                einops.repeat(moving, 'd h w -> n c d h w', n=1, c=1).cuda(),
-                disp_hr.permute((0,2,3,4,1))
-        ).squeeze().detach().cpu().numpy()
+        # NOTE: we are using scipy's interpolate func, which does not take a batch dimension
+        disp_np = einops.rearrange(disp_np, "b c d h w -> (b c) d h w")
+        moved_seg = apply_displacement_field(disp_np, moving_seg.numpy())
 
-        moved_nib = nib.Nifti1Image(moved, affine=fixed_nib.affine)
-        nib.save(moved_nib, save_directory/movingf.name)
+        # Fix any problems that may have arisen due to linear interpolation
+        fixed_seg[fixed_seg > 0.5] = 1
+        moving_seg[moving_seg > 0.5] = 1
+        moved_seg[moved_seg > 0.5] = 1
+
+        disp_name = f"{movingf.name}2{fixedf.name}"
+        dice = compute_dice(
+            fixed_seg.numpy(), moving_seg.numpy(), moved_seg, labels=[1]
+        )
+        dice_measurements[disp_name] = dice
+
+        if warp_images:
+            moved_image = apply_displacement_field(disp_np, moving.numpy())
+            moved_nib = nib.Nifti1Image(moved_image, affine=fixed_nib.affine)
+            nib.save(moved_nib, save_directory / movingf.name)
 
         disp_field = F.interpolate(
             disp_hr, scale_factor=0.5, mode="trilinear", align_corners=False
@@ -378,11 +415,13 @@ def main(
         y1 = disp_field[0, 1, :, :, :].cpu().float().data.numpy()
         z1 = disp_field[0, 2, :, :, :].cpu().float().data.numpy()
 
-        disp_name = f"{movingf.name}2{fixedf.name}.npz"
         displacement = np.stack((x1, y1, z1), 0)
-        np.savez_compressed(displacement_directory / disp_name, displacement)
+        np.savez_compressed(save_directory / f"{disp_name}.npz", displacement)
 
         torch.cuda.synchronize()
+
+    with open(save_directory / "dice_measurements.json", "w") as f:
+        json.dump(dice_measurements, f)
 
 
 app()
