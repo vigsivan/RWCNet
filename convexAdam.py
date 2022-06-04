@@ -292,7 +292,7 @@ def train_with_labels(
                 weight /= weight.mean()
 
                 mindssc_fix_ = MINDSEG(fixed_seg, data_shape, weight)
-                mindssc_mov_ = MINDSEG(fixed_seg, data_shape, weight)
+                mindssc_mov_ = MINDSEG(moving_seg, data_shape, weight)
             else:
                 mindssc_fix_ = MINDSSC(fixed.unsqueeze(0).unsqueeze(0).cuda(), 1, 2).half()
                 mindssc_mov_ = MINDSSC(moving.unsqueeze(0).unsqueeze(0).cuda(), 1, 2).half()
