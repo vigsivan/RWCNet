@@ -246,9 +246,35 @@ def pdist_squared(x):
     dist = torch.clamp(dist, 0.0)  # , np.inf)
     return dist
 
+def MINDSEG(imseg, shape, weight):
+    """
+    Not entirely sure what is going on here, tbh
+    """
 
-def MINDSSC(img, radius=2, dilation=2):
-    # see http://mpheinrich.de/pub/miccai2013_943_mheinrich.pdf for details on the MIND-SSC descriptor
+    mindssc = (
+        10
+        * (
+            F.one_hot(imseg.cuda().view(1, *shape).long())
+            .float()
+            .permute(0, 4, 1, 2, 3)
+            .contiguous()
+            * weight.view(1, -1, 1, 1, 1).cuda()
+        ).half()
+    )
+
+    return mindssc
+
+
+def MINDSSC(img: torch.Tensor, radius: int=2, dilation: int=2):
+    """
+    Computes local structural features.
+
+    See http://mpheinrich.de/pub/miccai2013_943_mheinrich.pdf
+
+    Parameters
+    ----------
+    img: torch.Tensor
+    """
     # kernel size
     kernel_size = radius * 2 + 1
     # define start and end locations for self-similarity pattern

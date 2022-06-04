@@ -5,12 +5,12 @@ Heavily adapted from code written by Mattias Paul
 from collections import defaultdict
 import json
 from pathlib import Path
-from typing import Optional, Tuple
 
 import einops
 import nibabel as nib
 import numpy as np
-from scipy.ndimage.interpolation import zoom as zoom
+# from scipy.ndimage.interpolation import zoom as zoom
+from scipy.ndimage import zoom
 import torch
 import torch.nn.functional as F
 import torchio as tio
@@ -18,6 +18,7 @@ from tqdm import tqdm
 import typer
 
 from common import (
+    MINDSEG,
     MINDSSC,
     adam_optimization,
     apply_displacement_field,
@@ -60,8 +61,8 @@ def train_without_labels(
     iterations: int = 100,
         Number of iterations of ADAM optimization. Default=100
     skip_normalize: bool
-        Skip normalizing the images. Functionality 
-        at the very least assumes a positive intensity range. Defualt: False.
+        Skip normalizing the images. Functionality at the very least assumes a 
+        positive intensity range. Defualt: False.
     warp_images: bool = False,
         If True, the moving images are warped and saved in the save_directory.
         Default=False.
@@ -69,7 +70,6 @@ def train_without_labels(
 
     save_directory.mkdir(exist_ok=True)
     (save_directory / "disps").mkdir(exist_ok=True)
-    data_shape: Optional[Tuple[int, int, int]] = None
     measurements = defaultdict(dict)
     gen = tqdm(data_generator(data_json))
 
@@ -81,15 +81,17 @@ def train_without_labels(
         moving_tio = tio.ScalarImage(data.moving_image)
 
         if not skip_normalize:
-            fixed_tio: tio.ScalarImage = tio.RescaleIntensity()(fixed_tio)
-            moving_tio: tio.ScalarImage = tio.RescaleIntensity()(moving_tio)
+            fixed_tio = tio.RescaleIntensity()(fixed_tio)
+            moving_tio = tio.RescaleIntensity()(moving_tio)
+            # Make the typer-checker happy
+            assert isinstance(fixed_tio, tio.ScalarImage)
+            assert isinstance(moving_tio, tio.ScalarImage)
 
         # Squeeze is needed because tio automatically adds a channel dimension
         fixed = fixed_tio.data.float().squeeze()
         moving = moving_tio.data.float().squeeze()
 
         data_shape = fixed_tio.spatial_shape
-        assert data_shape is not None
 
         torch.cuda.synchronize()
 
@@ -200,6 +202,7 @@ def train_with_labels(
     disp_hw: int = 3,
     lambda_weight: float = 1.25,
     iterations: int = 100,
+    compute_mind_from_seg: bool=True,
     skip_normalize: bool = False,
     warp_images: bool = False,
     warp_segmentations: bool = False,
@@ -223,6 +226,9 @@ def train_with_labels(
     lambda_weight: float = 1.25,
     iterations: int = 100,
         Number of iterations of ADAM optimization. Default=100
+    compute_mind_from_seg: bool
+        Computes features directly from the segmentation. Works well, but kinda iffy to read.
+        Dafault True.
     skip_normalize: bool
         Skip image normalization. Normal intensity range is not required, 
         but functionality at the very least assumes a positive intensity range.
@@ -246,7 +252,6 @@ def train_with_labels(
         warp_images_dir = save_directory / "segmentations"
         warp_images_dir.mkdir(exist_ok=True)
 
-    data_shape: Optional[Tuple[int, int, int]] = None
     gen = tqdm(data_generator(data_json))
     measurements = defaultdict(dict)
 
@@ -258,49 +263,40 @@ def train_with_labels(
         moving_tio = tio.ScalarImage(data.moving_image)
 
         if not skip_normalize:
-            fixed_tio: tio.ScalarImage = tio.RescaleIntensity()(fixed_tio)
-            moving_tio: tio.ScalarImage = tio.RescaleIntensity()(moving_tio)
+            fixed_tio = tio.RescaleIntensity()(fixed_tio)
+            moving_tio = tio.RescaleIntensity()(moving_tio)
+
+            # Make the typer-checker happy
+            assert isinstance(fixed_tio, tio.ScalarImage)
+            assert isinstance(moving_tio, tio.ScalarImage)
 
         # Squeeze is needed because tio automatically adds a channel dimension
         fixed = fixed_tio.data.float().squeeze()
         moving = moving_tio.data.float().squeeze()
 
         data_shape = fixed_tio.spatial_shape
-        assert data_shape is not None
 
-        fixed_seg = tio.LabelMap(data.fixed_segmentation).data.float()
-        moving_seg = tio.LabelMap(data.moving_segmentation).data.float()
+        fixed_seg = tio.LabelMap(data.fixed_segmentation).data.float().squeeze()
+        moving_seg = tio.LabelMap(data.moving_segmentation).data.float().squeeze()
 
-        # WTF!
-        weight = 1 / (
-            torch.bincount(fixed.long().reshape(-1))
-            + torch.bincount(moving.long().reshape(-1))
-        ).float().pow(0.3)
-        weight /= weight.mean()
 
         torch.cuda.synchronize()
 
         with torch.no_grad():
-            mindssc_fix_ = (
-                10
-                * (
-                    F.one_hot(fixed_seg.cuda().view(1, *data_shape).long())
-                    .float()
-                    .permute(0, 4, 1, 2, 3)
-                    .contiguous()
-                    * weight.view(1, -1, 1, 1, 1).cuda()
-                ).half()
-            )
-            mindssc_mov_ = (
-                10
-                * (
-                    F.one_hot(moving_seg.cuda().view(1, *data_shape).long())
-                    .float()
-                    .permute(0, 4, 1, 2, 3)
-                    .contiguous()
-                    * weight.view(1, -1, 1, 1, 1).cuda()
-                ).half()
-            )
+            if compute_mind_from_seg:
+                # FIXME: a lot of weird shit
+                weight = 1 / (
+                    torch.bincount(fixed.long().reshape(-1))
+                    + torch.bincount(moving.long().reshape(-1))
+                ).float().pow(0.3)
+                weight /= weight.mean()
+
+                mindssc_fix_ = MINDSEG(fixed_seg, data_shape, weight)
+                mindssc_mov_ = MINDSEG(fixed_seg, data_shape, weight)
+            else:
+                mindssc_fix_ = MINDSSC(fixed.unsqueeze(0).unsqueeze(0).cuda(), 1, 2).half()
+                mindssc_mov_ = MINDSSC(moving.unsqueeze(0).unsqueeze(0).cuda(), 1, 2).half()
+
             mind_fix_ = F.avg_pool3d(mindssc_fix_, grid_sp, stride=grid_sp)
             mind_mov_ = F.avg_pool3d(mindssc_mov_, grid_sp, stride=grid_sp)
             ssd, ssd_argmin = correlate(
@@ -378,6 +374,7 @@ def train_with_labels(
         )
         measurements[disp_name]["dice"] = dice
 
+        # log total registration error if keypoints present
         if data.fixed_keypoints is not None:
             spacing_fix = np.array(fixed_tio.spacing)
             spacing_mov = np.array(moving_tio.spacing)

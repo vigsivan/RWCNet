@@ -50,7 +50,7 @@ def compute_total_registation_error(
 
 def compute_dice(
     fixed: np.ndarray, moving: np.ndarray, moving_warped: np.ndarray, labels: List[int]
-):
+) -> float:
     dice = 0
     count = 0
     for i in labels:
