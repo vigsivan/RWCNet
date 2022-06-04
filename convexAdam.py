@@ -2,6 +2,7 @@
 Heavily adapted from code written by Mattias Paul
 """
 
+from collections import defaultdict
 import json
 from pathlib import Path
 from typing import Optional, Tuple
@@ -12,20 +13,22 @@ import numpy as np
 from scipy.ndimage.interpolation import zoom as zoom
 import torch
 import torch.nn.functional as F
+import torchio as tio
 from tqdm import tqdm
 import typer
 
-from common import ( 
-        MINDSSC,
-        adam_optimization,
-        apply_displacement_field,
-        correlate,
-        coupled_convex,
-        data_generator 
+from common import (
+    MINDSSC,
+    adam_optimization,
+    apply_displacement_field,
+    correlate,
+    coupled_convex,
+    data_generator,
 )
-from metrics import compute_dice
+from metrics import compute_dice, compute_total_registation_error
 
 app = typer.Typer()
+
 
 @app.command()
 def train_without_labels(
@@ -34,11 +37,15 @@ def train_without_labels(
     grid_sp: int = 2,
     disp_hw: int = 3,
     lambda_weight: float = 1.25,
+    skip_normalize: bool = False,
     iterations: int = 100,
     warp_images: bool = False,
 ):
     """
     Performs registration without labels.
+
+    By default this function _only_ saves scipy-compatible displacement fields
+    into save_directory/disps.
 
     Parameters
     ----------
@@ -52,25 +59,36 @@ def train_without_labels(
     lambda_weight: float = 1.25,
     iterations: int = 100,
         Number of iterations of ADAM optimization. Default=100
+    skip_normalize: bool
+        Skip normalizing the images. Functionality 
+        at the very least assumes a positive intensity range. Defualt: False.
     warp_images: bool = False,
-        If True, the moving images are warped and saved in the save_directory. Default=False.
+        If True, the moving images are warped and saved in the save_directory.
+        Default=False.
     """
 
     save_directory.mkdir(exist_ok=True)
+    (save_directory / "disps").mkdir(exist_ok=True)
     data_shape: Optional[Tuple[int, int, int]] = None
+    measurements = defaultdict(dict)
     gen = tqdm(data_generator(data_json))
 
     for data in gen:
 
         torch.cuda.synchronize()
 
-        fixed_nib = nib.load(data.fixed_image)
-        moving_nib = nib.load(data.moving_image)
+        fixed_tio = tio.ScalarImage(data.fixed_image)
+        moving_tio = tio.ScalarImage(data.moving_image)
 
-        fixed = torch.from_numpy(fixed_nib.get_fdata()).float()
-        moving = torch.from_numpy(moving_nib.get_fdata()).float()
+        if not skip_normalize:
+            fixed_tio: tio.ScalarImage = tio.RescaleIntensity()(fixed_tio)
+            moving_tio: tio.ScalarImage = tio.RescaleIntensity()(moving_tio)
 
-        data_shape = fixed_nib.shape
+        # Squeeze is needed because tio automatically adds a channel dimension
+        fixed = fixed_tio.data.float().squeeze()
+        moving = moving_tio.data.float().squeeze()
+
+        data_shape = fixed_tio.spatial_shape
         assert data_shape is not None
 
         torch.cuda.synchronize()
@@ -140,16 +158,22 @@ def train_without_labels(
         )
 
         disp_np = disp_hr.detach().cpu().numpy()
-
-        # NOTE: we are using scipy's interpolate func, which does not take a batch dimension
         disp_np = einops.rearrange(disp_np, "b c d h w -> (b c) d h w")
-
-
         disp_name = f"{data.moving_image.name}2{data.fixed_image.name}"
+
+        if data.fixed_keypoints is not None:
+            spacing_fix = np.array(fixed_tio.spacing)
+            spacing_mov = np.array(moving_tio.spacing)
+            fixed_keypoints = np.loadtxt(data.fixed_keypoints, delimiter=",")
+            moving_keypoints = np.loadtxt(data.moving_keypoints, delimiter=",")
+            tre = compute_total_registation_error(
+                fixed_keypoints, moving_keypoints, disp_np, spacing_fix, spacing_mov
+            )
+            measurements[disp_name]["total_registration_error"] = tre
 
         if warp_images:
             moved_image = apply_displacement_field(disp_np, moving.numpy())
-            moved_nib = nib.Nifti1Image(moved_image, affine=fixed_nib.affine)
+            moved_nib = nib.Nifti1Image(moved_image, affine=fixed_tio.affine)
             nib.save(moved_nib, save_directory / data.moving_image.name)
 
         disp_field = F.interpolate(
@@ -160,9 +184,12 @@ def train_without_labels(
         z1 = disp_field[0, 2, :, :, :].cpu().float().data.numpy()
 
         displacement = np.stack([x1, y1, z1], 0)
-        np.savez_compressed(save_directory / f"{disp_name}.npz", displacement)
+        np.savez_compressed(save_directory / "disps" / f"{disp_name}.npz", displacement)
 
         torch.cuda.synchronize()
+
+    with open(save_directory / "measurements.json", "w") as f:
+        json.dump(measurements, f)
 
 
 @app.command()
@@ -173,10 +200,16 @@ def train_with_labels(
     disp_hw: int = 3,
     lambda_weight: float = 1.25,
     iterations: int = 100,
+    skip_normalize: bool = False,
     warp_images: bool = False,
+    warp_segmentations: bool = False,
 ):
     """
     Performs registration with labels.
+
+    By default,this function saves displacement files compatible with
+    scipy's interpolation function at save_directory/disps as well as
+    dice scores at save_directory/measurements.json.
 
     Parameters
     ----------
@@ -190,35 +223,53 @@ def train_with_labels(
     lambda_weight: float = 1.25,
     iterations: int = 100,
         Number of iterations of ADAM optimization. Default=100
+    skip_normalize: bool
+        Skip image normalization. Normal intensity range is not required, 
+        but functionality at the very least assumes a positive intensity range.
+        Defualt: False.
     warp_images: bool = False,
-        If True, the moving images are warped and saved in the save_directory. Default=False.
+        If True, the moving images are warped and saved in save_directory/images.
+        Default=False.
+    warp_segmentations: bool = False,
+        If True, the moving segmentations are warped and saved in save_directory/segmentations.
+        Default=False.
     """
 
     save_directory.mkdir(exist_ok=True)
+    (save_directory / "disps").mkdir(exist_ok=True)
+
+    if warp_images:
+        warp_images_dir = save_directory / "images"
+        warp_images_dir.mkdir(exist_ok=True)
+
+    if warp_segmentations:
+        warp_images_dir = save_directory / "segmentations"
+        warp_images_dir.mkdir(exist_ok=True)
+
     data_shape: Optional[Tuple[int, int, int]] = None
     gen = tqdm(data_generator(data_json))
-    dice_measurements = {}
+    measurements = defaultdict(dict)
 
     for data in gen:
 
         torch.cuda.synchronize()
 
-        fixed_nib = nib.load(data.fixed_image)
-        moving_nib = nib.load(data.moving_image)
+        fixed_tio = tio.ScalarImage(data.fixed_image)
+        moving_tio = tio.ScalarImage(data.moving_image)
 
-        fixed = torch.from_numpy(fixed_nib.get_fdata()).float()
-        moving = torch.from_numpy(moving_nib.get_fdata()).float()
+        if not skip_normalize:
+            fixed_tio: tio.ScalarImage = tio.RescaleIntensity()(fixed_tio)
+            moving_tio: tio.ScalarImage = tio.RescaleIntensity()(moving_tio)
 
-        data_shape = fixed_nib.shape
+        # Squeeze is needed because tio automatically adds a channel dimension
+        fixed = fixed_tio.data.float().squeeze()
+        moving = moving_tio.data.float().squeeze()
+
+        data_shape = fixed_tio.spatial_shape
         assert data_shape is not None
 
-        fixed_seg = torch.from_numpy(
-            nib.load(data.fixed_segmentation).get_fdata()
-        ).float()
-        moving_seg = torch.from_numpy(
-            nib.load(data.moving_segmentation).get_fdata()
-        ).float()
-
+        fixed_seg = tio.LabelMap(data.fixed_segmentation).data.float()
+        moving_seg = tio.LabelMap(data.moving_segmentation).data.float()
 
         # WTF!
         weight = 1 / (
@@ -325,12 +376,29 @@ def train_with_labels(
         dice = compute_dice(
             fixed_seg.numpy(), moving_seg.numpy(), moved_seg, labels=[1]
         )
-        dice_measurements[disp_name] = dice
+        measurements[disp_name]["dice"] = dice
+
+        if data.fixed_keypoints is not None:
+            spacing_fix = np.array(fixed_tio.spacing)
+            spacing_mov = np.array(moving_tio.spacing)
+            fixed_keypoints = np.loadtxt(data.fixed_keypoints, delimiter=",")
+            moving_keypoints = np.loadtxt(data.moving_keypoints, delimiter=",")
+            tre = compute_total_registation_error(
+                fixed_keypoints, moving_keypoints, disp_np, spacing_fix, spacing_mov
+            )
+            measurements[disp_name]["total_registration_error"] = tre
 
         if warp_images:
             moved_image = apply_displacement_field(disp_np, moving.numpy())
-            moved_nib = nib.Nifti1Image(moved_image, affine=fixed_nib.affine)
-            nib.save(moved_nib, save_directory / data.moving_image.name)
+            moved_nib = nib.Nifti1Image(moved_image, affine=fixed_tio.affine)
+            nib.save(moved_nib, save_directory / "images" / data.moving_image.name)
+
+        if warp_segmentations:
+            moved_seg_nib = nib.Nifti1Image(moved_seg, affine=fixed_tio.affine)
+            nib.save(
+                moved_seg_nib,
+                save_directory / "segmentations" / data.moving_segmentation.name,
+            )
 
         disp_field = F.interpolate(
             disp_hr, scale_factor=0.5, mode="trilinear", align_corners=False
@@ -340,12 +408,12 @@ def train_with_labels(
         z1 = disp_field[0, 2, :, :, :].cpu().float().data.numpy()
 
         displacement = np.stack([x1, y1, z1], 0)
-        np.savez_compressed(save_directory / f"{disp_name}.npz", displacement)
+        np.savez_compressed(save_directory / "disps" / f"{disp_name}.npz", displacement)
 
         torch.cuda.synchronize()
 
-    with open(save_directory / "dice_measurements.json", "w") as f:
-        json.dump(dice_measurements, f)
+    with open(save_directory / "measurements.json", "w") as f:
+        json.dump(measurements, f)
 
 
 app()

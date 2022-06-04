@@ -9,6 +9,7 @@ from pathlib import Path
 from dataclasses import dataclass
 from functools import lru_cache
 
+
 @lru_cache(maxsize=None)
 def identity_grid(size: Tuple[int, ...]) -> np.ndarray:
     """
@@ -236,6 +237,7 @@ def inverse_consistency(
 
     return disp_field1i, disp_field2i
 
+
 def pdist_squared(x):
     xx = (x ** 2).sum(dim=1).unsqueeze(2)
     yy = xx.permute(0, 2, 1)
@@ -243,6 +245,7 @@ def pdist_squared(x):
     dist[dist != dist] = 0
     dist = torch.clamp(dist, 0.0)  # , np.inf)
     return dist
+
 
 def MINDSSC(img, radius=2, dilation=2):
     # see http://mpheinrich.de/pub/miccai2013_943_mheinrich.pdf for details on the MIND-SSC descriptor
@@ -388,18 +391,18 @@ def adam_optimization(
     return net
 
 
-
-
 @dataclass
 class Data:
     """
     Generic Data class for storing data information
     """
-    # TODO: add keypoints
+
     fixed_image: Path
     moving_image: Path
     fixed_segmentation: Optional[Path]
     moving_segmentation: Optional[Path]
+    fixed_keypoints: Optional[Path]
+    moving_keypoints: Optional[Path]
 
 
 def data_generator(data_json: Path) -> Generator[Data, None, None]:
@@ -410,17 +413,19 @@ def data_generator(data_json: Path) -> Generator[Data, None, None]:
     ----------
     data_json: JSON file containing data information
     """
-    with open(data_json, 'r') as f:
+    with open(data_json, "r") as f:
         data = json.load(f)["data"]
 
     # FIXME: make this cleaner
     segs = "fixed_segmentation" in data[0]
+    kps = "fixed_keypoints" in data[0]
 
     for v in data:
         yield Data(
-            fixed_image=Path(v['fixed_image']),
-            moving_image=Path(v['moving_image']),
-            fixed_segmentation=Path(v['fixed_segmentation']) if segs else None,
-            moving_segmentation=Path(v['moving_segmentation']) if segs else None
+            fixed_image=Path(v["fixed_image"]),
+            moving_image=Path(v["moving_image"]),
+            fixed_segmentation=Path(v["fixed_segmentation"]) if segs else None,
+            moving_segmentation=Path(v["moving_segmentation"]) if segs else None,
+            fixed_keypoints=Path(v["fixed_keypoints"]) if kps else None,
+            moving_keypoints=Path(v["moving_keypoints"]) if kps else None,
         )
-

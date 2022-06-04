@@ -5,15 +5,19 @@
 The following packages are needed.
 
 ```bash
-tqdm                                                                                                 
-numpy==1.20.0                                                                                        
-scipy==1.8.0                                                                                         
-torchio==0.18.71
-
-typer==0.4.0                                                                                         
 einops==0.4.0                                                                   
 
+numpy==1.20.0
+
+scipy==1.8.0
+
 torch==1.10.1
+
+torchio==0.18.71
+
+tqdm
+
+typer==0.4.0                                                                                         
 ```
 
 # Usage
