@@ -92,9 +92,8 @@ def train_feature_extractor(
                 tio.RandomAffine(scales=0, degrees=15) 
             ])
 
-            transformed = transform(subject)
-
-            fixed_tio, moving_tio = subject["fixed"], subject["moving"]
+            transformed: tio.Subject = transform(subject)
+            fixed_tio, moving_tio = transformed["fixed"], transformed["moving"]
             
             # TODO: add augmentation here?
 
