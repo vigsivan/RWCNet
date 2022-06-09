@@ -12,6 +12,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import torchio as tio
+from torch.utils.tensorboard.writer import SummaryWriter
 from tqdm import tqdm
 import typer
 
@@ -37,6 +38,7 @@ def train_feature_extractor(
     checkpoint_directory: Path,
     epochs: int=1500,
     steps_per_epoch: int=100,
+    epochs_per_save: int=100,
     grid_sp: int = 2,
     disp_hw: int = 3,
     lambda_weight: float=1.25,
@@ -73,7 +75,9 @@ def train_feature_extractor(
     feature_net = FeatureExtractor(1).cuda()
     optimizer = torch.optim.Adam(feature_net.parameters(), lr=1e-4)
 
-    for _ in tqdm(range(epochs)):
+    writer = SummaryWriter(log_dir=checkpoint_directory)
+
+    for epoch in tqdm(range(epochs)):
         for step, data in enumerate(gen, start=1):
 
             torch.cuda.synchronize()
@@ -82,6 +86,16 @@ def train_feature_extractor(
             fixed_tio = tio.ScalarImage(data.fixed_image)
             moving_tio = tio.ScalarImage(data.moving_image)
 
+            subject = tio.Subject({"fixed": fixed_tio, "moving": moving_tio})
+            transform = tio.Compose([
+                tio.RandomFlip(axes=('LR')),
+                tio.RandomAffine(scales=0, degrees=15) 
+            ])
+
+            transformed = transform(subject)
+
+            fixed_tio, moving_tio = subject["fixed"], subject["moving"]
+            
             # TODO: add augmentation here?
 
             if not skip_normalize:
@@ -137,9 +151,13 @@ def train_feature_extractor(
             loss.backward()
             optimizer.step()
 
+            writer.add_scalar("loss", loss, global_step=(steps_per_epoch*epoch)+step)
+
+            if (epoch % epochs_per_save) == 0:
+                torch.save(feature_net.state_dict(), checkpoint_directory/f"net_{epoch}.pth")
+
             if step == steps_per_epoch:
                 break
-            # compute loss and back-propagate
 
 
 @app.command()
