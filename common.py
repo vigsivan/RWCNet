@@ -1,13 +1,15 @@
-import json
-import torch
-import numpy as np
-import torch.nn.functional as F
-from torch import nn
-from scipy.ndimage import map_coordinates
-from typing import Optional, Generator, Tuple
-from pathlib import Path
 from dataclasses import dataclass
 from functools import lru_cache
+import json
+from pathlib import Path
+import random
+from typing import Generator, Optional, Tuple
+
+import numpy as np
+from scipy.ndimage import map_coordinates
+import torch
+from torch import nn
+import torch.nn.functional as F
 
 
 @lru_cache(maxsize=None)
@@ -23,6 +25,26 @@ def identity_grid(size: Tuple[int, ...]) -> np.ndarray:
     grids = np.meshgrid(*vectors, indexing="ij")
     grid = np.stack(grids, axis=0)
     return grid
+
+
+@lru_cache(maxsize=None)
+def get_identity_affine_grid(size: Tuple[int, ...], grid_sp: int) -> torch.Tensor:
+    """
+    Computes an identity grid for a specific size.
+
+    Parameters
+    ----------
+    size: Tuple[int,...]
+    """
+
+    H, W, D = size
+
+    grid0 = F.affine_grid(
+        torch.eye(3, 4).unsqueeze(0).cuda(),
+        [1, 1, H // grid_sp, W // grid_sp, D // grid_sp],
+        align_corners=False,
+    )
+    return grid0
 
 
 def apply_displacement_field(disp_field: np.ndarray, image: np.ndarray) -> np.ndarray:
@@ -329,6 +351,58 @@ def MINDSSC(img: torch.Tensor, radius: int=2, dilation: int=2):
     mind = mind[:, torch.tensor([6, 8, 1, 11, 2, 10, 0, 7, 9, 4, 5, 3]).long(), :, :, :]
     return mind
 
+def compute_loss(
+    disp_lr: torch.Tensor,
+    mind_fixed: torch.Tensor,
+    mind_moving: torch.Tensor,
+    lambda_weight: float,
+    grid_sp: int,
+    image_shape: Tuple[int, int, int],
+    ) -> torch.Tensor:
+    """
+    """
+    ...
+    disp_sample = disp_lr
+    H, W, D = image_shape
+
+    grid0 = get_identity_affine_grid(image_shape, grid_sp=grid_sp)
+
+    reg_loss = (
+        lambda_weight
+        * ((disp_sample[0, :, 1:, :] - disp_sample[0, :, :-1, :]) ** 2).mean()
+        + lambda_weight
+        * ((disp_sample[0, 1:, :, :] - disp_sample[0, :-1, :, :]) ** 2).mean()
+        + lambda_weight
+        * ((disp_sample[0, :, :, 1:] - disp_sample[0, :, :, :-1]) ** 2).mean()
+    )
+
+    scale = (
+        torch.tensor(
+            [
+                (H // grid_sp - 1) / 2,
+                (W // grid_sp - 1) / 2,
+                (D // grid_sp - 1) / 2,
+            ]
+        )
+        .cuda()
+        .unsqueeze(0)
+    )
+    grid_disp = (
+        grid0.view(-1, 3).cuda().float()
+        + ((disp_sample.view(-1, 3)) / scale).flip(1).float()
+    )
+
+    patch_mov_sampled = F.grid_sample(
+        mind_moving.float(),
+        grid_disp.view(1, H // grid_sp, W // grid_sp, D // grid_sp, 3).cuda(),
+        align_corners=False,
+        mode="bilinear",
+    )  # ,padding_mode='border')
+    sampled_cost = (patch_mov_sampled - mind_fixed).pow(2).mean(1) * 12
+
+    loss = sampled_cost.mean()
+    return loss
+
 
 def adam_optimization(
     disp_lr: torch.Tensor,
@@ -430,6 +504,34 @@ class Data:
     fixed_keypoints: Optional[Path]
     moving_keypoints: Optional[Path]
 
+
+def random_never_ending_generator(data_json: Path) -> Generator[Data, None, None]:
+    """
+    Generator that 1) never ends and 2) yields samples from the dataset in random order
+
+    Parameters
+    ----------
+    data_json: JSON file containing data information
+
+    """
+
+    with open(data_json, "r") as f:
+        data = json.load(f)["data"]
+
+    segs = "fixed_segmentation" in data[0]
+    kps = "fixed_keypoints" in data[0]
+
+    while True:
+        random.shuffle(data)
+        for v in data:
+            yield Data(
+                fixed_image=Path(v["fixed_image"]),
+                moving_image=Path(v["moving_image"]),
+                fixed_segmentation=Path(v["fixed_segmentation"]) if segs else None,
+                moving_segmentation=Path(v["moving_segmentation"]) if segs else None,
+                fixed_keypoints=Path(v["fixed_keypoints"]) if kps else None,
+                moving_keypoints=Path(v["moving_keypoints"]) if kps else None,
+            )
 
 def data_generator(data_json: Path) -> Generator[Data, None, None]:
     """

@@ -9,8 +9,6 @@ from pathlib import Path
 import einops
 import nibabel as nib
 import numpy as np
-# from scipy.ndimage.interpolation import zoom as zoom
-from scipy.ndimage import zoom
 import torch
 import torch.nn.functional as F
 import torchio as tio
@@ -22,13 +20,126 @@ from common import (
     MINDSSC,
     adam_optimization,
     apply_displacement_field,
+    compute_loss,
     correlate,
     coupled_convex,
     data_generator,
+    random_never_ending_generator,
 )
 from metrics import compute_dice, compute_total_registation_error
+from networks import FeatureExtractor
 
 app = typer.Typer()
+
+@app.command()
+def train_feature_extractor(
+    data_json: Path,
+    checkpoint_directory: Path,
+    epochs: int=1500,
+    steps_per_epoch: int=100,
+    grid_sp: int = 2,
+    disp_hw: int = 3,
+    lambda_weight: float=1.25,
+    skip_normalize: bool = False,
+    ):
+    """
+    Trains a network to predict registration, but uses 
+
+    By default this function _only_ saves scipy-compatible displacement fields
+    into save_directory/disps.
+
+    Parameters
+    ----------
+    data_json: Path,
+        JSON containing the data paths. See definition in common.py
+    save_directory: Path,
+        Path where the outputs of this functin will be saved.
+    grid_sp: int = 2,
+        Grid spacing. Defualt=2
+    disp_hw: int = 3,
+    lambda_weight: float = 1.25,
+    iterations: int = 100,
+        Number of iterations of ADAM optimization. Default=100
+    skip_normalize: bool
+        Skip normalizing the images. Functionality at the very least assumes a 
+        positive intensity range. Defualt: False.
+    warp_images: bool = False,
+        If True, the moving images are warped and saved in the save_directory.
+        Default=False.
+    """
+
+    checkpoint_directory.mkdir(exist_ok=True)
+    gen = random_never_ending_generator(data_json)
+    feature_net = FeatureExtractor(1).cuda()
+    optimizer = torch.optim.Adam(feature_net.parameters(), lr=1e-4)
+
+    for _ in tqdm(range(epochs)):
+        for step, data in enumerate(gen, start=1):
+
+            torch.cuda.synchronize()
+            optimizer.zero_grad()
+
+            fixed_tio = tio.ScalarImage(data.fixed_image)
+            moving_tio = tio.ScalarImage(data.moving_image)
+
+            # TODO: add augmentation here?
+
+            if not skip_normalize:
+                fixed_tio = tio.RescaleIntensity()(fixed_tio)
+                moving_tio = tio.RescaleIntensity()(moving_tio)
+                # Make the typer-checker happy
+                assert isinstance(fixed_tio, tio.ScalarImage)
+                assert isinstance(moving_tio, tio.ScalarImage)
+
+            # Squeeze is needed because tio automatically adds a channel dimension
+            fixed = fixed_tio.data.float().squeeze()
+            moving = moving_tio.data.float().squeeze()
+
+            data_shape = fixed_tio.spatial_shape
+
+            torch.cuda.synchronize()
+            feat_fix_ = feature_net(fixed.unsqueeze(0).unsqueeze(0).cuda()).half()
+            feat_mov_ = feature_net(moving.unsqueeze(0).unsqueeze(0).cuda()).half()
+
+            feat_fix_ = F.avg_pool3d(feat_fix_, grid_sp, stride=grid_sp)
+            feat_mov_ = F.avg_pool3d(feat_mov_, grid_sp, stride=grid_sp)
+            ssd, ssd_argmin = correlate(
+                feat_fix_, feat_mov_, disp_hw, grid_sp, data_shape
+            )
+            disp_mesh_t = (
+                F.affine_grid(
+                    disp_hw * torch.eye(3, 4).cuda().half().unsqueeze(0),
+                    [1, 1, disp_hw * 2 + 1, disp_hw * 2 + 1, disp_hw * 2 + 1],
+                    align_corners=True,
+                )
+                .permute(0, 4, 1, 2, 3)
+                .reshape(3, -1, 1)
+            )
+            disp_soft = coupled_convex(
+                ssd, ssd_argmin, disp_mesh_t, grid_sp, data_shape
+            )
+
+            del ssd
+
+            torch.cuda.empty_cache()
+
+            disp_lr = F.interpolate(
+                disp_soft * grid_sp,
+                size=tuple(s // 2 for s in data_shape),
+                mode="trilinear",
+                align_corners=False,
+            )
+
+            # extract one-hot patches
+            loss = compute_loss(disp_lr, feat_fix_, feat_mov_, lambda_weight, grid_sp, data_shape)
+            torch.cuda.synchronize()
+
+            loss.backward()
+            optimizer.step()
+
+            if step == steps_per_epoch:
+                break
+            # compute loss and back-propagate
 
 
 @app.command()
@@ -291,11 +402,13 @@ def train_with_labels(
                 ).float().pow(0.3)
                 weight /= weight.mean()
 
+                breakpoint()
                 mindssc_fix_ = MINDSEG(fixed_seg, data_shape, weight)
                 mindssc_mov_ = MINDSEG(moving_seg, data_shape, weight)
             else:
                 mindssc_fix_ = MINDSSC(fixed.unsqueeze(0).unsqueeze(0).cuda(), 1, 2).half()
                 mindssc_mov_ = MINDSSC(moving.unsqueeze(0).unsqueeze(0).cuda(), 1, 2).half()
+                breakpoint()
 
             mind_fix_ = F.avg_pool3d(mindssc_fix_, grid_sp, stride=grid_sp)
             mind_mov_ = F.avg_pool3d(mindssc_mov_, grid_sp, stride=grid_sp)
