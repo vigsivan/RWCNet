@@ -56,20 +56,22 @@ def train_feature_extractor(
     ----------
     data_json: Path,
         JSON containing the data paths. See definition in common.py
-    save_directory: Path,
-        Path where the outputs of this function will be saved.
+    checkpoint_directory: Path,
+        Directory in which to save feature extractor checkpoints
+    epochs: int
+        Default = 1500
+    steps_per_epoch: int
+        Default = 100
+    epochs_per_save: int
+        Default = 100
     grid_sp: int = 2,
         Grid spacing. Defualt=2
     disp_hw: int = 3,
-    lambda_weight: float = 1.25,
-    iterations: int = 100,
-        Number of iterations of ADAM optimization. Default=100
+    lambda_weight: float 
+        Regularization weight. Default= 1.25,
     skip_normalize: bool
         Skip normalizing the images. Functionality at the very least assumes a 
         positive intensity range. Defualt: False.
-    warp_images: bool = False,
-        If True, the moving images are warped and saved in the save_directory.
-        Default=False.
     """
 
     checkpoint_directory.mkdir(exist_ok=True)
@@ -190,7 +192,8 @@ def train_without_labels(
     grid_sp: int = 2,
         Grid spacing. Defualt=2
     disp_hw: int = 3,
-    lambda_weight: float = 1.25,
+    lambda_weight: float
+        Regularization weight. Default = 1.25
     iterations: int = 100,
         Number of iterations of ADAM optimization. Default=100
     skip_normalize: bool
@@ -541,6 +544,7 @@ def train_with_labels(
         Grid spacing. Defualt=2
     disp_hw: int = 3,
     lambda_weight: float = 1.25,
+        Regularization weight.
     iterations: int = 100,
         Number of iterations of ADAM optimization. Default=100
     compute_mind_from_seg: bool
