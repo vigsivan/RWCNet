@@ -5,6 +5,7 @@ Heavily adapted from code written by Mattias Paul
 from collections import defaultdict
 import json
 from pathlib import Path
+from typing import Optional
 
 import einops
 import nibabel as nib
@@ -39,6 +40,7 @@ def train_feature_extractor(
     epochs: int=1500,
     steps_per_epoch: int=100,
     epochs_per_save: int=100,
+    load_checkpoint: Optional[Path]=None,
     grid_sp: int = 2,
     disp_hw: int = 3,
     lambda_weight: float=1.25,
@@ -55,7 +57,7 @@ def train_feature_extractor(
     data_json: Path,
         JSON containing the data paths. See definition in common.py
     save_directory: Path,
-        Path where the outputs of this functin will be saved.
+        Path where the outputs of this function will be saved.
     grid_sp: int = 2,
         Grid spacing. Defualt=2
     disp_hw: int = 3,
@@ -72,7 +74,10 @@ def train_feature_extractor(
 
     checkpoint_directory.mkdir(exist_ok=True)
     gen = random_never_ending_generator(data_json)
-    feature_net = FeatureExtractor(1).cuda()
+    feature_net = FeatureExtractor(1)
+    if load_checkpoint is not None:
+        feature_net.load_state_dict(torch.load(load_checkpoint))
+    feature_net = feature_net.cuda()
     optimizer = torch.optim.Adam(feature_net.parameters(), lr=1e-4)
 
     writer = SummaryWriter(log_dir=checkpoint_directory)
@@ -321,6 +326,190 @@ def train_without_labels(
     with open(save_directory / "measurements.json", "w") as f:
         json.dump(measurements, f)
 
+@app.command()
+def train_with_feature_extractor(
+    data_json: Path,
+    feature_extractor: Path,
+    save_directory: Path,
+    grid_sp: int = 2,
+    disp_hw: int = 3,
+    lambda_weight: float = 1.25,
+    iterations: int = 100,
+    skip_normalize: bool = False,
+    warp_images: bool = False,
+    warp_segmentations: bool = False,  # FIXME: don't assume segmentations by default
+):
+    """
+    Performs registration with pre-trained feature extractor.
+    """
+
+    # TODO: fix docstring
+
+    save_directory.mkdir(exist_ok=True)
+    (save_directory / "disps").mkdir(exist_ok=True)
+
+    if warp_images:
+        warp_images_dir = save_directory / "images"
+        warp_images_dir.mkdir(exist_ok=True)
+
+    if warp_segmentations:
+        warp_images_dir = save_directory / "segmentations"
+        warp_images_dir.mkdir(exist_ok=True)
+
+    gen = tqdm(data_generator(data_json))
+    measurements = defaultdict(dict)
+
+    for data in gen:
+
+        torch.cuda.synchronize()
+
+        fixed_tio = tio.ScalarImage(data.fixed_image)
+        moving_tio = tio.ScalarImage(data.moving_image)
+
+        if not skip_normalize:
+            fixed_tio = tio.RescaleIntensity()(fixed_tio)
+            moving_tio = tio.RescaleIntensity()(moving_tio)
+
+            # Make the typer-checker happy
+            assert isinstance(fixed_tio, tio.ScalarImage)
+            assert isinstance(moving_tio, tio.ScalarImage)
+
+        # Squeeze is needed because tio automatically adds a channel dimension
+        fixed = fixed_tio.data.float().squeeze()
+        moving = moving_tio.data.float().squeeze()
+
+        data_shape = fixed_tio.spatial_shape
+
+        fixed_seg = tio.LabelMap(data.fixed_segmentation).data.float().squeeze()
+        moving_seg = tio.LabelMap(data.moving_segmentation).data.float().squeeze()
+
+        feature_net = FeatureExtractor(1)
+        feature_net.load_state_dict(torch.load(feature_extractor))
+        feature_net = feature_net.cuda().eval()
+
+        torch.cuda.synchronize()
+
+        with torch.no_grad():
+
+            feat_fix_ = feature_net(fixed.unsqueeze(0).unsqueeze(0).cuda()).half()
+            feat_mov_ = feature_net(moving.unsqueeze(0).unsqueeze(0).cuda()).half()
+
+            # FIXME: change variable names
+            mind_fix_ = F.avg_pool3d(feat_fix_, grid_sp, stride=grid_sp)
+            mind_mov_ = F.avg_pool3d(feat_mov_, grid_sp, stride=grid_sp)
+            ssd, ssd_argmin = correlate(
+                mind_fix_, mind_mov_, disp_hw, grid_sp, data_shape
+            )
+            disp_mesh_t = (
+                F.affine_grid(
+                    disp_hw * torch.eye(3, 4).cuda().half().unsqueeze(0),
+                    [1, 1, disp_hw * 2 + 1, disp_hw * 2 + 1, disp_hw * 2 + 1],
+                    align_corners=True,
+                )
+                .permute(0, 4, 1, 2, 3)
+                .reshape(3, -1, 1)
+            )
+            disp_soft = coupled_convex(
+                ssd, ssd_argmin, disp_mesh_t, grid_sp, data_shape
+            )
+
+        del ssd, mind_fix_, mind_mov_
+
+        torch.cuda.empty_cache()
+
+        disp_lr = F.interpolate(
+            disp_soft * grid_sp,
+            size=tuple(s // 2 for s in data_shape),
+            mode="trilinear",
+            align_corners=False,
+        )
+
+        # extract one-hot patches
+        torch.cuda.synchronize()
+
+        with torch.no_grad():
+            mind_fix_ = F.avg_pool3d(feat_fix_, grid_sp, stride=grid_sp)
+            mind_mov_ = F.avg_pool3d(feat_mov_, grid_sp, stride=grid_sp)
+        del feat_fix_, feat_mov_
+
+        net = adam_optimization(
+            disp_lr=disp_lr,
+            mind_fixed=mind_fix_,
+            mind_moving=mind_mov_,
+            lambda_weight=lambda_weight,
+            image_shape=data_shape,
+            grid_sp=grid_sp,
+            iterations=iterations,
+        )
+
+        torch.cuda.synchronize()
+
+        disp_sample = F.avg_pool3d(
+            F.avg_pool3d(net[0].weight, 3, stride=1, padding=1), 3, stride=1, padding=1
+        ).permute(0, 2, 3, 4, 1)
+        fitted_grid = disp_sample.permute(0, 4, 1, 2, 3).detach()
+        disp_hr = F.interpolate(
+            fitted_grid * grid_sp,
+            size=data_shape,
+            mode="trilinear",
+            align_corners=False,
+        )
+
+        disp_np = disp_hr.detach().cpu().numpy()
+
+        # NOTE: we are using scipy's interpolate func, which does not take a batch dimension
+        disp_np = einops.rearrange(disp_np, "b c d h w -> (b c) d h w")
+        moved_seg = apply_displacement_field(disp_np, moving_seg.numpy())
+
+        # Fix any problems that may have arisen due to linear interpolation
+        fixed_seg[fixed_seg > 0.5] = 1
+        moving_seg[moving_seg > 0.5] = 1
+        moved_seg[moved_seg > 0.5] = 1
+
+        disp_name = f"{data.moving_image.name}2{data.fixed_image.name}"
+        dice = compute_dice(
+            fixed_seg.numpy(), moving_seg.numpy(), moved_seg, labels=[1]
+        )
+        measurements[disp_name]["dice"] = dice
+
+        # log total registration error if keypoints present
+        if data.fixed_keypoints is not None:
+            spacing_fix = np.array(fixed_tio.spacing)
+            spacing_mov = np.array(moving_tio.spacing)
+            fixed_keypoints = np.loadtxt(data.fixed_keypoints, delimiter=",")
+            moving_keypoints = np.loadtxt(data.moving_keypoints, delimiter=",")
+            tre = compute_total_registation_error(
+                fixed_keypoints, moving_keypoints, disp_np, spacing_fix, spacing_mov
+            )
+            measurements[disp_name]["total_registration_error"] = tre
+
+        if warp_images:
+            moved_image = apply_displacement_field(disp_np, moving.numpy())
+            moved_nib = nib.Nifti1Image(moved_image, affine=fixed_tio.affine)
+            nib.save(moved_nib, save_directory / "images" / data.moving_image.name)
+
+        if warp_segmentations:
+            moved_seg_nib = nib.Nifti1Image(moved_seg, affine=fixed_tio.affine)
+            nib.save(
+                moved_seg_nib,
+                save_directory / "segmentations" / data.moving_segmentation.name,
+            )
+
+        disp_field = F.interpolate(
+            disp_hr, scale_factor=0.5, mode="trilinear", align_corners=False
+        )
+        x1 = disp_field[0, 0, :, :, :].cpu().float().data.numpy()
+        y1 = disp_field[0, 1, :, :, :].cpu().float().data.numpy()
+        z1 = disp_field[0, 2, :, :, :].cpu().float().data.numpy()
+
+        displacement = np.stack([x1, y1, z1], 0)
+        np.savez_compressed(save_directory / "disps" / f"{disp_name}.npz", displacement)
+
+        torch.cuda.synchronize()
+
+    with open(save_directory / "measurements.json", "w") as f:
+        json.dump(measurements, f)
+
 
 @app.command()
 def train_with_labels(
@@ -390,6 +579,7 @@ def train_with_labels(
         fixed_tio = tio.ScalarImage(data.fixed_image)
         moving_tio = tio.ScalarImage(data.moving_image)
 
+
         if not skip_normalize:
             fixed_tio = tio.RescaleIntensity()(fixed_tio)
             moving_tio = tio.RescaleIntensity()(moving_tio)
@@ -419,13 +609,11 @@ def train_with_labels(
                 ).float().pow(0.3)
                 weight /= weight.mean()
 
-                breakpoint()
                 mindssc_fix_ = MINDSEG(fixed_seg, data_shape, weight)
                 mindssc_mov_ = MINDSEG(moving_seg, data_shape, weight)
             else:
                 mindssc_fix_ = MINDSSC(fixed.unsqueeze(0).unsqueeze(0).cuda(), 1, 2).half()
                 mindssc_mov_ = MINDSSC(moving.unsqueeze(0).unsqueeze(0).cuda(), 1, 2).half()
-                breakpoint()
 
             mind_fix_ = F.avg_pool3d(mindssc_fix_, grid_sp, stride=grid_sp)
             mind_mov_ = F.avg_pool3d(mindssc_mov_, grid_sp, stride=grid_sp)

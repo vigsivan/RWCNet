@@ -511,7 +511,8 @@ def random_never_ending_generator(data_json: Path) -> Generator[Data, None, None
 
     Parameters
     ----------
-    data_json: JSON file containing data information
+    data_json: Path
+        JSON file containing data information
 
     """
 
