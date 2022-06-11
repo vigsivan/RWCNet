@@ -1,5 +1,5 @@
 """
-Heavily adapted from code written by Mattias Paul
+Heavily adapted from code written by Mattias Paul Heinrich
 """
 
 from collections import defaultdict

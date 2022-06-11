@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List
 import numpy as np
 import torch
 from torch import nn
@@ -71,31 +71,14 @@ class ConvBlock(nn.Module):
         return out
 
 class FeatureExtractor(nn.Module):
-
-    def __init__(
-            self,
-            infeats :int,
-            nb_features: List[int] = [16, 32, 32, 32],
-        ):
-            super().__init__()
-            self.model = nn.Sequential(
-                *[ConvBlock(ndims=3, in_channels=ic, out_channels=oc)
-                 for ic, oc in zip([infeats, *nb_features], nb_features)]
-            )
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.model(x)
-
-
-class Unet(nn.Module):
     """
     Slightly modified version of Voxelmorph's UNet
     """
 
     def __init__(
         self,
-        inshape: Tuple[int, ...],
         infeats: int,
+        outfeats: int=12,
         nb_features=default_unet_features(),
         max_pool=2,
         nb_conv_per_level=1,
@@ -104,10 +87,7 @@ class Unet(nn.Module):
         super().__init__()
 
         # ensure correct dimensionality
-        ndims = len(inshape)
-        assert ndims in [1, 2, 3], (
-            "ndims should be one of 1, 2, or 3. found: %d" % ndims
-        )
+        ndims = 3
 
         # cache some parameters
         self.half_res = half_res
@@ -159,14 +139,18 @@ class Unet(nn.Module):
             if not half_res or level < (self.nb_levels - 2):
                 prev_nf += encoder_nfs[level]
 
-        # now we take care of any remaining convolutions
-        self.remaining = nn.ModuleList()
-        for _, nf in enumerate(final_convs):
-            self.remaining.append(ConvBlock(ndims, prev_nf, nf))
-            prev_nf = nf
 
-        # cache final number of features
-        self.final_nf = prev_nf
+        self.outconv = ConvBlock(ndims, prev_nf, outfeats)
+
+        # # now we take care of any remaining convolutions
+        # self.remaining = nn.ModuleList()
+        # for _, nf in enumerate(final_convs):
+        #     self.remaining.append(ConvBlock(ndims, prev_nf, nf))
+        #     prev_nf = nf
+        #
+        # # cache final number of features
+        # self.final_nf = prev_nf
+        #
 
     def forward(self, x):
 
@@ -186,9 +170,7 @@ class Unet(nn.Module):
                 x = self.upsampling[level](x)
                 x = torch.cat([x, x_history.pop()], dim=1)
 
-        # remaining convs at full resolution
-        for conv in self.remaining:
-            x = conv(x)
+        x = self.outconv(x)
 
         return x
 
