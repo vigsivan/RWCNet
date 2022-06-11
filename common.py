@@ -400,7 +400,7 @@ def compute_loss(
     )  # ,padding_mode='border')
     sampled_cost = (patch_mov_sampled - mind_fixed).pow(2).mean(1) * 12
 
-    loss = sampled_cost.mean()
+    loss = sampled_cost.mean() + reg_loss
     return loss
 
 
