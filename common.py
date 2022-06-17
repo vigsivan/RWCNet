@@ -1,15 +1,30 @@
+from __future__ import print_function
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.autograd import Variable
+
 from dataclasses import dataclass
 from functools import lru_cache
 import json
 from pathlib import Path
 import random
-from typing import Generator, Optional, Tuple
+from typing import Generator, Optional, List, Tuple, Union
 
+import einops
 import numpy as np
 from scipy.ndimage import map_coordinates
 import torch
 from torch import nn
 import torch.nn.functional as F
+
+
+def read_keypoints(path: Union[str, Path], sep: str = ",") -> torch.Tensor:
+    with open(path, "r") as f:
+        keypoints = np.array(
+            [[float(i) for i in fl.split(sep)] for fl in f.readlines()]
+        )
+    return torch.from_numpy(keypoints)
 
 
 @lru_cache(maxsize=None)
@@ -24,6 +39,19 @@ def identity_grid(size: Tuple[int, ...]) -> np.ndarray:
     vectors = [np.arange(0, s) for s in size]
     grids = np.meshgrid(*vectors, indexing="ij")
     grid = np.stack(grids, axis=0)
+    return grid
+
+
+@lru_cache(maxsize=None)
+def identity_grid_torch(size: Tuple[int, ...]) -> torch.Tensor:
+    """
+    Computes an identity grid for torch
+    """
+    vectors = [torch.arange(0, s) for s in size]
+    grids = torch.meshgrid(vectors, indexing="ij")
+    grid = torch.stack(grids)
+    grid = torch.unsqueeze(grid, 0).float()
+
     return grid
 
 
@@ -72,6 +100,66 @@ def apply_displacement_field(disp_field: np.ndarray, image: np.ndarray) -> np.nd
     if has_channel:
         moved_image = moved_image[None, ...]
     return moved_image
+
+
+def correlate_grad(
+    mind_fix: torch.Tensor,
+    mind_mov: torch.Tensor,
+    disp_hw: int,
+    grid_sp: int,
+    image_shape: Tuple[int, int, int],
+) -> torch.Tensor:
+    """
+    A differentiable version of the correlation function that computes the sum of
+    square distances between patches in the moving image and the fixed image.
+    """
+    H, W, D = image_shape
+    torch.cuda.synchronize()
+    C_mind = mind_fix.shape[1]
+    with torch.no_grad():
+        mind_unfold = F.unfold(
+            F.pad(
+                mind_mov, (disp_hw, disp_hw, disp_hw, disp_hw, disp_hw, disp_hw)
+            ).squeeze(0),
+            disp_hw * 2 + 1,
+        )
+        mind_unfold = mind_unfold.view(
+            C_mind, -1, (disp_hw * 2 + 1) ** 2, W // grid_sp, D // grid_sp
+        )
+
+    ssd_list = []
+    for i in range(disp_hw * 2 + 1):
+        mind_sum = (
+            (mind_fix.permute(1, 2, 0, 3, 4) - mind_unfold[:, i : i + H // grid_sp])
+            .abs()
+            .sum(0, keepdim=True)
+        )
+
+        ssd_list.append(
+            F.avg_pool3d(mind_sum.transpose(2, 1), 3, stride=1, padding=1).squeeze()
+        )
+
+    ssd_list2 = []
+    for item_num in range(ssd_list[0].shape[0]):
+        for bucket_num in range(len(ssd_list)):
+            ssd_list2.append(ssd_list[bucket_num][item_num, ...])
+
+    ssd = torch.stack(ssd_list2)
+
+    ssd = (
+        ssd.view(
+            disp_hw * 2 + 1,
+            disp_hw * 2 + 1,
+            disp_hw * 2 + 1,
+            H // grid_sp,
+            W // grid_sp,
+            D // grid_sp,
+        )
+        .transpose(1, 0)
+        .reshape((disp_hw * 2 + 1) ** 3, H // grid_sp, W // grid_sp, D // grid_sp)
+    )
+
+    return ssd
 
 
 def correlate(
@@ -152,6 +240,96 @@ def correlate(
     return ssd, ssd_argmin
 
 
+def gumbel_softmax(logits: torch.Tensor, temperature: float=.8) -> torch.Tensor:
+    """
+    Implements straight through gumbel softmax
+
+    Parameters
+    ----------
+    logits: torch.Tensor
+        Log likelihood for each class with shape [*, n_class]
+    temperature: float
+        The temperature controls how much smoothing there is, between 0 and 1
+        Default=.8
+
+    Returns
+    -------
+    one_hot: torch.Tensor
+        One-hot tensor that can be used to sample discrete class tensor
+    """
+    # FIXME: what exactly is the role of temperature here
+    # FIXME: is the output always one-hot
+
+    def gumbel_softmax_sample(logits, temperature):
+        y = logits + sample_gumbel(logits.size())
+        return F.softmax(y / temperature, dim=-1)
+
+    def sample_gumbel(shape, eps=1e-20):
+        U = torch.rand(shape).cuda()
+        return -Variable(torch.log(-torch.log(U + eps) + eps))
+
+    y = gumbel_softmax_sample(logits, temperature)
+    shape = y.size()
+    _, ind = y.max(dim=-1)
+    y_hard = torch.zeros_like(y).view(-1, shape[-1])
+    y_hard.scatter_(1, ind.view(-1, 1), 1)
+    y_hard = y_hard.view(*shape)
+    return (y_hard - y).detach() + y
+
+
+def coupled_convex_grad(
+    ssd: torch.Tensor,
+    disp_mesh_t: torch.Tensor,
+    grid_sp: int,
+    image_shape: Tuple[int, int, int],
+    coefficients: List[float] = [0.003, 0.01, 0.03, 0.1, 0.3, 1],
+    one_hot_temperature: float =.8
+) -> torch.Tensor:
+    """
+    Solve two coupled convex optimisation problems for efficient global regularisation
+
+    Parameters
+    ----------
+    ssd: torch.Tensor
+    ssd_argmin: torch.Tensor
+    disp_mesh_t: torch.Tensor
+    grid_sp: int
+    image_shape: Tuple[int, int, int]
+
+    Returns
+    -------
+    disp_soft: torch.Tensor
+    """
+    ...
+    H, W, D = image_shape
+    n_perm = disp_mesh_t.view(3, -1).shape[-1]
+    logits = F.softmax(1 - ssd, dim=0).view(n_perm, -1)
+    gsoft = gumbel_softmax(logits, one_hot_temperature)
+    disp_soft = disp_soft = torch.matmul(disp_mesh_t.view(3,-1).float(), gsoft)
+    disp_soft = torch.clamp(disp_soft, disp_mesh_t.min(), disp_mesh_t.max())
+    disp_soft = disp_soft.reshape(1, 3, H // grid_sp, W // grid_sp, D // grid_sp)
+
+    coeffs = torch.tensor(coefficients)
+    for coeff in coeffs:
+        ssd_coupled = torch.zeros_like(ssd)
+        for i in range(H // grid_sp):
+
+            coupled = ssd[:, i, :, :] + coeff * (
+                disp_mesh_t - disp_soft[:, :, i].view(3, 1, -1)
+            ).pow(2).sum(0).view(-1, W // grid_sp, D // grid_sp)
+
+            ssd_coupled[:,i,...] = coupled
+        # print(coupled.shape)
+
+        logits = F.softmax(1-ssd_coupled, dim=0).view(n_perm, -1)
+        gsoft = gumbel_softmax(logits, .8)
+        disp_soft = disp_soft = torch.matmul(disp_mesh_t.view(3,-1).float(), gsoft)
+        disp_soft = torch.clamp(disp_soft, disp_mesh_t.min(), disp_mesh_t.max())
+        disp_soft = disp_soft.reshape(1, 3, H // grid_sp, W // grid_sp, D // grid_sp)
+
+    return disp_soft
+
+
 def coupled_convex(
     ssd: torch.Tensor,
     ssd_argmin: torch.Tensor,
@@ -189,12 +367,10 @@ def coupled_convex(
         ssd_coupled_argmin = torch.zeros_like(ssd_argmin)
         with torch.no_grad():
             for i in range(H // grid_sp):
-
                 coupled = ssd[:, i, :, :] + coeffs[j] * (
                     disp_mesh_t - disp_soft[:, :, i].view(3, 1, -1)
                 ).pow(2).sum(0).view(-1, W // grid_sp, D // grid_sp)
                 ssd_coupled_argmin[i] = torch.argmin(coupled, 0)
-            # print(coupled.shape)
 
         disp_soft = F.avg_pool3d(
             disp_mesh_t.view(3, -1)[:, ssd_coupled_argmin.view(-1)].reshape(
@@ -268,26 +444,47 @@ def pdist_squared(x):
     dist = torch.clamp(dist, 0.0)  # , np.inf)
     return dist
 
-def MINDSEG(imseg, shape, weight):
+
+def MINDSEG(
+    imseg: torch.Tensor,
+    shape: Tuple[int, ...],
+    norm_weight: torch.Tensor,
+    feature_weight: float = 10.0,
+):
     """
-    Not entirely sure what is going on here, tbh
+    Compute one-hot features using segmentations
+
+    Parameters
+    ----------
+    imseg: torch.Tensor
+    shape: Tuple[int,...]
+        shape of the segmentation tensor
+    norm_weight: torch.Tensor
+    feature_weight: float
+        A hyperparameter to control the feature space loss.
+
+    Returns
+    -------
+    segfeats: torch.Tensor
     """
 
     mindssc = (
-        10
+        feature_weight
         * (
             F.one_hot(imseg.cuda().view(1, *shape).long())
             .float()
             .permute(0, 4, 1, 2, 3)
             .contiguous()
-            * weight.view(1, -1, 1, 1, 1).cuda()
+            * norm_weight.view(1, -1, 1, 1, 1).cuda()
         ).half()
     )
 
     return mindssc
 
 
-def MINDSSC(img: torch.Tensor, radius: int=2, dilation: int=2):
+def MINDSSC(
+    img: torch.Tensor, radius: int = 2, dilation: int = 2, device: str = "cuda"
+):
     """
     Computes local structural features.
 
@@ -306,19 +503,19 @@ def MINDSSC(img: torch.Tensor, radius: int=2, dilation: int=2):
     # squared distances
     dist = pdist_squared(six_neighbourhood.t().unsqueeze(0)).squeeze(0)
     # define comparison mask
-    x, y = torch.meshgrid(torch.arange(6), torch.arange(6))
+    x, y = torch.meshgrid(torch.arange(6), torch.arange(6), indexing="ij")
     mask = (x > y).view(-1) & (dist == 2).view(-1)
     # build kernel
     idx_shift1 = six_neighbourhood.unsqueeze(1).repeat(1, 6, 1).view(-1, 3)[mask, :]
     idx_shift2 = six_neighbourhood.unsqueeze(0).repeat(6, 1, 1).view(-1, 3)[mask, :]
-    mshift1 = torch.zeros(12, 1, 3, 3, 3).cuda()
+    mshift1 = torch.zeros(12, 1, 3, 3, 3).to(device)
     mshift1.view(-1)[
         torch.arange(12) * 27
         + idx_shift1[:, 0] * 9
         + idx_shift1[:, 1] * 3
         + idx_shift1[:, 2]
     ] = 1
-    mshift2 = torch.zeros(12, 1, 3, 3, 3).cuda()
+    mshift2 = torch.zeros(12, 1, 3, 3, 3).to(device)
     mshift2.view(-1)[
         torch.arange(12) * 27
         + idx_shift2[:, 0] * 9
@@ -351,57 +548,54 @@ def MINDSSC(img: torch.Tensor, radius: int=2, dilation: int=2):
     mind = mind[:, torch.tensor([6, 8, 1, 11, 2, 10, 0, 7, 9, 4, 5, 3]).long(), :, :, :]
     return mind
 
-def compute_loss(
-    disp_lr: torch.Tensor,
-    mind_fixed: torch.Tensor,
-    mind_moving: torch.Tensor,
-    lambda_weight: float,
-    grid_sp: int,
-    image_shape: Tuple[int, int, int],
-    ) -> torch.Tensor:
-    """
-    """
-    ...
-    disp_sample = disp_lr
-    H, W, D = image_shape
 
-    grid0 = get_identity_affine_grid(image_shape, grid_sp=grid_sp)
-
-    reg_loss = (
-        lambda_weight
-        * ((disp_sample[0, :, 1:, :] - disp_sample[0, :, :-1, :]) ** 2).mean()
-        + lambda_weight
-        * ((disp_sample[0, 1:, :, :] - disp_sample[0, :-1, :, :]) ** 2).mean()
-        + lambda_weight
-        * ((disp_sample[0, :, :, 1:] - disp_sample[0, :, :, :-1]) ** 2).mean()
-    )
-
-    scale = (
-        torch.tensor(
-            [
-                (H // grid_sp - 1) / 2,
-                (W // grid_sp - 1) / 2,
-                (D // grid_sp - 1) / 2,
-            ]
-        )
-        .cuda()
-        .unsqueeze(0)
-    )
-    grid_disp = (
-        grid0.view(-1, 3).cuda().float()
-        + ((disp_sample.view(-1, 3)) / scale).flip(1).float()
-    )
-
-    patch_mov_sampled = F.grid_sample(
-        mind_moving.float(),
-        grid_disp.view(1, H // grid_sp, W // grid_sp, D // grid_sp, 3).cuda(),
-        align_corners=False,
-        mode="bilinear",
-    )  # ,padding_mode='border')
-    sampled_cost = (patch_mov_sampled - mind_fixed).pow(2).mean(1) * 12
-
-    loss = sampled_cost.mean() + reg_loss
-    return loss
+# def compute_loss(
+#     disp_lr: torch.Tensor,
+#     mind_fixed: torch.Tensor,
+#     mind_moving: torch.Tensor,
+#     lambda_weight: float,
+#     grid_sp: int,
+#     image_shape: Tuple[int, int, int],
+# ) -> torch.Tensor:
+#     """
+#     """
+#     ...
+#     disp_sample = disp_lr
+#     H, W, D = image_shape
+#
+#     grid0 = get_identity_affine_grid(image_shape, grid_sp=grid_sp)
+#
+#     reg_loss = (
+#         lambda_weight
+#         * ((disp_sample[0, :, 1:, :] - disp_sample[0, :, :-1, :]) ** 2).mean()
+#         + lambda_weight
+#         * ((disp_sample[0, 1:, :, :] - disp_sample[0, :-1, :, :]) ** 2).mean()
+#         + lambda_weight
+#         * ((disp_sample[0, :, :, 1:] - disp_sample[0, :, :, :-1]) ** 2).mean()
+#     )
+#
+#     scale = (
+#         torch.tensor(
+#             [(H // grid_sp - 1) / 2, (W // grid_sp - 1) / 2, (D // grid_sp - 1) / 2,]
+#         )
+#         .cuda()
+#         .unsqueeze(0)
+#     )
+#     grid_disp = (
+#         grid0.view(-1, 3).cuda().float()
+#         + ((disp_sample.view(-1, 3)) / scale).flip(1).float()
+#     )
+#
+#     patch_mov_sampled = F.grid_sample(
+#         mind_moving.float(),
+#         grid_disp.view(1, H // grid_sp, W // grid_sp, D // grid_sp, 3).cuda(),
+#         align_corners=False,
+#         mode="bilinear",
+#     )  # ,padding_mode='border')
+#     sampled_cost = (patch_mov_sampled - mind_fixed).pow(2).mean(1) * 12
+#
+#     loss = sampled_cost.mean() + reg_loss
+#     return loss
 
 
 def adam_optimization(
@@ -505,7 +699,9 @@ class Data:
     moving_keypoints: Optional[Path]
 
 
-def random_never_ending_generator(data_json: Path) -> Generator[Data, None, None]:
+def random_never_ending_generator(
+    data_json: Path, seed: Optional[int] = None
+) -> Generator[Data, None, None]:
     """
     Generator that 1) never ends and 2) yields samples from the dataset in random order
 
@@ -515,9 +711,14 @@ def random_never_ending_generator(data_json: Path) -> Generator[Data, None, None
         JSON file containing data information
 
     """
+    if seed:
+        random.seed(seed)
 
     with open(data_json, "r") as f:
         data = json.load(f)["data"]
+
+    # FIXME: remove me once testing
+    data = [d for d in data if not "oxford" in d["fixed_image"]]
 
     segs = "fixed_segmentation" in data[0]
     kps = "fixed_keypoints" in data[0]
@@ -533,6 +734,7 @@ def random_never_ending_generator(data_json: Path) -> Generator[Data, None, None
                 fixed_keypoints=Path(v["fixed_keypoints"]) if kps else None,
                 moving_keypoints=Path(v["moving_keypoints"]) if kps else None,
             )
+
 
 def data_generator(data_json: Path) -> Generator[Data, None, None]:
     """
@@ -558,3 +760,78 @@ def data_generator(data_json: Path) -> Generator[Data, None, None]:
             fixed_keypoints=Path(v["fixed_keypoints"]) if kps else None,
             moving_keypoints=Path(v["moving_keypoints"]) if kps else None,
         )
+
+
+def transform_image(
+    displacement_field: torch.Tensor, image: torch.Tensor
+) -> torch.Tensor:
+    grid = identity_grid_torch(image.shape).to(image.device)
+    new_locs = grid + displacement_field
+
+    shape = displacement_field.shape[2:]
+
+    # need to normalize grid values to [-1, 1] for resampler
+    for i in range(len(shape)):
+        new_locs[:, i, ...] = 2 * (new_locs[:, i, ...] / (shape[i] - 1) - 0.5)
+
+    if len(shape) == 2:
+        new_locs = new_locs.permute(0, 2, 3, 1)
+        new_locs = new_locs[..., [1, 0]]
+    elif len(shape) == 3:
+        new_locs = new_locs.permute(0, 2, 3, 4, 1)
+        new_locs = new_locs[..., [2, 1, 0]]
+
+    # Grid sample expects a batch and channel dimensions
+    image = einops.repeat(image, "d h w -> b c d h w", b=1, c=1)
+    resampled = F.grid_sample(image, new_locs, align_corners=True, mode="bilinear")
+    return resampled.squeeze()
+
+
+def transform_keypoints(
+    displacement_field: torch.Tensor, keypoints: torch.Tensor
+) -> torch.Tensor:
+    raise NotImplementedError
+
+
+if __name__ == "__main__":
+    import matplotlib.pyplot as plt
+    import torchio as tio
+    from tqdm import tqdm
+    import typer
+
+    app = typer.Typer()
+
+    @app.command()
+    def test_keypoints_reader(keypoints_csv: Path):
+        keypoints_tensor = read_keypoints(keypoints_csv)
+        print(keypoints_tensor.shape)
+
+    @app.command()
+    def visualize_mind(data_json: Path, save_dir: Path):
+        gen = data_generator(data_json)
+        save_dir.mkdir(exist_ok=True)
+        for data in tqdm(gen):
+            moving = tio.ScalarImage(data.moving_image).data.cuda()
+            fixed = tio.ScalarImage(data.fixed_image).data.cuda()
+            mindssc_mov = MINDSSC(moving.unsqueeze(0))
+            mindssc_fix = MINDSSC(fixed.unsqueeze(0))
+
+            for mindf, fname in zip(
+                (mindssc_mov, mindssc_fix),
+                (data.moving_image.name, data.fixed_image.name),
+            ):
+                savename = save_dir / (fname.split(".")[0] + ".png")
+                central_slice = mindf.squeeze().shape[1] // 2
+                plt.imsave(
+                    savename,
+                    mindf.squeeze()[0, central_slice].detach().cpu().numpy(),
+                    cmap="gray",
+                )
+                savename = save_dir / (fname.split(".")[0] + "_img.png")
+                plt.imsave(
+                    savename,
+                    moving.squeeze()[0, central_slice].detach().cpu().numpy(),
+                    cmap="gray",
+                )
+
+    app()

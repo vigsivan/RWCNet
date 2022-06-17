@@ -5,7 +5,6 @@ Heavily adapted from code written by Mattias Paul Heinrich
 from collections import defaultdict
 import json
 from pathlib import Path
-from typing import Optional
 
 import einops
 import nibabel as nib
@@ -13,7 +12,6 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import torchio as tio
-from torch.utils.tensorboard.writer import SummaryWriter
 from tqdm import tqdm
 import typer
 
@@ -22,154 +20,21 @@ from common import (
     MINDSSC,
     adam_optimization,
     apply_displacement_field,
-    compute_loss,
     correlate,
     coupled_convex,
     data_generator,
-    random_never_ending_generator,
 )
 from metrics import compute_dice, compute_total_registation_error
 from networks import FeatureExtractor
 
 app = typer.Typer()
 
-@app.command()
-def train_feature_extractor(
-    data_json: Path,
-    checkpoint_directory: Path,
-    epochs: int=1500,
-    steps_per_epoch: int=100,
-    epochs_per_save: int=100,
-    load_checkpoint: Optional[Path]=None,
-    grid_sp: int = 2,
-    disp_hw: int = 3,
-    lambda_weight: float=1.25,
-    skip_normalize: bool = False,
-    ):
-    """
-    Trains a network to predict registration, but uses 
-
-    By default this function _only_ saves scipy-compatible displacement fields
-    into save_directory/disps.
-
-    Parameters
-    ----------
-    data_json: Path,
-        JSON containing the data paths. See definition in common.py
-    checkpoint_directory: Path,
-        Directory in which to save feature extractor checkpoints
-    epochs: int
-        Default = 1500
-    steps_per_epoch: int
-        Default = 100
-    epochs_per_save: int
-        Default = 100
-    grid_sp: int = 2,
-        Grid spacing. Defualt=2
-    disp_hw: int = 3,
-    lambda_weight: float 
-        Regularization weight. Default= 1.25,
-    skip_normalize: bool
-        Skip normalizing the images. Functionality at the very least assumes a 
-        positive intensity range. Defualt: False.
-    """
-
-    checkpoint_directory.mkdir(exist_ok=True)
-    gen = random_never_ending_generator(data_json)
-    feature_net = FeatureExtractor(1)
-    if load_checkpoint is not None:
-        feature_net.load_state_dict(torch.load(load_checkpoint))
-    feature_net = feature_net.cuda()
-    optimizer = torch.optim.Adam(feature_net.parameters(), lr=1e-4)
-
-    writer = SummaryWriter(log_dir=checkpoint_directory)
-
-    for epoch in tqdm(range(epochs)):
-        for step, data in enumerate(gen, start=1):
-
-            torch.cuda.synchronize()
-            optimizer.zero_grad()
-
-            fixed_tio = tio.ScalarImage(data.fixed_image)
-            moving_tio = tio.ScalarImage(data.moving_image)
-
-            subject = tio.Subject({"fixed": fixed_tio, "moving": moving_tio})
-            transform = tio.Compose([
-                tio.RandomFlip(axes=('LR')),
-                tio.RandomAffine(scales=0, degrees=15) 
-            ])
-
-            transformed: tio.Subject = transform(subject)
-            fixed_tio, moving_tio = transformed["fixed"], transformed["moving"]
-            
-            # TODO: add augmentation here?
-
-            if not skip_normalize:
-                fixed_tio = tio.RescaleIntensity()(fixed_tio)
-                moving_tio = tio.RescaleIntensity()(moving_tio)
-                # Make the typer-checker happy
-                assert isinstance(fixed_tio, tio.ScalarImage)
-                assert isinstance(moving_tio, tio.ScalarImage)
-
-            # Squeeze is needed because tio automatically adds a channel dimension
-            fixed = fixed_tio.data.float().squeeze()
-            moving = moving_tio.data.float().squeeze()
-
-            data_shape = fixed_tio.spatial_shape
-
-            torch.cuda.synchronize()
-            feat_fix_ = feature_net(fixed.unsqueeze(0).unsqueeze(0).cuda()).half()
-            feat_mov_ = feature_net(moving.unsqueeze(0).unsqueeze(0).cuda()).half()
-
-            feat_fix_ = F.avg_pool3d(feat_fix_, grid_sp, stride=grid_sp)
-            feat_mov_ = F.avg_pool3d(feat_mov_, grid_sp, stride=grid_sp)
-            ssd, ssd_argmin = correlate(
-                feat_fix_, feat_mov_, disp_hw, grid_sp, data_shape
-            )
-            disp_mesh_t = (
-                F.affine_grid(
-                    disp_hw * torch.eye(3, 4).cuda().half().unsqueeze(0),
-                    [1, 1, disp_hw * 2 + 1, disp_hw * 2 + 1, disp_hw * 2 + 1],
-                    align_corners=True,
-                )
-                .permute(0, 4, 1, 2, 3)
-                .reshape(3, -1, 1)
-            )
-            disp_soft = coupled_convex(
-                ssd, ssd_argmin, disp_mesh_t, grid_sp, data_shape
-            )
-
-            del ssd
-
-            torch.cuda.empty_cache()
-
-            disp_lr = F.interpolate(
-                disp_soft * grid_sp,
-                size=tuple(s // 2 for s in data_shape),
-                mode="trilinear",
-                align_corners=False,
-            )
-
-            # extract one-hot patches
-            loss = compute_loss(disp_lr, feat_fix_, feat_mov_, lambda_weight, grid_sp, data_shape)
-            torch.cuda.synchronize()
-
-            loss.backward()
-            optimizer.step()
-
-            writer.add_scalar("loss", loss, global_step=(steps_per_epoch*epoch)+step)
-
-            if (epoch % epochs_per_save) == 0:
-                torch.save(feature_net.state_dict(), checkpoint_directory/f"net_{epoch}.pth")
-
-            if step == steps_per_epoch:
-                break
-
 
 @app.command()
-def train_without_labels(
+def without_labels(
     data_json: Path,
     save_directory: Path,
+    device: str = "cuda",
     grid_sp: int = 2,
     disp_hw: int = 3,
     lambda_weight: float = 1.25,
@@ -232,9 +97,13 @@ def train_without_labels(
         torch.cuda.synchronize()
 
         with torch.no_grad():
-            mindssc_fix_ = MINDSSC(fixed.unsqueeze(0).unsqueeze(0).cuda(), 1, 2).half()
-            mindssc_mov_ = MINDSSC(moving.unsqueeze(0).unsqueeze(0).cuda(), 1, 2).half()
-
+            mindssc_fix_ = MINDSSC(
+                fixed.unsqueeze(0).unsqueeze(0).to(device), 1, 2, device
+            ).half()
+            mindssc_mov_ = MINDSSC(
+                moving.unsqueeze(0).unsqueeze(0).to(device), 1, 2, device
+            ).half()
+            # NOTE: avg_pool3d is not implemented for cpu
             mind_fix_ = F.avg_pool3d(mindssc_fix_, grid_sp, stride=grid_sp)
             mind_mov_ = F.avg_pool3d(mindssc_mov_, grid_sp, stride=grid_sp)
             ssd, ssd_argmin = correlate(
@@ -242,7 +111,7 @@ def train_without_labels(
             )
             disp_mesh_t = (
                 F.affine_grid(
-                    disp_hw * torch.eye(3, 4).cuda().half().unsqueeze(0),
+                    disp_hw * torch.eye(3, 4).to(device).half().unsqueeze(0),
                     [1, 1, disp_hw * 2 + 1, disp_hw * 2 + 1, disp_hw * 2 + 1],
                     align_corners=True,
                 )
@@ -329,8 +198,9 @@ def train_without_labels(
     with open(save_directory / "measurements.json", "w") as f:
         json.dump(measurements, f)
 
+
 @app.command()
-def train_with_feature_extractor(
+def with_feature_extractor(
     data_json: Path,
     feature_extractor: Path,
     save_directory: Path,
@@ -346,7 +216,7 @@ def train_with_feature_extractor(
     Performs registration with pre-trained feature extractor.
     """
 
-    # TODO: fix docstring
+    # FIXME: fix docstring
 
     save_directory.mkdir(exist_ok=True)
     (save_directory / "disps").mkdir(exist_ok=True)
@@ -368,6 +238,7 @@ def train_with_feature_extractor(
 
         fixed_tio = tio.ScalarImage(data.fixed_image)
         moving_tio = tio.ScalarImage(data.moving_image)
+        disp_name = f"{data.moving_image.name}2{data.fixed_image.name}"
 
         if not skip_normalize:
             fixed_tio = tio.RescaleIntensity()(fixed_tio)
@@ -386,7 +257,7 @@ def train_with_feature_extractor(
         fixed_seg = tio.LabelMap(data.fixed_segmentation).data.float().squeeze()
         moving_seg = tio.LabelMap(data.moving_segmentation).data.float().squeeze()
 
-        feature_net = FeatureExtractor(1)
+        feature_net = FeatureExtractor(1, 2)
         feature_net.load_state_dict(torch.load(feature_extractor))
         feature_net = feature_net.cuda().eval()
 
@@ -396,6 +267,15 @@ def train_with_feature_extractor(
 
             feat_fix_ = feature_net(fixed.unsqueeze(0).unsqueeze(0).cuda()).half()
             feat_mov_ = feature_net(moving.unsqueeze(0).unsqueeze(0).cuda()).half()
+
+            feat_fix_ = einops.reduce(feat_fix_, 'b c d h w -> b d h w', 'mean').unsqueeze(1)
+            feat_mov_ = einops.reduce(feat_mov_, 'b c d h w -> b d h w', 'mean').unsqueeze(1)
+
+            feat_fix_ = 20. * (feat_fix_-feat_fix_.min())/(feat_fix_.max()-feat_fix_.min())
+            feat_mov_ = 20. * (feat_mov_-feat_mov_.min())/(feat_mov_.max()-feat_mov_.min())
+
+            l2 = torch.linalg.norm(feat_fix_ - feat_mov_)
+            measurements[disp_name]["l2"] = l2.item()
 
             # FIXME: change variable names
             mind_fix_ = F.avg_pool3d(feat_fix_, grid_sp, stride=grid_sp)
@@ -469,7 +349,6 @@ def train_with_feature_extractor(
         moving_seg[moving_seg > 0.5] = 1
         moved_seg[moved_seg > 0.5] = 1
 
-        disp_name = f"{data.moving_image.name}2{data.fixed_image.name}"
         dice = compute_dice(
             fixed_seg.numpy(), moving_seg.numpy(), moved_seg, labels=[1]
         )
@@ -515,14 +394,14 @@ def train_with_feature_extractor(
 
 
 @app.command()
-def train_with_labels(
+def with_labels(
     data_json: Path,
     save_directory: Path,
     grid_sp: int = 2,
     disp_hw: int = 3,
     lambda_weight: float = 1.25,
     iterations: int = 100,
-    compute_mind_from_seg: bool=True,
+    compute_mind_from_seg: bool = True,
     skip_normalize: bool = False,
     warp_images: bool = False,
     warp_segmentations: bool = False,
@@ -582,7 +461,7 @@ def train_with_labels(
 
         fixed_tio = tio.ScalarImage(data.fixed_image)
         moving_tio = tio.ScalarImage(data.moving_image)
-
+        disp_name = f"{data.moving_image.name}2{data.fixed_image.name}"
 
         if not skip_normalize:
             fixed_tio = tio.RescaleIntensity()(fixed_tio)
@@ -601,7 +480,6 @@ def train_with_labels(
         fixed_seg = tio.LabelMap(data.fixed_segmentation).data.float().squeeze()
         moving_seg = tio.LabelMap(data.moving_segmentation).data.float().squeeze()
 
-
         torch.cuda.synchronize()
 
         with torch.no_grad():
@@ -615,9 +493,22 @@ def train_with_labels(
 
                 mindssc_fix_ = MINDSEG(fixed_seg, data_shape, weight)
                 mindssc_mov_ = MINDSEG(moving_seg, data_shape, weight)
+
+                l2 = torch.linalg.norm(mindssc_fix_ - mindssc_mov_)
+                measurements[disp_name]["l2"] = l2.item()
+                measurements[disp_name]["min"] = min(
+                    mindssc_fix_.min().item(), mindssc_mov_.min().item()
+                )
+                measurements[disp_name]["max"] = max(
+                    mindssc_fix_.max().item(), mindssc_mov_.max().item()
+                )
             else:
-                mindssc_fix_ = MINDSSC(fixed.unsqueeze(0).unsqueeze(0).cuda(), 1, 2).half()
-                mindssc_mov_ = MINDSSC(moving.unsqueeze(0).unsqueeze(0).cuda(), 1, 2).half()
+                mindssc_fix_ = MINDSSC(
+                    fixed.unsqueeze(0).unsqueeze(0).cuda(), 1, 2
+                ).half()
+                mindssc_mov_ = MINDSSC(
+                    moving.unsqueeze(0).unsqueeze(0).cuda(), 1, 2
+                ).half()
 
             mind_fix_ = F.avg_pool3d(mindssc_fix_, grid_sp, stride=grid_sp)
             mind_mov_ = F.avg_pool3d(mindssc_mov_, grid_sp, stride=grid_sp)
@@ -690,7 +581,6 @@ def train_with_labels(
         moving_seg[moving_seg > 0.5] = 1
         moved_seg[moved_seg > 0.5] = 1
 
-        disp_name = f"{data.moving_image.name}2{data.fixed_image.name}"
         dice = compute_dice(
             fixed_seg.numpy(), moving_seg.numpy(), moved_seg, labels=[1]
         )
