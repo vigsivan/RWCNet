@@ -18,10 +18,11 @@ from common import (
     correlate_grad,
     data_generator,
     random_never_ending_generator,
+    randomized_pair_never_ending_generator,
     coupled_convex_grad,
 )
 
-from differentiable_metrics import DiceLoss, MutualInformationLoss, Grad
+from differentiable_metrics import DiceLoss, MutualInformationLoss, Grad, MINDLoss
 from networks import FeatureExtractor, SpatialTransformer, VxmDense3D
 
 app = typer.Typer()
@@ -31,8 +32,13 @@ app = typer.Typer()
 def with_convexadam(
     data_json: Path,
     checkpoint_directory: Path,
+    nfeats: int=12,
     device: str = "cuda",
     epochs: int = 1500,
+    feature_loss_weight: float=.01,
+    learning_rate: float=1e-4,
+    mi_loss_weight: float=10.,
+    disp_loss_weight: float=1.,
     steps_per_epoch: int = 100,
     epochs_per_save: int = 10,
     grid_sp: int = 2,
@@ -44,24 +50,28 @@ def with_convexadam(
     Trains feature network with convexAdam
     """
 
+    # FIXME: fix the docstring
+    # TODO: implement labels
     if device != "cuda":
         raise ValueError("Only CUDA is supported, because average pooling is not supported for the CPU!")
 
     checkpoint_directory.mkdir(exist_ok=True)
-    gen = random_never_ending_generator(data_json, seed=42)
-    feature_net = FeatureExtractor(infeats=1, outfeats=2)
+    gen = randomized_pair_never_ending_generator(data_json, seed=42)
+    feature_net = FeatureExtractor(infeats=1, outfeats=nfeats)
+    starting_epoch = 0
     if load_checkpoint is not None:
         feature_net.load_state_dict(torch.load(load_checkpoint))
+        starting_epoch = int(load_checkpoint.name.split('_')[-1].split('.')[0])
+        print(f"Starting from epoch {starting_epoch}")
     feature_net = feature_net.to(device)
 
-    fnet_optimizer = torch.optim.Adam(feature_net.parameters(), lr=1e-4)
+    fnet_optimizer = torch.optim.Adam(feature_net.parameters(), lr=learning_rate)
 
-    mi_loss_fn = MutualInformationLoss()
-    dice_loss_fn = DiceLoss()
+    mi_loss_fn = MINDLoss() #MutualInformationLoss()
 
     writer = SummaryWriter(log_dir=checkpoint_directory)
 
-    for epoch in tqdm(range(epochs)):
+    for epoch in tqdm(range(starting_epoch, starting_epoch+epochs)):
         for step, data in enumerate(gen, start=1):
 
             fnet_optimizer.zero_grad()
@@ -85,9 +95,21 @@ def with_convexadam(
             feat_fix_ = feature_net(fixed.unsqueeze(0).unsqueeze(0).to(device))
             feat_mov_ = feature_net(moving.unsqueeze(0).unsqueeze(0).to(device))
 
+            avg_fix = torch.sum(feat_fix_, dim=1).unsqueeze(1)/feat_mov_.shape[1]
+            avg_mov = torch.sum(feat_mov_, dim=1).unsqueeze(1)/feat_mov_.shape[1]
+
+            avg_fix_norm = ((avg_fix-avg_fix.min())/(avg_fix.max()-avg_fix.min()))
+            avg_mov_norm = ((avg_mov-avg_mov.min())/(avg_mov.max()-avg_mov.min()))
+
+            avg_fix_one_hot = torch.round(avg_fix_norm)
+            avg_mov_one_hot = torch.round(avg_mov_norm)
+
             # NOTE: avg_pool3d is not implemented for cpu
+            # mind_fix_ = F.avg_pool3d(feat_fix_, grid_sp, stride=grid_sp)
+            # mind_mov_ = F.avg_pool3d(feat_mov_, grid_sp, stride=grid_sp)
             mind_fix_ = F.avg_pool3d(feat_fix_, grid_sp, stride=grid_sp)
             mind_mov_ = F.avg_pool3d(feat_mov_, grid_sp, stride=grid_sp)
+
             ssd = correlate_grad(mind_fix_, mind_mov_, disp_hw, grid_sp, data_shape)
 
             # this has shape (3, disp_hw**3, 1)
@@ -113,51 +135,48 @@ def with_convexadam(
                 align_corners=False,
             )
 
+
             transformer = SpatialTransformer(moving_tio.spatial_shape).to(device)
+            moving.requires_grad = True
             moving = einops.repeat(moving, "d h w -> b c d h w", b=1, c=1).to(device)
             moved = transformer(moving, disp_hr)
 
-            # one_hot_fix = F.avg_pool3d(feat_fix_, dim=0)
-            # one_hot_mov = F.avg_pool3d(feat_mov_, dim=0)
-            avg_mov = torch.sum(feat_mov_, dim=1).unsqueeze(1)/feat_mov_.shape[1]
-            avg_fix = torch.sum(feat_fix_, dim=1).unsqueeze(1)/feat_mov_.shape[1]
+            mi_initial = mi_loss_fn(fixed, moving.squeeze())
+            mi_final = mi_loss_fn(fixed, moved.squeeze())
+            if mi_initial < mi_final:
+                mi_loss = 10*mi_loss_weight*mi_final
+            else:
+                mi_loss = mi_loss_weight*mi_final
 
-            avg_mov_one_hot = (((avg_mov-avg_mov.min())/(avg_mov.max()-avg_mov.min())) > .5).float()
-            avg_fix_one_hot = (((avg_fix-avg_fix.min())/(avg_fix.max()-avg_fix.min())) > .5).float()
-
-            avg_moved_one_hot = transformer(avg_mov_one_hot, disp_hr)
-            dice_loss = dice_loss_fn(avg_moved_one_hot, avg_fix_one_hot)
-            writer.add_scalar(
-                "dice_loss", dice_loss, global_step=(steps_per_epoch * epoch) + step
-            )
-
-            avg_mov_one_hot.sum()
-            dice_space_loss = (avg_mov_one_hot.numel()-avg_mov_one_hot.sum())/avg_mov_one_hot.numel()
-            writer.add_scalar(
-                "dice_space_loss", dice_space_loss, global_step=(steps_per_epoch * epoch) + step
-            )
-
-
-            mi_loss = mi_loss_fn(fixed, moved.squeeze())
             writer.add_scalar(
                 "mi_loss", mi_loss, global_step=(steps_per_epoch * epoch) + step
             )
 
             moved_feat = transformer(feat_mov_, disp_hr)
-            feature_loss = torch.linalg.norm(moved_feat- feat_fix_)
+            feature_loss = feature_loss_weight * torch.linalg.norm(moved_feat- feat_fix_)
 
             writer.add_scalar(
                 "feature_loss", feature_loss, global_step=(steps_per_epoch * epoch) + step
             )
 
-            grad_loss = Grad().loss(None, disp_hr)
-
+            grad_loss = disp_loss_weight*Grad()(disp_hr)
 
             writer.add_scalar(
                 "grad_loss", grad_loss, global_step=(steps_per_epoch * epoch) + step
             )
 
-            loss = mi_loss + feature_loss + grad_loss + 10*(dice_loss + dice_space_loss)
+            if step == 0:
+                assert (
+                    grad_loss.requires_grad and
+                    mi_loss.requires_grad
+                    # feature_loss.requires_grad
+                )
+
+            loss = 10*grad_loss + feature_loss
+            writer.add_scalar(
+                "loss", loss, global_step=(steps_per_epoch * epoch) + step
+            )
+
             loss.backward()
             fnet_optimizer.step()
 
@@ -172,7 +191,7 @@ def with_convexadam(
 
         torch.save(
             feature_net.state_dict(),
-            checkpoint_directory / f"feat_net_{epochs}.pth",
+            checkpoint_directory / f"feat_net_{starting_epoch+epochs}.pth",
         )
 
 

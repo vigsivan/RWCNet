@@ -1,15 +1,9 @@
-from __future__ import print_function
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from torch.autograd import Variable
-
 from dataclasses import dataclass
 from functools import lru_cache
 import json
 from pathlib import Path
 import random
-from typing import Generator, Optional, List, Tuple, Union
+from typing import Dict, Generator, List, Optional, Tuple, Union
 
 import einops
 import numpy as np
@@ -17,6 +11,7 @@ from scipy.ndimage import map_coordinates
 import torch
 from torch import nn
 import torch.nn.functional as F
+from torch.autograd import Variable
 
 
 def read_keypoints(path: Union[str, Path], sep: str = ",") -> torch.Tensor:
@@ -319,10 +314,9 @@ def coupled_convex_grad(
             ).pow(2).sum(0).view(-1, W // grid_sp, D // grid_sp)
 
             ssd_coupled[:,i,...] = coupled
-        # print(coupled.shape)
 
         logits = F.softmax(1-ssd_coupled, dim=0).view(n_perm, -1)
-        gsoft = gumbel_softmax(logits, .8)
+        gsoft = gumbel_softmax(logits, one_hot_temperature)
         disp_soft = disp_soft = torch.matmul(disp_mesh_t.view(3,-1).float(), gsoft)
         disp_soft = torch.clamp(disp_soft, disp_mesh_t.min(), disp_mesh_t.max())
         disp_soft = disp_soft.reshape(1, 3, H // grid_sp, W // grid_sp, D // grid_sp)
@@ -384,7 +378,6 @@ def coupled_convex(
     return disp_soft
 
 
-# enforce inverse consistency of forward and backward transform
 def inverse_consistency(
     disp_field1s: torch.Tensor, disp_field2s: torch.Tensor, iter: int = 20
 ) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -549,55 +542,6 @@ def MINDSSC(
     return mind
 
 
-# def compute_loss(
-#     disp_lr: torch.Tensor,
-#     mind_fixed: torch.Tensor,
-#     mind_moving: torch.Tensor,
-#     lambda_weight: float,
-#     grid_sp: int,
-#     image_shape: Tuple[int, int, int],
-# ) -> torch.Tensor:
-#     """
-#     """
-#     ...
-#     disp_sample = disp_lr
-#     H, W, D = image_shape
-#
-#     grid0 = get_identity_affine_grid(image_shape, grid_sp=grid_sp)
-#
-#     reg_loss = (
-#         lambda_weight
-#         * ((disp_sample[0, :, 1:, :] - disp_sample[0, :, :-1, :]) ** 2).mean()
-#         + lambda_weight
-#         * ((disp_sample[0, 1:, :, :] - disp_sample[0, :-1, :, :]) ** 2).mean()
-#         + lambda_weight
-#         * ((disp_sample[0, :, :, 1:] - disp_sample[0, :, :, :-1]) ** 2).mean()
-#     )
-#
-#     scale = (
-#         torch.tensor(
-#             [(H // grid_sp - 1) / 2, (W // grid_sp - 1) / 2, (D // grid_sp - 1) / 2,]
-#         )
-#         .cuda()
-#         .unsqueeze(0)
-#     )
-#     grid_disp = (
-#         grid0.view(-1, 3).cuda().float()
-#         + ((disp_sample.view(-1, 3)) / scale).flip(1).float()
-#     )
-#
-#     patch_mov_sampled = F.grid_sample(
-#         mind_moving.float(),
-#         grid_disp.view(1, H // grid_sp, W // grid_sp, D // grid_sp, 3).cuda(),
-#         align_corners=False,
-#         mode="bilinear",
-#     )  # ,padding_mode='border')
-#     sampled_cost = (patch_mov_sampled - mind_fixed).pow(2).mean(1) * 12
-#
-#     loss = sampled_cost.mean() + reg_loss
-#     return loss
-
-
 def adam_optimization(
     disp_lr: torch.Tensor,
     mind_fixed: torch.Tensor,
@@ -699,16 +643,18 @@ class Data:
     moving_keypoints: Optional[Path]
 
 
-def random_never_ending_generator(
-    data_json: Path, seed: Optional[int] = None
+def randomized_pair_never_ending_generator(
+    data_json: Path, *, seed: Optional[int] = None
 ) -> Generator[Data, None, None]:
     """
-    Generator that 1) never ends and 2) yields samples from the dataset in random order
+    Generator that completely disregards pairs defined in the JSON.
 
     Parameters
     ----------
     data_json: Path
         JSON file containing data information
+    seed: Optional[int]
+        Default=None
 
     """
     if seed:
@@ -717,8 +663,52 @@ def random_never_ending_generator(
     with open(data_json, "r") as f:
         data = json.load(f)["data"]
 
-    # FIXME: remove me once testing
-    data = [d for d in data if not "oxford" in d["fixed_image"]]
+    images: List[Dict[str,Optional[Path]]] = [
+        { 
+            "image_path": Path(d[f"{i}_image"]),
+            "seg_path": Path(d[f"{i}_segmentation"]) if f"{i}_segmentation" in d else None,
+            "kps_path": Path(d[f"{i}_keypoints"]) if f"{i}_keypoints" in d else None
+        }
+        for d in data
+        for i in ("fixed", "moving")
+    ]
+
+    while True:
+        fixed = random.choice(images)
+        moving = random.choice(images)
+
+        fixed_image = fixed["image_path"]
+        moving_image = moving["image_path"]
+        assert fixed_image is not None and moving_image is not None
+
+        yield Data(
+            fixed_image=fixed_image,
+            moving_image=moving_image,
+            fixed_segmentation=fixed["seg_path"],
+            moving_segmentation=moving["seg_path"],
+            fixed_keypoints=fixed["kps_path"],
+            moving_keypoints=moving["kps_path"],
+        )
+
+
+def random_never_ending_generator(
+    data_json: Path, *, seed: Optional[int] = None
+) -> Generator[Data, None, None]:
+    """
+    Generator that 1) never ends and 2) yields samples from the dataset in random order
+
+    Parameters
+    ----------
+    data_json: Path
+        JSON file containing data information
+    seed: Optional[int]
+        Default=None
+    """
+    if seed:
+        random.seed(seed)
+
+    with open(data_json, "r") as f:
+        data = json.load(f)["data"]
 
     segs = "fixed_segmentation" in data[0]
     kps = "fixed_keypoints" in data[0]

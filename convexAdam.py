@@ -204,6 +204,7 @@ def with_feature_extractor(
     data_json: Path,
     feature_extractor: Path,
     save_directory: Path,
+    features: int=12,
     grid_sp: int = 2,
     disp_hw: int = 3,
     lambda_weight: float = 1.25,
@@ -257,7 +258,7 @@ def with_feature_extractor(
         fixed_seg = tio.LabelMap(data.fixed_segmentation).data.float().squeeze()
         moving_seg = tio.LabelMap(data.moving_segmentation).data.float().squeeze()
 
-        feature_net = FeatureExtractor(1, 2)
+        feature_net = FeatureExtractor(1, features)
         feature_net.load_state_dict(torch.load(feature_extractor))
         feature_net = feature_net.cuda().eval()
 
