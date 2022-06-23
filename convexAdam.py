@@ -74,6 +74,14 @@ def train_feature_extractor(
         positive intensity range. Defualt: False.
     """
 
+    GPU_iden = 0
+    GPU_num = torch.cuda.device_count()
+    print('Number of GPU: ' + str(GPU_num))
+    for GPU_idx in range(GPU_num):
+        GPU_name = torch.cuda.get_device_name(GPU_idx)
+        print('     GPU #' + str(GPU_idx) + ': ' + GPU_name)
+    torch.cuda.set_device(GPU_iden)
+
     checkpoint_directory.mkdir(exist_ok=True)
     gen = random_never_ending_generator(data_json)
     feature_net = FeatureExtractor(1)
@@ -608,8 +616,8 @@ def train_with_labels(
             if compute_mind_from_seg:
                 # FIXME: a lot of weird shit
                 weight = 1 / (
-                    torch.bincount(fixed.long().reshape(-1))
-                    + torch.bincount(moving.long().reshape(-1))
+                    torch.bincount(fixed_seg.long().reshape(-1))
+                    + torch.bincount(moving_seg.long().reshape(-1))
                 ).float().pow(0.3)
                 weight /= weight.mean()
 
