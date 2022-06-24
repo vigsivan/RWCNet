@@ -79,7 +79,7 @@ class FlowNetCorr(nn.Module):
             stride=1,
         )
         # TODO: this is not strictly like flownet because we just pop in a unet
-        # I just got lazy 
+        # I just got lazy 😅
         corr_out_feat = (1+(correlation_patch_size*2))**3 + redir_feats
         self.unet = Unet3D(infeats=corr_out_feat)
         self.flow = nn.Conv3d(default_unet_features()[-1][-1], 3, kernel_size=3, padding=1)
@@ -172,13 +172,13 @@ if __name__ == "__main__":
     @app.command()
     def train(data_json: Path, 
               checkpoint_dir: Path,
+              labels: List[int],
               steps: int=1000, 
               lr: float=3e-4,
-              labels: List[int]=[1],
               device: str="cuda",
               mi_loss_weight: float=1, 
-              dice_loss_weight: float=1., 
-              reg_loss_weight: float=.01,
+              dice_loss_weight: float=2., 
+              reg_loss_weight: float=.1,
               log_freq: int=5,
               save_freq: int=100,
         ):
