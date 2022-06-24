@@ -833,6 +833,12 @@ class Data:
     fixed_keypoints: Optional[Path]
     moving_keypoints: Optional[Path]
 
+def load_labels(data_json: Path) -> List[int]:
+    with open(data_json, "r") as f:
+        labels = json.load(f)["labels"]
+
+    labels = [int(i) for i in labels]
+    return labels
 
 def randomized_pair_never_ending_generator(
     data_json: Path, *, seed: Optional[int] = None

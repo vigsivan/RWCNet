@@ -147,7 +147,7 @@ if __name__ == "__main__":
     import torchio as tio
     import typer
 
-    from common import data_generator, random_never_ending_generator
+    from common import data_generator, random_never_ending_generator, load_labels
     from differentiable_metrics import MutualInformationLoss, DiceLoss, Grad
     from metrics import compute_dice
     from networks import SpatialTransformer
@@ -172,7 +172,6 @@ if __name__ == "__main__":
     @app.command()
     def train(data_json: Path, 
               checkpoint_dir: Path,
-              labels: List[int],
               steps: int=1000, 
               lr: float=3e-4,
               device: str="cuda",
@@ -188,6 +187,7 @@ if __name__ == "__main__":
         fnet = FlowNetCorr().to(device)
         opt = torch.optim.Adam(fnet.parameters(), lr=lr)
         loss_names = ["mi", "dice", "reg"]
+        labels = load_labels(data_json)
         loss_fns = [MutualInformationLoss(), DiceLoss(labels), Grad()]
         loss_weights = [mi_loss_weight, dice_loss_weight, reg_loss_weight]
         for step in trange(steps):
@@ -235,12 +235,13 @@ if __name__ == "__main__":
 
 
     @app.command()
-    def eval(checkpoint: Path, data_json: Path, savedir: Path, labels: List[int]=[1], device: str="cuda"):
+    def eval(checkpoint: Path, data_json: Path, savedir: Path, device: str="cuda"):
         savedir.mkdir(exist_ok=True)
         fnet = FlowNetCorr()
         fnet.load_state_dict(torch.load(checkpoint))
         fnet = fnet.to(device).eval()
         gen = data_generator(data_json)
+        labels = load_labels(data_json)
 
         measurements = defaultdict(dict)
 
