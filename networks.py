@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Union
 import numpy as np
 import torch
 from torch import nn
@@ -200,7 +200,6 @@ class VxmDense3D(nn.Module):
                  trg_feats=1):
         """ 
         Parameters:
-            inshape: Input shape. e.g. (192, 192, 192)
             nb_unet_features: Unet convolutional features. Can be specified via a list of lists with
                 the form [[encoder feats], [decoder feats]], or as a single integer. 
                 If None (default), the unet features are defined by the default config described in 
@@ -213,8 +212,6 @@ class VxmDense3D(nn.Module):
             bidir: Enable bidirectional cost function. Default is False.
             src_feats: Number of source image features. Default is 1.
             trg_feats: Number of target image features. Default is 1.
-            unet_half_res: Skip the last unet decoder upsampling. Requires that int_downsize=2. 
-                Default is False.
         """
         super().__init__()
 
@@ -330,7 +327,18 @@ class ConvBlock(nn.Module):
         out = self.activation(out)
         return out
 
-class FeatureExtractor(nn.Module):
+class FlowNetCorr(nn.Module):
+    """
+    Implements FlowNetCorr
+    """
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, moving_image: torch.Tensor, fixed_image: torch.Tensor):
+        ...
+    
+
+class FeatureExtractorVxm(nn.Module):
     """
     Slightly modified version of Voxelmorph's UNet
     """
@@ -339,10 +347,10 @@ class FeatureExtractor(nn.Module):
         self,
         infeats: int,
         outfeats: int=12,
-        nb_features=default_unet_features(),
-        max_pool=2,
-        nb_conv_per_level=1,
-        half_res=False,
+        nb_features: List[List[int]] =default_unet_features(),
+        max_pool: Union[int, List[int]]=2,
+        nb_conv_per_level: int=1,
+        half_res: bool=False,
     ):
         super().__init__()
 
@@ -403,14 +411,21 @@ class FeatureExtractor(nn.Module):
         self.outconv = ConvBlock(ndims, prev_nf, outfeats)
 
     def forward(self, x):
-
         # encoder forward pass
         x_history = [x]
         for level, convs in enumerate(self.encoder):
             for conv in convs:
                 x = conv(x)
+            # padding = [0]*2*len(x.shape)
+            # for i, s in enumerate(x.shape[2:],start=2):
+            #     if s%2 == 1:
+            #         padding[2*i] = 1
+            # padding = padding[::-1]
+            # paddings.append(padding)
+            # x = F.pad(x, padding)
             x_history.append(x)
             x = self.pooling[level](x)
+
 
         # decoder forward pass with upsampling and concatenation
         for level, convs in enumerate(self.decoder):
@@ -421,7 +436,6 @@ class FeatureExtractor(nn.Module):
                 x = torch.cat([x, x_history.pop()], dim=1)
 
         x = self.outconv(x)
-        x = (x-x.min())/(x.max()-x.min())
 
         return x
 

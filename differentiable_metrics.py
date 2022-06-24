@@ -3,16 +3,53 @@ Implements differentiable loss functions for training
 """
 
 from functools import partial
+from typing import List
 
 import einops
 import torch
 from torch import nn
 import torch.nn.functional as F
-from monai.losses.dice import DiceLoss
+# from monai.losses.dice import DiceLoss
 from monai.losses.image_dissimilarity import GlobalMutualInformationLoss as MutualInformationLoss
 from common import MINDSSC
 
 __all__ = ["DiceLoss", "MutualInformationLoss", "TotalRegistrationLoss", "Grad"]
+
+class DiceLoss(nn.Module):
+    def __init__(self, labels: List[int]=[1]):
+        super().__init__()
+        self.labels = labels
+
+    def forward(self, fixed: torch.Tensor, moving: torch.Tensor, moving_warped: torch.Tensor):
+        dice = 0
+        count = 0
+        for i in self.labels:
+            if ((fixed == i).sum() == 0) or ((moving == i).sum() == 0):
+                continue
+            dice += _compute_dice_coefficient((fixed == i), (moving_warped == i))
+            count += 1
+        dice /= count
+        return 1-dice
+
+def _compute_dice_coefficient(mask_gt: torch.Tensor, mask_pred: torch.Tensor) -> torch.Tensor:
+    """Computes soerensen-dice coefficient.
+
+  compute the soerensen-dice coefficient between the ground truth mask `mask_gt`
+  and the predicted mask `mask_pred`.
+
+  Args:
+    mask_gt: 3-dim Numpy array of type bool. The ground truth mask.
+    mask_pred: 3-dim Numpy array of type bool. The predicted mask.
+
+  Returns:
+    the dice coeffcient as float. If both masks are empty, the result is NaN.
+  """
+    volume_sum = mask_gt.sum() + mask_pred.sum()
+    if volume_sum == 0:
+        return torch.Tensor(0)
+    volume_intersect = (mask_gt & mask_pred).sum()
+    return 2 * volume_intersect / volume_sum
+
 
 class TotalRegistrationLoss(nn.Module):
     """
@@ -54,7 +91,8 @@ class MINDLoss(nn.Module):
         im1, im2 = [einops.repeat(im.squeeze(), 'd h w -> b c d h w', b=1, c=1) for im in (im1, im2)]
         mind1 = self.mind(im1)
         mind2 = self.mind(im2)
-        return F.mse_loss(mind1, mind2)
+        loss = F.mse_loss(mind1, mind2)
+        return loss
 
 
 class Grad(nn.Module):

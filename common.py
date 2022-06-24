@@ -49,6 +49,20 @@ def identity_grid_torch(size: Tuple[int, ...]) -> torch.Tensor:
 
     return grid
 
+@lru_cache(maxsize=None)
+def displacement_permutations_grid(displacement: int) -> torch.Tensor:
+    disp_mesh_t = (
+        F.affine_grid(
+            displacement * torch.eye(3, 4).unsqueeze(0),
+            [1, 1, displacement * 2 + 1, displacement * 2 + 1, displacement * 2 + 1],
+            align_corners=True,
+        )
+        .permute(0, 4, 1, 2, 3)
+        .reshape(3, -1, 1)
+    )
+
+    return disp_mesh_t
+
 
 @lru_cache(maxsize=None)
 def get_identity_affine_grid(size: Tuple[int, ...], grid_sp: int) -> torch.Tensor:
@@ -98,8 +112,8 @@ def apply_displacement_field(disp_field: np.ndarray, image: np.ndarray) -> np.nd
 
 
 def correlate_grad(
-    mind_fix: torch.Tensor,
-    mind_mov: torch.Tensor,
+    feat_fix: torch.Tensor,
+    feat_mov: torch.Tensor,
     disp_hw: int,
     grid_sp: int,
     image_shape: Tuple[int, int, int],
@@ -110,28 +124,28 @@ def correlate_grad(
     """
     H, W, D = image_shape
     torch.cuda.synchronize()
-    C_mind = mind_fix.shape[1]
+    C_feat = feat_fix.shape[1]
     with torch.no_grad():
-        mind_unfold = F.unfold(
+        feat_unfold = F.unfold(
             F.pad(
-                mind_mov, (disp_hw, disp_hw, disp_hw, disp_hw, disp_hw, disp_hw)
+                feat_mov, (disp_hw, disp_hw, disp_hw, disp_hw, disp_hw, disp_hw)
             ).squeeze(0),
             disp_hw * 2 + 1,
         )
-        mind_unfold = mind_unfold.view(
-            C_mind, -1, (disp_hw * 2 + 1) ** 2, W // grid_sp, D // grid_sp
+        feat_unfold = feat_unfold.view(
+            C_feat, -1, (disp_hw * 2 + 1) ** 2, W // grid_sp, D // grid_sp
         )
 
     ssd_list = []
     for i in range(disp_hw * 2 + 1):
-        mind_sum = (
-            (mind_fix.permute(1, 2, 0, 3, 4) - mind_unfold[:, i : i + H // grid_sp])
+        feat_sum = (
+            (feat_fix.permute(1, 2, 0, 3, 4) - feat_unfold[:, i : i + H // grid_sp])
             .abs()
             .sum(0, keepdim=True)
         )
 
         ssd_list.append(
-            F.avg_pool3d(mind_sum.transpose(2, 1), 3, stride=1, padding=1).squeeze()
+            F.avg_pool3d(feat_sum.transpose(2, 1), 3, stride=1, padding=1).squeeze()
         )
 
     ssd_list2 = []
@@ -461,6 +475,7 @@ def MINDSEG(
     segfeats: torch.Tensor
     """
 
+    breakpoint()
     mindssc = (
         feature_weight
         * (
@@ -535,11 +550,191 @@ def MINDSSC(
     mind_var = torch.min(
         torch.max(mind_var, mind_var.mean() * 0.001), mind_var.mean() * 1000
     )
-    mind /= mind_var
+    mind /= (mind_var+1e-8)
     mind = torch.exp(-mind)
     # permute to have same ordering as C++ code
     mind = mind[:, torch.tensor([6, 8, 1, 11, 2, 10, 0, 7, 9, 4, 5, 3]).long(), :, :, :]
     return mind
+
+class UnrolledConv(nn.Module):
+    def __init__(self, n_cascades: int, image_shape: Tuple[int,int,int], grid_sp: int):
+        super().__init__()
+        self.n_cascades = n_cascades
+        self.convs = nn.ModuleList(
+            [nn.Conv3d(3, 3, 3, padding='same') for _ in range(n_cascades)]
+        )
+
+        # FIXME: remove these tensors
+        self.shape: Tuple[int,...] = image_shape
+        H, W, D = image_shape
+        self.grid0 = F.affine_grid(
+            torch.eye(3, 4).unsqueeze(0).cuda(),
+            [1, 1, H // grid_sp, W // grid_sp, D // grid_sp],
+            align_corners=False,
+        )
+        self.grid_sp: int = grid_sp
+
+        self.scale = (
+            torch.tensor(
+                [
+                    (H // grid_sp - 1) / 2,
+                    (W // grid_sp - 1) / 2,
+                    (D // grid_sp - 1) / 2,
+                ]
+            ).cuda()
+            .unsqueeze(0)
+        )
+
+    def forward(self, feat_mov: torch.Tensor, disp_sample: torch.Tensor):
+        H, W, D = self.shape
+        for i in range(self.n_cascades):
+            disp_sample = self.convs[i](disp_sample)
+            grid_disp = (
+                self.grid0.view(-1, 3).cuda().float()
+                + ((disp_sample.view(-1, 3)) / self.scale).flip(1).float()
+            )
+            feat_mov = F.grid_sample(
+                feat_mov.float(),
+                grid_disp.view(1, H // self.grid_sp, W // self.grid_sp, D // self.grid_sp, 3).cuda(),
+                align_corners=False,
+                mode="bilinear",
+            )
+
+        return disp_sample, feat_mov
+
+def adam_optimization_grad(
+    disp_lr: torch.Tensor,
+    mind_fixed: torch.Tensor,
+    mind_moving: torch.Tensor,
+    iterations: int,
+    lambda_weight: float,
+    grid_sp: int,
+    image_shape: Tuple[int, int, int],
+) -> nn.Module:
+    """
+    Instance-based optimization grad
+
+    Parameters
+    ----------
+    disp_lr: torch.Tensor,
+    mind_fixed: torch.Tensor,
+    mind_moving: torch.Tensor,
+    lambda_weight: float,
+    grid_sp: int,
+    image_shape: Tuple[int, int, int],
+    iterations: int,
+
+    Returns
+    -------
+    nn.Module
+    """
+
+    H, W, D = image_shape
+    net = nn.Sequential(
+        nn.Conv3d(3, 1, (H // grid_sp, W // grid_sp, D // grid_sp), bias=False)
+    )
+    net[0].weight.data[:] = disp_lr / grid_sp
+    net.cuda()
+    optimizer = torch.optim.Adam(net.parameters(), lr=1)
+    grid0 = get_identity_affine_grid(image_shape, grid_sp)
+
+    for _ in range(iterations):
+        optimizer.zero_grad()
+
+        disp_sample = F.avg_pool3d(
+            F.avg_pool3d(net[0].weight, 3, stride=1, padding=1), 3, stride=1, padding=1,
+        ).permute(0, 2, 3, 4, 1)
+        reg_loss = (
+            lambda_weight
+            * ((disp_sample[0, :, 1:, :] - disp_sample[0, :, :-1, :]) ** 2).mean()
+            + lambda_weight
+            * ((disp_sample[0, 1:, :, :] - disp_sample[0, :-1, :, :]) ** 2).mean()
+            + lambda_weight
+            * ((disp_sample[0, :, :, 1:] - disp_sample[0, :, :, :-1]) ** 2).mean()
+        )
+
+        scale = (
+            torch.tensor(
+                [
+                    (H // grid_sp - 1) / 2,
+                    (W // grid_sp - 1) / 2,
+                    (D // grid_sp - 1) / 2,
+                ]
+            )
+            .cuda()
+            .unsqueeze(0)
+        )
+        grid_disp = (
+            grid0.view(-1, 3).cuda().float()
+            + ((disp_sample.view(-1, 3)) / scale).flip(1).float()
+        )
+
+        patch_mov_sampled = F.grid_sample(
+            mind_moving.float(),
+            grid_disp.view(1, H // grid_sp, W // grid_sp, D // grid_sp, 3).cuda(),
+            align_corners=False,
+            mode="bilinear",
+        )  # ,padding_mode='border')
+        sampled_cost = (patch_mov_sampled - mind_fixed).pow(2).mean(1) * 12
+
+        loss = sampled_cost.mean()
+        (loss + reg_loss).backward(retain_graph=True)
+        optimizer.step()
+
+    return net
+
+def adam_optimization_unrolled(
+    disp_lr: torch.Tensor,
+    mind_fixed: torch.Tensor,
+    mind_moving: torch.Tensor,
+    n_cascades: int,
+    iterations: int,
+    lambda_weight: float,
+    grid_sp: int,
+    image_shape: Tuple[int, int, int],
+) -> nn.Module:
+    """
+    Instance-based optimization
+
+    Parameters
+    ----------
+    disp_lr: torch.Tensor,
+    mind_fixed: torch.Tensor,
+    mind_moving: torch.Tensor,
+    lambda_weight: float,
+    grid_sp: int,
+    image_shape: Tuple[int, int, int],
+    iterations: int,
+
+    Returns
+    -------
+    nn.Module
+    """
+
+    net = UnrolledConv(n_cascades, image_shape, grid_sp)
+    net = net.to(disp_lr.device)
+    optimizer = torch.optim.Adam(net.parameters(), lr=.01)
+ 
+    for _ in range(iterations):
+        disp_sample, mind_moved = net(mind_moving, disp_lr)
+        sampled_cost = (mind_moved - mind_fixed).pow(2).mean(1) * 12
+
+        reg_loss = (
+            lambda_weight
+            * ((disp_sample[0, :, 1:, :] - disp_sample[0, :, :-1, :]) ** 2).mean()
+            + lambda_weight
+            * ((disp_sample[0, 1:, :, :] - disp_sample[0, :-1, :, :]) ** 2).mean()
+            + lambda_weight
+            * ((disp_sample[0, :, :, 1:] - disp_sample[0, :, :, :-1]) ** 2).mean()
+        )
+
+        optimizer.zero_grad()
+        loss = sampled_cost.mean()
+        (loss + reg_loss).backward(retain_graph=True)
+        optimizer.step()
+
+    return net
+
 
 
 def adam_optimization(
@@ -577,11 +772,7 @@ def adam_optimization(
     net[0].weight.data[:] = disp_lr / grid_sp
     net.cuda()
     optimizer = torch.optim.Adam(net.parameters(), lr=1)
-    grid0 = F.affine_grid(
-        torch.eye(3, 4).unsqueeze(0).cuda(),
-        [1, 1, H // grid_sp, W // grid_sp, D // grid_sp],
-        align_corners=False,
-    )
+    grid0 = get_identity_affine_grid(image_shape, grid_sp)
 
     for _ in range(iterations):
         optimizer.zero_grad()

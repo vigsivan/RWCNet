@@ -49,12 +49,12 @@ def compute_total_registation_error(
 
 
 def compute_dice(
-    fixed: np.ndarray, moving: np.ndarray, moving_warped: np.ndarray, labels: List[int]
+    fixed: np.ndarray, moved: np.ndarray, moving_warped: np.ndarray, labels: List[int]
 ) -> float:
     dice = 0
     count = 0
     for i in labels:
-        if ((fixed == i).sum() == 0) or ((moving == i).sum() == 0):
+        if ((fixed == i).sum() == 0) or ((moved == i).sum() == 0):
             continue
         dice += _compute_dice_coefficient((fixed == i), (moving_warped == i))
         count += 1
