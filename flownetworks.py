@@ -164,7 +164,7 @@ if __name__ == "__main__":
     from pathlib import Path
     import logging
     import sys
-    from typing import Optional, Dict
+    from typing import Dict
 
     from tqdm import tqdm, trange
     from torch.utils.tensorboard.writer import SummaryWriter
@@ -184,7 +184,7 @@ if __name__ == "__main__":
         Grad,
         TotalRegistrationLoss,
     )
-    from metrics import compute_dice
+    from metrics import compute_dice, compute_total_registation_error
     from networks import SpatialTransformer
 
     app = typer.Typer()
@@ -211,7 +211,9 @@ if __name__ == "__main__":
         checkpoint_dir: Path,
         steps: int = 1000,
         lr: float = 3e-4,
-        feature_extractor_strides: Optional[str] = None,
+        feature_extractor_strides: str = "2,1,1",
+        feature_extractor_feature_sizes: str = "8,32,64",
+        feature_extractor_kernel_sizes: str = "7,5,5",
         device: str = "cuda",
         mi_loss_weight: float = 1,
         dice_loss_weight: float = 1.0,
@@ -233,8 +235,12 @@ if __name__ == "__main__":
             Total number of training steps. Default=1000
         lr: float
             Adam Optimizer learning rate. Default=3e-4
-        feature_extractor_strides: Optional[str]=None
-            Comma-separated string. E.g, 2,1,1. If not provided, default is 2,1,1
+        feature_extractor_strides: str
+            Comma-separated string. If not provided, default is 2,1,1
+        feature_extractor_feature_sizes: str
+            Comma-separated string. If not provided, default is 8,32,64
+        feature_extractor_kernel_sizes: str
+            Comma-separated string. If not provided, default is 7,5,5
         mi_loss_weight: float
             Mutual information loss weight. Default=1.
         dice_loss_weight
@@ -254,12 +260,13 @@ if __name__ == "__main__":
         checkpoint_dir.mkdir(exist_ok=True)
         writer = SummaryWriter(log_dir=checkpoint_dir)
 
-        flownet_kwargs = {}
-        if feature_extractor_strides is not None:
-            feature_extractor_strides_list = [
-                int(i.strip()) for i in feature_extractor_strides.split(",")
-            ]
-            flownet_kwargs["feature_extractor_strides"] = feature_extractor_strides_list
+        flownet_kwargs = {
+            "feature_extractor_strides": [int(i.strip()) for i in feature_extractor_strides.split(',')],
+            "feature_extractor_feature_sizes": [int(i.strip()) for i in feature_extractor_feature_sizes.split(',')],
+            "feature_extractor_kernel_sizes": [int(i.strip()) for i in feature_extractor_kernel_sizes.split(',')],
+        }
+
+        assert len(set(len(v) for v in flownet_kwargs.values())) == 1, "Feature extractor params must all have the same size"
 
         flownetc = FlowNetCorr(**flownet_kwargs).to(device)
         opt = torch.optim.Adam(flownetc.parameters(), lr=lr)
@@ -341,7 +348,7 @@ if __name__ == "__main__":
 
             if step % save_freq == 0:
                 torch.save(
-                    flownetc.state_dict(), checkpoint_dir / f"featnet_step{step}.pth"
+                    flownetc.state_dict(), checkpoint_dir / f"flownet_step{step}.pth"
                 )
 
             if val_freq > 0 and step % val_freq == 0:
@@ -394,7 +401,7 @@ if __name__ == "__main__":
                     flownetc = flownetc.train()
 
 
-        torch.save(flownetc.state_dict(), checkpoint_dir / f"featnet_step{steps}.pth")
+        torch.save(flownetc.state_dict(), checkpoint_dir / f"flownet_step{steps}.pth")
 
     @app.command()
     def eval(checkpoint: Path, data_json: Path, savedir: Path, device: str = "cuda", save_images: bool=True):
@@ -428,7 +435,7 @@ if __name__ == "__main__":
 
         for data in tqdm(gen):
             use_labels = data.fixed_segmentation is not None
-            use_keypoints = data.fixed_keypoints is not None # FIXME
+            use_keypoints = data.fixed_keypoints is not None
 
             fixed_tio = tio.ScalarImage(data.fixed_image)
             moving_tio = tio.ScalarImage(data.moving_image)
@@ -465,6 +472,16 @@ if __name__ == "__main__":
                     moved_seg.numpy(),
                     labels=labels,
                 )
+
+            if use_keypoints:
+                tre = compute_total_registation_error(
+                    fix_lms=np.array(data.fixed_keypoints),
+                    mov_lms=np.array(data.moving_keypoints),
+                    disp=disp_np,
+                    spacing_fix=np.array(fixed_tio.spacing),
+                    spacing_mov=np.array(moving_tio.spacing)
+                )
+                measurements[disp_name]["tre"] = tre
 
         with open(savedir / "measurements.json", "w") as f:
             json.dump(measurements, f)
