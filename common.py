@@ -14,6 +14,15 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 from torch.utils.tensorboard.writer import SummaryWriter
 
+def torch2skimage_disp(disp_field: torch.Tensor) -> np.ndarray:
+    x1 = disp_field[0, 0, :, :, :].cpu().float().data.numpy()
+    y1 = disp_field[0, 1, :, :, :].cpu().float().data.numpy()
+    z1 = disp_field[0, 2, :, :, :].cpu().float().data.numpy()
+
+    displacement = np.stack([x1, y1, z1], 0)
+    return displacement
+
+
 def tb_log(writer: SummaryWriter, losses_dict: Dict[str, torch.Tensor], step: int, moving_fixed_moved: Tuple[torch.Tensor, torch.Tensor, torch.Tensor]) -> None:
     for loss_name, loss in losses_dict.items():
         writer.add_scalar(loss_name, loss, global_step=step)
@@ -833,23 +842,6 @@ def adam_optimization(
         optimizer.step()
 
     return net
-
-# TODO: look into attrs library for computing these things as well
-@dataclass
-class LossTensors:
-    """
-    Data class for storing all tensors for loss computation
-    """
-    flow: torch.Tensor
-    fixed_image: torch.Tensor
-    moving_image: torch.Tensor
-    moved_image: torch.Tensor
-    fixed_segmentation: Optional[torch.Tensor]=None
-    moving_segmentation: Optional[torch.Tensor]=None
-    moved_segmentation: Optional[torch.Tensor]=None
-    fixed_keypoints: Optional[torch.Tensor]=None
-    moving_keypoints: Optional[torch.Tensor]=None
-    moved_keypoints: Optional[torch.Tensor]=None
 
 @dataclass
 class Data:

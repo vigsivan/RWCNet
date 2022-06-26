@@ -160,12 +160,11 @@ def _compute_pad(
 
 if __name__ == "__main__":
     from collections import defaultdict
-    from contextlib import nullcontext
     import json
     from pathlib import Path
     import logging
     import sys
-    from typing import Optional, Generator, Dict
+    from typing import Optional, Dict
 
     from tqdm import tqdm, trange
     from torch.utils.tensorboard.writer import SummaryWriter
@@ -173,11 +172,10 @@ if __name__ == "__main__":
     import typer
 
     from common import (
-        Data,
-        LossTensors,
         data_generator,
         random_never_ending_generator,
         load_labels,
+        torch2skimage_disp,
         tb_log,
     )
     from differentiable_metrics import (
@@ -225,6 +223,32 @@ if __name__ == "__main__":
     ):
         """
         Trains a FlowNetC Model.
+
+        Parameters
+        ----------
+        data_json: Path
+        checkpoint_dir: Path
+            This is where checkpoints are saved
+        steps: int
+            Total number of training steps. Default=1000
+        lr: float
+            Adam Optimizer learning rate. Default=3e-4
+        feature_extractor_strides: Optional[str]=None
+            Comma-separated string. E.g, 2,1,1. If not provided, default is 2,1,1
+        mi_loss_weight: float
+            Mutual information loss weight. Default=1.
+        dice_loss_weight
+            Dice loss weight. Note, this only applies if labels present in the dataset. Default=1.
+        reg_loss_weight
+            Regularization loss weight. Default=.01
+        kp_loss_weight
+            Keypoints loss weight. Note, only applies when keypoints provided. Default=1.
+        log_freq: int
+            Frequency at which to write losses to tensorboard. Default=5
+        save_freq: int
+            Frequency at which to save models. Default=100
+        val_feq: int
+            Frequency at which to evaluate model against validation. Default=0 (never).
         """
         train_gen = random_never_ending_generator(data_json, split="train")
         checkpoint_dir.mkdir(exist_ok=True)
@@ -239,20 +263,12 @@ if __name__ == "__main__":
 
         flownetc = FlowNetCorr(**flownet_kwargs).to(device)
         opt = torch.optim.Adam(flownetc.parameters(), lr=lr)
-        loss_names = ["mi", "reg"]
-        loss_fns = [MutualInformationLoss(), Grad()]
 
         mi_loss_fn = MutualInformationLoss()
         grad_loss_fn = Grad()
 
         loss_weights = [mi_loss_weight, reg_loss_weight]
 
-        if val_freq != 0:
-            raise NotImplementedError(
-                "Validation while model training not implemented yet"
-            )  # TODO
-
-        # TODO: training without labels
         data_sample = next(train_gen)
         use_labels = data_sample.fixed_segmentation is not None
         use_keypoints = data_sample.fixed_keypoints is not None
@@ -262,14 +278,10 @@ if __name__ == "__main__":
             logging.debug(
                 f"Using labels. Found labels {','.join(str(i) for i in labels)}"
             )
-            loss_names.append("dice")
-            loss_fns.append(DiceLoss(labels))
             loss_weights.append(dice_loss_weight)
 
         if use_keypoints:
             logging.debug("Using keypoints.")
-            loss_names.append("keypoints_loss")
-            loss_fns.append(TotalRegistrationLoss())
             loss_weights.append(kp_loss_weight)
 
         for step in trange(steps):
@@ -297,13 +309,8 @@ if __name__ == "__main__":
             losses_dict["mi"] = mi_loss_weight * mi_loss_fn(moved, fixed)
             losses_dict["grad"] = reg_loss_weight * grad_loss_fn(flow)
 
-            loss_inputs = [(moved, fixed), [flow]]
-
             if use_labels:
                 moved_seg = torch.round(transformer(moving_seg.float(), flow))
-                loss_inputs.append(
-                    (fixed_seg.squeeze(), moving_seg.squeeze(), moved_seg.squeeze())
-                )
                 losses_dict["dice"] = dice_loss_weight * DiceLoss()(
                     fixed_seg.squeeze(), moving_seg.squeeze(), moved_seg.squeeze()
                 )
@@ -337,10 +344,76 @@ if __name__ == "__main__":
                     flownetc.state_dict(), checkpoint_dir / f"featnet_step{step}.pth"
                 )
 
+            if val_freq > 0 and step % val_freq == 0:
+                flownetc.eval()
+                with torch.no_grad():
+                    val_gen = data_generator(data_json, split="val")
+                    losses_cum_dict = defaultdict(list)
+                    for data in val_gen:
+                        fixed_tio = tio.ScalarImage(data.fixed_image)
+                        moving_tio = tio.ScalarImage(data.moving_image)
+
+                        fixed = fixed_tio.data.unsqueeze(0).to(device)
+                        moving = moving_tio.data.unsqueeze(0).to(device)
+
+                        fixed_seg = (
+                            tio.LabelMap(data.fixed_segmentation).data.unsqueeze(0).to(device)
+                        )
+                        moving_seg = (
+                            tio.LabelMap(data.fixed_segmentation).data.unsqueeze(0).to(device)
+                        )
+
+                        flow = flownetc(moving, fixed)
+                        flow = VecInt(fixed.shape[2:], nsteps=7).to(device)(flow)
+                        transformer = SpatialTransformer(fixed.shape[2:]).to(device)
+                        moved = transformer(moving, flow)
+
+                        losses_cum_dict["mi"].append((mi_loss_weight * mi_loss_fn(moved, fixed)).detach().cpu().numpy())
+                        losses_cum_dict["grad"].append((reg_loss_weight * grad_loss_fn(flow)).detach().cpu().numpy())
+
+                        if use_labels:
+                            moved_seg = torch.round(transformer(moving_seg.float(), flow))
+                            losses_cum_dict["dice"].append(dice_loss_weight * DiceLoss()(
+                                fixed_seg.squeeze(), moving_seg.squeeze(), moved_seg.squeeze()
+                            ).detach().cpu().numpy())
+
+                        if use_keypoints:
+                            fixed_kps, moving_kps = (
+                                torch.Tensor(data.fixed_keypoints).to(device),
+                                torch.Tensor(data.moving_keypoints).to(device),
+                            )
+                            moved_kps = moving_kps + flow
+                            losses_cum_dict["keypoints"].append(TotalRegistrationLoss()(
+                                (fixed_kps, moved_kps)
+                            ).detach().cpu().numpy())
+
+                    for k, v in losses_cum_dict.items():
+                        writer.add_scalar(f"val_{k}", np.mean(v).item(), global_step=step)
+
+                    del losses_cum_dict
+                    flownetc = flownetc.train()
+
+
         torch.save(flownetc.state_dict(), checkpoint_dir / f"featnet_step{steps}.pth")
 
     @app.command()
-    def eval(checkpoint: Path, data_json: Path, savedir: Path, device: str = "cuda"):
+    def eval(checkpoint: Path, data_json: Path, savedir: Path, device: str = "cuda", save_images: bool=True):
+        """
+        Evaluates a flownet model.
+
+        Measurements saved to savedir/measurements.json.
+        Skimage compatible displacements saved to savedir/disps.
+
+        Parameters
+        ----------
+        checkpoint: Path
+        data_json: Path
+        save_dir: Path
+        device: str
+            One of "cpu", "cuda". Default="cuda"
+        save_images: bool
+            Default=False.
+        """
         savedir.mkdir(exist_ok=True)
         flownetc = FlowNetCorr()
         flownetc.load_state_dict(torch.load(checkpoint))
@@ -349,32 +422,49 @@ if __name__ == "__main__":
         labels = load_labels(data_json)
 
         measurements = defaultdict(dict)
+        (savedir/"disps").mkdir(exist_ok=True)
+        if save_images:
+            (savedir/"images").mkdir(exist_ok=True)
 
         for data in tqdm(gen):
+            use_labels = data.fixed_segmentation is not None
+            use_keypoints = data.fixed_keypoints is not None # FIXME
+
             fixed_tio = tio.ScalarImage(data.fixed_image)
             moving_tio = tio.ScalarImage(data.moving_image)
 
             fixed = fixed_tio.data.unsqueeze(0).to(device)
             moving = moving_tio.data.unsqueeze(0).to(device)
 
-            fixed_seg = tio.LabelMap(data.fixed_segmentation).data.unsqueeze(0)
-            moving_seg = (
-                tio.LabelMap(data.fixed_segmentation).data.unsqueeze(0).to(device)
-            )
-
             flow = flownetc(moving, fixed)
             transformer = SpatialTransformer(fixed.shape[2:]).to(device)
-            moved_seg = torch.round(transformer(moving_seg.float(), flow))
 
-            disp_name = f"{data.moving_image.name}2{data.fixed_image.name}"
-            moved_seg = torch.round(moved_seg).detach().cpu()
+            if save_images:
+                moved = transformer(moving, flow)
+                moved_image_name = data.moving_image.name.split('.')[0] + "_warped." + ".".join(data.moving_image.name.split('.')[1:])
+                tio.ScalarImage(tensor=fixed.squeeze(0).detach().cpu()).save(savedir/"images"/data.fixed_image.name)
+                tio.ScalarImage(tensor=moving.squeeze(0).detach().cpu()).save(savedir/"images"/data.moving_image.name)
+                tio.ScalarImage(tensor=moved.squeeze(0).detach().cpu()).save(savedir/"images"/moved_image_name)
 
-            measurements[disp_name]["dice"] = compute_dice(
-                fixed_seg.numpy(),
-                moving_seg.detach().cpu().numpy(),
-                moved_seg.numpy(),
-                labels=labels,
-            )
+            disp_name = f"{data.moving_image.name.split('.')[0]}2{data.fixed_image.name.split('.')[0]}"
+            disp_np = torch2skimage_disp(flow)
+            np.savez_compressed(savedir/"disps"/disp_name, disp_np)
+
+            if use_labels:
+                fixed_seg = tio.LabelMap(data.fixed_segmentation).data.unsqueeze(0)
+                moving_seg = (
+                    tio.LabelMap(data.fixed_segmentation).data.unsqueeze(0).to(device)
+                )
+
+                moved_seg = torch.round(transformer(moving_seg.float(), flow))
+                moved_seg = torch.round(moved_seg).detach().cpu()
+
+                measurements[disp_name]["dice"] = compute_dice(
+                    fixed_seg.numpy(),
+                    moving_seg.detach().cpu().numpy(),
+                    moved_seg.numpy(),
+                    labels=labels,
+                )
 
         with open(savedir / "measurements.json", "w") as f:
             json.dump(measurements, f)
