@@ -15,7 +15,10 @@ def convert_nlst_json(dataset_json: Path, dataset_path: Path, output_json: Path)
     }
 
     pairs = l2r_data["training_paired_images"]
-    data = []
+    val_pairs = l2r_data["registration_val"]
+    val_images_fixed = set(p["fixed"] for p in val_pairs)
+    train_data = []
+    val_data = []
     for pair in pairs:
         fixed, moving = Path(pair["fixed"]), Path(pair["moving"])
         fixed_data, moving_data = training_data[fixed.name], training_data[moving.name]
@@ -28,7 +31,8 @@ def convert_nlst_json(dataset_json: Path, dataset_path: Path, output_json: Path)
             kp.replace(".nii.gz", ".csv")  # lol
             for kp in (fixed_keypoints, moving_keypoints)
         ]
-        data.append(
+        data_dict = val_data if pair["fixed"] in val_images_fixed else train_data
+        data_dict.append(
             {
                 "fixed_image": str(dataset_path / fixed),
                 "moving_image": str(dataset_path / moving),
@@ -39,7 +43,7 @@ def convert_nlst_json(dataset_json: Path, dataset_path: Path, output_json: Path)
             }
         )
     with open(output_json, "w") as f:
-        json.dump({"data": data}, f)
+        json.dump({"labels": [1], "train": train_data, "val": val_data}, f)
 
 
 app()

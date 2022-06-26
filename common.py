@@ -12,6 +12,21 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from torch.autograd import Variable
+from torch.utils.tensorboard.writer import SummaryWriter
+
+def tb_log(writer: SummaryWriter, losses_dict: Dict[str, torch.Tensor], step: int, moving_fixed_moved: Tuple[torch.Tensor, torch.Tensor, torch.Tensor]) -> None:
+    for loss_name, loss in losses_dict.items():
+        writer.add_scalar(loss_name, loss, global_step=step)
+
+    moving, fixed, moved = moving_fixed_moved
+    slice_index = moving.shape[2] // 2
+    triplet = [moving.squeeze(), fixed.squeeze(), moved.squeeze()]
+    writer.add_images(
+        "(moving,fixed,moved)",
+        img_tensor=torch.stack(triplet)[:, slice_index, ...].unsqueeze(1),
+        global_step=step,
+        dataformats="nchw",
+    )
 
 
 def read_keypoints(path: Union[str, Path], sep: str = ",") -> torch.Tensor:
@@ -819,6 +834,22 @@ def adam_optimization(
 
     return net
 
+# TODO: look into attrs library for computing these things as well
+@dataclass
+class LossTensors:
+    """
+    Data class for storing all tensors for loss computation
+    """
+    flow: torch.Tensor
+    fixed_image: torch.Tensor
+    moving_image: torch.Tensor
+    moved_image: torch.Tensor
+    fixed_segmentation: Optional[torch.Tensor]=None
+    moving_segmentation: Optional[torch.Tensor]=None
+    moved_segmentation: Optional[torch.Tensor]=None
+    fixed_keypoints: Optional[torch.Tensor]=None
+    moving_keypoints: Optional[torch.Tensor]=None
+    moved_keypoints: Optional[torch.Tensor]=None
 
 @dataclass
 class Data:
@@ -841,7 +872,7 @@ def load_labels(data_json: Path) -> List[int]:
     return labels
 
 def randomized_pair_never_ending_generator(
-    data_json: Path, *, seed: Optional[int] = None
+    data_json: Path, *, split: str, seed: Optional[int] = None
 ) -> Generator[Data, None, None]:
     """
     Generator that completely disregards pairs defined in the JSON.
@@ -850,6 +881,8 @@ def randomized_pair_never_ending_generator(
     ----------
     data_json: Path
         JSON file containing data information
+    split: str
+        One of train or val
     seed: Optional[int]
         Default=None
 
@@ -858,7 +891,7 @@ def randomized_pair_never_ending_generator(
         random.seed(seed)
 
     with open(data_json, "r") as f:
-        data = json.load(f)["data"]
+        data = json.load(f)[split]
 
     images: List[Dict[str,Optional[Path]]] = [
         { 
@@ -889,7 +922,7 @@ def randomized_pair_never_ending_generator(
 
 
 def random_never_ending_generator(
-    data_json: Path, *, seed: Optional[int] = None
+    data_json: Path, *, split: str, seed: Optional[int] = None
 ) -> Generator[Data, None, None]:
     """
     Generator that 1) never ends and 2) yields samples from the dataset in random order
@@ -898,6 +931,8 @@ def random_never_ending_generator(
     ----------
     data_json: Path
         JSON file containing data information
+    split: str
+        One of train or val
     seed: Optional[int]
         Default=None
     """
@@ -905,7 +940,7 @@ def random_never_ending_generator(
         random.seed(seed)
 
     with open(data_json, "r") as f:
-        data = json.load(f)["data"]
+        data = json.load(f)[split]
 
     segs = "fixed_segmentation" in data[0]
     kps = "fixed_keypoints" in data[0]
@@ -923,16 +958,18 @@ def random_never_ending_generator(
             )
 
 
-def data_generator(data_json: Path) -> Generator[Data, None, None]:
+def data_generator(data_json: Path, *, split: str) -> Generator[Data, None, None]:
     """
     Generator function.
 
     Parameters
     ----------
     data_json: JSON file containing data information
+    split: str
+        One of train or val
     """
     with open(data_json, "r") as f:
-        data = json.load(f)["data"]
+        data = json.load(f)[split]
 
     # FIXME: make this cleaner
     segs = "fixed_segmentation" in data[0]
@@ -973,13 +1010,6 @@ def transform_image(
     resampled = F.grid_sample(image, new_locs, align_corners=True, mode="bilinear")
     return resampled.squeeze()
 
-
-def transform_keypoints(
-    displacement_field: torch.Tensor, keypoints: torch.Tensor
-) -> torch.Tensor:
-    raise NotImplementedError
-
-
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     import torchio as tio
@@ -995,7 +1025,7 @@ if __name__ == "__main__":
 
     @app.command()
     def visualize_mind(data_json: Path, save_dir: Path):
-        gen = data_generator(data_json)
+        gen = data_generator(data_json, split="train")
         save_dir.mkdir(exist_ok=True)
         for data in tqdm(gen):
             moving = tio.ScalarImage(data.moving_image).data.cuda()

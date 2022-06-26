@@ -15,18 +15,16 @@ from tqdm import tqdm, trange
 import typer
 
 from common import (
-    adam_optimization_unrolled,
     adam_optimization_grad,
     correlate_grad,
     data_generator,
     displacement_permutations_grid,
     random_never_ending_generator,
-    randomized_pair_never_ending_generator,
     coupled_convex_grad,
 )
 
-from differentiable_metrics import DiceLoss, MutualInformationLoss, Grad
-from networks import FeatureExtractor, SpatialTransformer
+from differentiable_metrics import DiceLoss, MutualInformationLoss
+from networks import FeatureExtractorVxm, SpatialTransformer
 
 app = typer.Typer()
 
@@ -64,9 +62,9 @@ def with_convexadam(
         )
 
     checkpoint_directory.mkdir(exist_ok=True)
-    gen = random_never_ending_generator(data_json, seed=42)
+    gen = random_never_ending_generator(data_json, split="train", seed=42)
 
-    feature_net = FeatureExtractor(infeats=1, outfeats=nfeats)
+    feature_net = FeatureExtractorVxm(infeats=1, outfeats=nfeats)
     disp_mesh_t = displacement_permutations_grid(disp_hw).to(device).half()
 
     starting_step = 0
@@ -258,8 +256,8 @@ def save_feats(
     Saves images of the output features into the save_dir
     """
     save_dir.mkdir(exist_ok=True)
-    gen = data_generator(data_json)
-    feature_net = FeatureExtractor(1)
+    gen = data_generator(data_json, split="train")
+    feature_net = FeatureExtractorVxm(1)
     feature_net.load_state_dict(torch.load(featnet_checkpoint))
     feature_net = feature_net.cuda().eval()
 

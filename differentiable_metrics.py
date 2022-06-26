@@ -64,13 +64,14 @@ class TotalRegistrationLoss(nn.Module):
     def forward(
         self,
         fixed_landmarks: torch.Tensor,
-        moving_landmarks: torch.Tensor,
-        displacement_field: torch.Tensor,
-        fixed_spacing: torch.Tensor,
-        moving_spacing: torch.Tensor,
+        moved_landmarks: torch.Tensor,
+        # displacement_field: torch.Tensor,
+        # fixed_spacing: torch.Tensor,
+        # moving_spacing: torch.Tensor,
     ) -> torch.Tensor:
 
-        raise NotImplementedError()
+        # TODO: verify implementation
+        return torch.linalg.norm(fixed_landmarks-moved_landmarks)
 
 class MINDLoss(nn.Module):
     """

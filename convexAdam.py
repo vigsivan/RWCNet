@@ -10,7 +10,6 @@ import einops
 import nibabel as nib
 import numpy as np
 import torch
-from torch import nn
 import torch.nn.functional as F
 import torchio as tio
 from tqdm import tqdm
@@ -28,7 +27,7 @@ from common import (
     data_generator,
 )
 from metrics import compute_dice, compute_total_registation_error
-from networks import FeatureExtractor
+from networks import FeatureExtractorVxm
 
 app = typer.Typer()
 
@@ -75,7 +74,7 @@ def without_labels(
     save_directory.mkdir(exist_ok=True)
     (save_directory / "disps").mkdir(exist_ok=True)
     measurements = defaultdict(dict)
-    gen = tqdm(data_generator(data_json))
+    gen = tqdm(data_generator(data_json, split="train"))
 
     for data in gen:
 
@@ -233,7 +232,7 @@ def with_feature_extractor(
         warp_images_dir = save_directory / "segmentations"
         warp_images_dir.mkdir(exist_ok=True)
 
-    gen = tqdm(data_generator(data_json))
+    gen = tqdm(data_generator(data_json, split="train"))
     measurements = defaultdict(dict)
 
     for data in gen:
@@ -263,7 +262,7 @@ def with_feature_extractor(
 
         checkpoint = torch.load(checkpoint_path)
 
-        feature_net = FeatureExtractor(1, features)
+        feature_net = FeatureExtractorVxm(1, features)
         feature_net.load_state_dict(checkpoint)
         feature_net = feature_net.cuda().eval()
 
@@ -452,7 +451,7 @@ def with_labels(
         warp_images_dir = save_directory / "segmentations"
         warp_images_dir.mkdir(exist_ok=True)
 
-    gen = tqdm(data_generator(data_json))
+    gen = tqdm(data_generator(data_json, split="train"))
     measurements = defaultdict(dict)
 
     for data in gen:
@@ -683,7 +682,7 @@ def test_differentiable_comps(
         warp_images_dir = save_directory / "segmentations"
         warp_images_dir.mkdir(exist_ok=True)
 
-    gen = tqdm(data_generator(data_json))
+    gen = tqdm(data_generator(data_json, split="train"))
     measurements = defaultdict(dict)
 
     for data in gen:
