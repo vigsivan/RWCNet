@@ -14,6 +14,7 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 from torch.utils.tensorboard.writer import SummaryWriter
 
+
 def torch2skimage_disp(disp_field: torch.Tensor) -> np.ndarray:
     x1 = disp_field[0, 0, :, :, :].cpu().float().data.numpy()
     y1 = disp_field[0, 1, :, :, :].cpu().float().data.numpy()
@@ -23,7 +24,12 @@ def torch2skimage_disp(disp_field: torch.Tensor) -> np.ndarray:
     return displacement
 
 
-def tb_log(writer: SummaryWriter, losses_dict: Dict[str, torch.Tensor], step: int, moving_fixed_moved: Tuple[torch.Tensor, torch.Tensor, torch.Tensor]) -> None:
+def tb_log(
+    writer: SummaryWriter,
+    losses_dict: Dict[str, torch.Tensor],
+    step: int,
+    moving_fixed_moved: Tuple[torch.Tensor, torch.Tensor, torch.Tensor],
+) -> None:
     for loss_name, loss in losses_dict.items():
         writer.add_scalar(loss_name, loss, global_step=step)
 
@@ -72,6 +78,7 @@ def identity_grid_torch(size: Tuple[int, ...]) -> torch.Tensor:
     grid = torch.unsqueeze(grid, 0).float()
 
     return grid
+
 
 @lru_cache(maxsize=None)
 def displacement_permutations_grid(displacement: int) -> torch.Tensor:
@@ -273,7 +280,7 @@ def correlate(
     return ssd, ssd_argmin
 
 
-def gumbel_softmax(logits: torch.Tensor, temperature: float=.8) -> torch.Tensor:
+def gumbel_softmax(logits: torch.Tensor, temperature: float = 0.8) -> torch.Tensor:
     """
     Implements straight through gumbel softmax
 
@@ -316,7 +323,7 @@ def coupled_convex_grad(
     grid_sp: int,
     image_shape: Tuple[int, int, int],
     coefficients: List[float] = [0.003, 0.01, 0.03, 0.1, 0.3, 1],
-    one_hot_temperature: float =.8
+    one_hot_temperature: float = 0.8,
 ) -> torch.Tensor:
     """
     Solve two coupled convex optimisation problems for efficient global regularisation
@@ -338,7 +345,7 @@ def coupled_convex_grad(
     n_perm = disp_mesh_t.view(3, -1).shape[-1]
     logits = F.softmax(1 - ssd, dim=0).view(n_perm, -1)
     gsoft = gumbel_softmax(logits, one_hot_temperature)
-    disp_soft = disp_soft = torch.matmul(disp_mesh_t.view(3,-1).float(), gsoft)
+    disp_soft = disp_soft = torch.matmul(disp_mesh_t.view(3, -1).float(), gsoft)
     disp_soft = torch.clamp(disp_soft, disp_mesh_t.min(), disp_mesh_t.max())
     disp_soft = disp_soft.reshape(1, 3, H // grid_sp, W // grid_sp, D // grid_sp)
 
@@ -351,11 +358,11 @@ def coupled_convex_grad(
                 disp_mesh_t - disp_soft[:, :, i].view(3, 1, -1)
             ).pow(2).sum(0).view(-1, W // grid_sp, D // grid_sp)
 
-            ssd_coupled[:,i,...] = coupled
+            ssd_coupled[:, i, ...] = coupled
 
-        logits = F.softmax(1-ssd_coupled, dim=0).view(n_perm, -1)
+        logits = F.softmax(1 - ssd_coupled, dim=0).view(n_perm, -1)
         gsoft = gumbel_softmax(logits, one_hot_temperature)
-        disp_soft = disp_soft = torch.matmul(disp_mesh_t.view(3,-1).float(), gsoft)
+        disp_soft = disp_soft = torch.matmul(disp_mesh_t.view(3, -1).float(), gsoft)
         disp_soft = torch.clamp(disp_soft, disp_mesh_t.min(), disp_mesh_t.max())
         disp_soft = disp_soft.reshape(1, 3, H // grid_sp, W // grid_sp, D // grid_sp)
 
@@ -574,22 +581,25 @@ def MINDSSC(
     mind_var = torch.min(
         torch.max(mind_var, mind_var.mean() * 0.001), mind_var.mean() * 1000
     )
-    mind /= (mind_var+1e-8)
+    mind /= mind_var + 1e-8
     mind = torch.exp(-mind)
     # permute to have same ordering as C++ code
     mind = mind[:, torch.tensor([6, 8, 1, 11, 2, 10, 0, 7, 9, 4, 5, 3]).long(), :, :, :]
     return mind
 
+
 class UnrolledConv(nn.Module):
-    def __init__(self, n_cascades: int, image_shape: Tuple[int,int,int], grid_sp: int):
+    def __init__(
+        self, n_cascades: int, image_shape: Tuple[int, int, int], grid_sp: int
+    ):
         super().__init__()
         self.n_cascades = n_cascades
         self.convs = nn.ModuleList(
-            [nn.Conv3d(3, 3, 3, padding='same') for _ in range(n_cascades)]
+            [nn.Conv3d(3, 3, 3, padding="same") for _ in range(n_cascades)]
         )
 
         # FIXME: remove these tensors
-        self.shape: Tuple[int,...] = image_shape
+        self.shape: Tuple[int, ...] = image_shape
         H, W, D = image_shape
         self.grid0 = F.affine_grid(
             torch.eye(3, 4).unsqueeze(0).cuda(),
@@ -605,7 +615,8 @@ class UnrolledConv(nn.Module):
                     (W // grid_sp - 1) / 2,
                     (D // grid_sp - 1) / 2,
                 ]
-            ).cuda()
+            )
+            .cuda()
             .unsqueeze(0)
         )
 
@@ -619,12 +630,15 @@ class UnrolledConv(nn.Module):
             )
             feat_mov = F.grid_sample(
                 feat_mov.float(),
-                grid_disp.view(1, H // self.grid_sp, W // self.grid_sp, D // self.grid_sp, 3).cuda(),
+                grid_disp.view(
+                    1, H // self.grid_sp, W // self.grid_sp, D // self.grid_sp, 3
+                ).cuda(),
                 align_corners=False,
                 mode="bilinear",
             )
 
         return disp_sample, feat_mov
+
 
 def adam_optimization_grad(
     disp_lr: torch.Tensor,
@@ -707,6 +721,7 @@ def adam_optimization_grad(
 
     return net
 
+
 def adam_optimization_unrolled(
     disp_lr: torch.Tensor,
     mind_fixed: torch.Tensor,
@@ -737,8 +752,8 @@ def adam_optimization_unrolled(
 
     net = UnrolledConv(n_cascades, image_shape, grid_sp)
     net = net.to(disp_lr.device)
-    optimizer = torch.optim.Adam(net.parameters(), lr=.01)
- 
+    optimizer = torch.optim.Adam(net.parameters(), lr=0.01)
+
     for _ in range(iterations):
         disp_sample, mind_moved = net(mind_moving, disp_lr)
         sampled_cost = (mind_moved - mind_fixed).pow(2).mean(1) * 12
@@ -758,7 +773,6 @@ def adam_optimization_unrolled(
         optimizer.step()
 
     return net
-
 
 
 def adam_optimization(
@@ -843,6 +857,7 @@ def adam_optimization(
 
     return net
 
+
 @dataclass
 class Data:
     """
@@ -856,12 +871,14 @@ class Data:
     fixed_keypoints: Optional[Path]
     moving_keypoints: Optional[Path]
 
+
 def load_labels(data_json: Path) -> List[int]:
     with open(data_json, "r") as f:
         labels = json.load(f)["labels"]
 
     labels = [int(i) for i in labels]
     return labels
+
 
 def randomized_pair_never_ending_generator(
     data_json: Path, *, split: str, seed: Optional[int] = None
@@ -885,11 +902,13 @@ def randomized_pair_never_ending_generator(
     with open(data_json, "r") as f:
         data = json.load(f)[split]
 
-    images: List[Dict[str,Optional[Path]]] = [
-        { 
+    images: List[Dict[str, Optional[Path]]] = [
+        {
             "image_path": Path(d[f"{i}_image"]),
-            "seg_path": Path(d[f"{i}_segmentation"]) if f"{i}_segmentation" in d else None,
-            "kps_path": Path(d[f"{i}_keypoints"]) if f"{i}_keypoints" in d else None
+            "seg_path": Path(d[f"{i}_segmentation"])
+            if f"{i}_segmentation" in d
+            else None,
+            "kps_path": Path(d[f"{i}_keypoints"]) if f"{i}_keypoints" in d else None,
         }
         for d in data
         for i in ("fixed", "moving")
@@ -1001,6 +1020,7 @@ def transform_image(
     image = einops.repeat(image, "d h w -> b c d h w", b=1, c=1)
     resampled = F.grid_sample(image, new_locs, align_corners=True, mode="bilinear")
     return resampled.squeeze()
+
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt

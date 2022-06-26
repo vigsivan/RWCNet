@@ -166,9 +166,10 @@ if __name__ == "__main__":
     import sys
     from typing import Dict
 
+    import einops
+    import nibabel as nib
     from tqdm import tqdm, trange
     from torch.utils.tensorboard.writer import SummaryWriter
-    import torchio as tio
     import typer
 
     from common import (
@@ -190,20 +191,7 @@ if __name__ == "__main__":
     app = typer.Typer()
     logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
-    @app.command()
-    def test_forward_pass(data_json: Path):
-        gen = data_generator(data_json, split="train")
-        data = next(gen)
-
-        fixed_tio = tio.ScalarImage(data.fixed_image)
-        moving_tio = tio.ScalarImage(data.moving_image)
-
-        fixed = fixed_tio.data.unsqueeze(0)
-        moving = moving_tio.data.unsqueeze(0)
-
-        fnet = FlowNetCorr()
-        flow = fnet(moving, fixed)
-        SpatialTransformer(fixed.shape)(moving.unsqueeze(0).unsqueeze(0), flow)
+    to5d = lambda x: einops.repeat(x, 'd h w -> b c d h w', b=1, c=1).float()
 
     @app.command()
     def train(
@@ -294,18 +282,11 @@ if __name__ == "__main__":
         for step in trange(steps):
             data = next(train_gen)
 
-            fixed_tio = tio.ScalarImage(data.fixed_image)
-            moving_tio = tio.ScalarImage(data.moving_image)
+            fixed_nib = nib.load(data.fixed_image)
+            moving_nib = nib.load(data.moving_image)
 
-            fixed = fixed_tio.data.unsqueeze(0).to(device)
-            moving = moving_tio.data.unsqueeze(0).to(device)
-
-            fixed_seg = (
-                tio.LabelMap(data.fixed_segmentation).data.unsqueeze(0).to(device)
-            )
-            moving_seg = (
-                tio.LabelMap(data.fixed_segmentation).data.unsqueeze(0).to(device)
-            )
+            fixed = to5d(torch.from_numpy(fixed_nib.get_fdata())).to(device)
+            moving = to5d(torch.from_numpy(moving_nib.get_fdata())).to(device)
 
             flow = flownetc(moving, fixed)
             flow = VecInt(fixed.shape[2:], nsteps=7).to(device)(flow)
@@ -317,6 +298,10 @@ if __name__ == "__main__":
             losses_dict["grad"] = reg_loss_weight * grad_loss_fn(flow)
 
             if use_labels:
+
+                fixed_seg = to5d(torch.from_numpy(np.round(nib.load(data.fixed_segmentation).get_fdata()))).to(device)
+                moving_seg = to5d(torch.from_numpy(np.round(nib.load(data.fixed_segmentation).get_fdata()))).to(device)
+
                 moved_seg = torch.round(transformer(moving_seg.float(), flow))
                 losses_dict["dice"] = dice_loss_weight * DiceLoss()(
                     fixed_seg.squeeze(), moving_seg.squeeze(), moved_seg.squeeze()
@@ -357,18 +342,12 @@ if __name__ == "__main__":
                     val_gen = data_generator(data_json, split="val")
                     losses_cum_dict = defaultdict(list)
                     for data in val_gen:
-                        fixed_tio = tio.ScalarImage(data.fixed_image)
-                        moving_tio = tio.ScalarImage(data.moving_image)
 
-                        fixed = fixed_tio.data.unsqueeze(0).to(device)
-                        moving = moving_tio.data.unsqueeze(0).to(device)
+                        fixed_nib = nib.load(data.fixed_image)
+                        moving_nib = nib.load(data.moving_image)
 
-                        fixed_seg = (
-                            tio.LabelMap(data.fixed_segmentation).data.unsqueeze(0).to(device)
-                        )
-                        moving_seg = (
-                            tio.LabelMap(data.fixed_segmentation).data.unsqueeze(0).to(device)
-                        )
+                        fixed = to5d(torch.from_numpy(fixed_nib.get_fdata())).to(device)
+                        moving = to5d(torch.from_numpy(moving_nib.get_fdata())).to(device)
 
                         flow = flownetc(moving, fixed)
                         flow = VecInt(fixed.shape[2:], nsteps=7).to(device)(flow)
@@ -379,6 +358,10 @@ if __name__ == "__main__":
                         losses_cum_dict["grad"].append((reg_loss_weight * grad_loss_fn(flow)).detach().cpu().numpy())
 
                         if use_labels:
+
+                            fixed_seg = to5d(torch.from_numpy(np.round(nib.load(data.fixed_segmentation).get_fdata()))).to(device)
+                            moving_seg = to5d(torch.from_numpy(np.round(nib.load(data.fixed_segmentation).get_fdata()))).to(device)
+
                             moved_seg = torch.round(transformer(moving_seg.float(), flow))
                             losses_cum_dict["dice"].append(dice_loss_weight * DiceLoss()(
                                 fixed_seg.squeeze(), moving_seg.squeeze(), moved_seg.squeeze()
@@ -437,11 +420,11 @@ if __name__ == "__main__":
             use_labels = data.fixed_segmentation is not None
             use_keypoints = data.fixed_keypoints is not None
 
-            fixed_tio = tio.ScalarImage(data.fixed_image)
-            moving_tio = tio.ScalarImage(data.moving_image)
+            fixed_nib = nib.load(data.fixed_image)
+            moving_nib = nib.load(data.moving_image)
 
-            fixed = fixed_tio.data.unsqueeze(0).to(device)
-            moving = moving_tio.data.unsqueeze(0).to(device)
+            fixed = to5d(torch.from_numpy(fixed_nib.get_fdata())).to(device)
+            moving = to5d(torch.from_numpy(moving_nib.get_fdata())).to(device)
 
             flow = flownetc(moving, fixed)
             transformer = SpatialTransformer(fixed.shape[2:]).to(device)
@@ -449,19 +432,17 @@ if __name__ == "__main__":
             if save_images:
                 moved = transformer(moving, flow)
                 moved_image_name = data.moving_image.name.split('.')[0] + "_warped." + ".".join(data.moving_image.name.split('.')[1:])
-                tio.ScalarImage(tensor=fixed.squeeze(0).detach().cpu()).save(savedir/"images"/data.fixed_image.name)
-                tio.ScalarImage(tensor=moving.squeeze(0).detach().cpu()).save(savedir/"images"/data.moving_image.name)
-                tio.ScalarImage(tensor=moved.squeeze(0).detach().cpu()).save(savedir/"images"/moved_image_name)
+                warped_nib = nib.Nifti1Image(moved.detach().cpu().numpy().squeeze(), affine=fixed_nib.affine)
+                nib.save(warped_nib, savedir/"images"/moved_image_name)
 
             disp_name = f"{data.moving_image.name.split('.')[0]}2{data.fixed_image.name.split('.')[0]}"
             disp_np = torch2skimage_disp(flow)
             np.savez_compressed(savedir/"disps"/disp_name, disp_np)
 
             if use_labels:
-                fixed_seg = tio.LabelMap(data.fixed_segmentation).data.unsqueeze(0)
-                moving_seg = (
-                    tio.LabelMap(data.fixed_segmentation).data.unsqueeze(0).to(device)
-                )
+
+                fixed_seg = to5d(torch.from_numpy(np.round(nib.load(data.fixed_segmentation).get_fdata())))
+                moving_seg = to5d(torch.from_numpy(np.round(nib.load(data.fixed_segmentation).get_fdata()))).to(device)
 
                 moved_seg = torch.round(transformer(moving_seg.float(), flow))
                 moved_seg = torch.round(moved_seg).detach().cpu()
@@ -478,8 +459,8 @@ if __name__ == "__main__":
                     fix_lms=np.array(data.fixed_keypoints),
                     mov_lms=np.array(data.moving_keypoints),
                     disp=disp_np,
-                    spacing_fix=np.array(fixed_tio.spacing),
-                    spacing_mov=np.array(moving_tio.spacing)
+                    spacing_fix=np.array(fixed_nib.spacing),
+                    spacing_mov=np.array(moving_nib.spacing)
                 )
                 measurements[disp_name]["tre"] = tre
 
