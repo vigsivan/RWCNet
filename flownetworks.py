@@ -325,7 +325,7 @@ if __name__ == "__main__":
 
                 fixed_kps = load_keypoints(data.fixed_keypoints)
                 moving_kps = load_keypoints(data.moving_keypoints)
-                losses_dict["keypoints"] = TotalRegistrationLoss()(
+                losses_dict["keypoints"] = kp_loss_weight*TotalRegistrationLoss()(
                     fixed_landmarks=fixed_kps,
                     moving_landmarks=moving_kps,
                     displacement_field=flow,
@@ -424,7 +424,7 @@ if __name__ == "__main__":
                             fixed_kps = load_keypoints(data.fixed_keypoints)
                             moving_kps = load_keypoints(data.moving_keypoints)
                             losses_cum_dict["keypoints"].append(
-                                TotalRegistrationLoss()(
+                                kp_loss_weight*TotalRegistrationLoss()(
                                     fixed_landmarks=fixed_kps,
                                     moving_landmarks=moving_kps,
                                     displacement_field=flow,
