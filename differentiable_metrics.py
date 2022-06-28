@@ -7,13 +7,14 @@ from typing import List
 
 import einops
 import torch
+import numpy as np
 from torch import nn
 import torch.nn.functional as F
 # from monai.losses.dice import DiceLoss
 from monai.losses.image_dissimilarity import GlobalMutualInformationLoss as MutualInformationLoss
-from common import MINDSSC
+from common import MINDSSC, identity_grid_torch
 
-__all__ = ["DiceLoss", "MutualInformationLoss", "TotalRegistrationLoss", "Grad"]
+__all__ = ["DiceLoss", "MutualInformationLoss", "T torch.Tensor torch.TensorotalRegistrationLoss", "Grad"]
 
 class DiceLoss(nn.Module):
     def __init__(self, labels: List[int]=[1]):
@@ -64,14 +65,40 @@ class TotalRegistrationLoss(nn.Module):
     def forward(
         self,
         fixed_landmarks: torch.Tensor,
-        moved_landmarks: torch.Tensor,
-        # displacement_field: torch.Tensor,
-        # fixed_spacing: torch.Tensor,
-        # moving_spacing: torch.Tensor,
+        moving_landmarks: torch.Tensor,
+        displacement_field: torch.Tensor,
+        fixed_spacing: torch.Tensor,
+        moving_spacing: torch.Tensor,
     ) -> torch.Tensor:
+        #FIXME: this is hacky and likely slower than it should be, because PT doesn't have grid_sample
+        #FIXME: figure out why the spacing was passed in
+        #NOTE: I only do linear interpolation, so this could be made more accurate.
+        assert fixed_landmarks.shape == moving_landmarks.shape
+        n_coords = fixed_landmarks.shape[0]
+        
+        floor_arr = torch.zeros(n_coords, *displacement_field.shape[1:])
+        ceil_arr = torch.zeros(n_coords, *displacement_field.shape[1:])
 
-        # TODO: verify implementation
-        return torch.linalg.norm(fixed_landmarks-moved_landmarks)
+        with torch.no_grad():
+            for i in range(n_coords):
+                floor_coords = torch.floor(moving_landmarks[i,...]).long()
+                ceil_coords = torch.ceil(moving_landmarks[i,...]).long()
+                for i in range(ceil_coords.shape[0]):
+                    ceil_coords[i]=torch.clamp(ceil_coords[i], max=displacement_field.shape[i+2]-1)
+                floor_arr[i,:,floor_coords[0], floor_coords[1], floor_coords[2]] = 1
+                ceil_arr[i,:,ceil_coords[0], ceil_coords[1], ceil_coords[2]] = 1
+
+        floor_disp = torch.sum(floor_arr.to(displacement_field.device) * displacement_field, dim=(-1,-2,-3))
+        ceil_disp = torch.sum(ceil_arr.to(displacement_field.device) * displacement_field, dim=(-1,-2,-3))
+        disp = (floor_disp + ceil_disp)/2
+        torch.cuda.empty_cache()
+        fixed_landmarks, moving_landmarks = [i.to(displacement_field.device) 
+                                             for i in (fixed_landmarks, moving_landmarks)]
+        moving_spacing = moving_spacing.to(displacement_field.device)
+        err = torch.linalg.norm((disp + moving_landmarks-fixed_landmarks)*moving_spacing)
+
+        return err
+
 
 class MINDLoss(nn.Module):
     """

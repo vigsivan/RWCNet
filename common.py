@@ -872,6 +872,13 @@ class Data:
     moving_keypoints: Optional[Path]
 
 
+def load_keypoints(keypoints_path: Path) -> torch.Tensor: 
+    with open(keypoints_path, 'r') as f:
+        arr = np.array([[float(j) for j in i.strip().split(',')] 
+              for i in f.readlines()])
+    return torch.from_numpy(arr)
+
+
 def load_labels(data_json: Path) -> List[int]:
     with open(data_json, "r") as f:
         labels = json.load(f)["labels"]
