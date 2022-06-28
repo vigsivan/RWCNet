@@ -327,17 +327,6 @@ class ConvBlock(nn.Module):
         out = self.activation(out)
         return out
 
-class FlowNetCorr(nn.Module):
-    """
-    Implements FlowNetCorr
-    """
-    def __init__(self):
-        super().__init__()
-
-    def forward(self, moving_image: torch.Tensor, fixed_image: torch.Tensor):
-        ...
-    
-
 class FeatureExtractorVxm(nn.Module):
     """
     Slightly modified version of Voxelmorph's UNet
