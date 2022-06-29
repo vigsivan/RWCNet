@@ -278,7 +278,7 @@ class SpatialTransformer(nn.Module):
 
         # create sampling grid
         vectors = [torch.arange(0, s) for s in size]
-        grids = torch.meshgrid(vectors, indexing='ij')
+        grids = torch.meshgrid(vectors) #, indexing='ij')
         grid = torch.stack(grids)
         grid = torch.unsqueeze(grid, 0)
         grid = grid.float()

@@ -105,7 +105,7 @@ class FlowNetCorr(nn.Module):
             image_shape=feat_mov.shape[2:],
         ).unsqueeze(0)
         redir = self.conv_redir(feat_mov)
-        unet_in = torch.concat([corr, redir], dim=1)
+        unet_in = torch.cat([corr, redir], dim=1)
         unet_out = self.unet(unet_in)
         flow = self.flow(unet_out)
         flow = self.flow_resize(flow)
