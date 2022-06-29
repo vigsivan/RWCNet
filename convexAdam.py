@@ -614,10 +614,10 @@ def train_with_labels(
 
         with torch.no_grad():
             if compute_mind_from_seg:
-                # FIXME: a lot of weird shit
+                maxlabels = max(torch.unique(fixed_seg).shape[0], torch.unique(moving_seg).shape[0])
                 weight = 1 / (
-                    torch.bincount(fixed_seg.long().reshape(-1))
-                    + torch.bincount(moving_seg.long().reshape(-1))
+                    torch.bincount(fixed_seg.long().reshape(-1), minlength=maxlabels)
+                    + torch.bincount(moving_seg.long().reshape(-1), minlength=maxlabels)
                 ).float().pow(0.3)
                 weight /= weight.mean()
 
