@@ -76,7 +76,10 @@ class TotalRegistrationLoss(nn.Module):
 
         # TODO: verify this implementation
         assert fixed_landmarks.shape == moving_landmarks.shape
-        displacements = displacement_field[:,:,moving_landmarks[:,0], moving_landmarks[:,1], moving_landmarks[:,2]]
+        fcoords, ccoords = torch.floor(moving_landmarks).long(), torch.ceil(moving_landmarks).long()
+        f_displacements = displacement_field[:,:,fcoords[:,0], fcoords[:,1], fcoords[:,2]]
+        c_displacements = displacement_field[:,:,ccoords[:,0], ccoords[:,1], ccoords[:,2]]
+        displacements = (f_displacements + c_displacements)/2
         assert displacements.requires_grad
         displacements = einops.rearrange(displacements, 'b n N -> (b N) n')
         return (moving_landmarks + displacements-fixed_landmarks)*moving_spacing
@@ -142,6 +145,11 @@ if __name__ == "__main__":
     import typer
 
     app = typer.Typer()
+
+    @app.command()
+    def load_all(keypoints_dir: Path):
+        for keypoint_csv in keypoints_dir.iterdir():
+            load_keypoints(keypoint_csv)
 
     @app.command()
     def main(keypoints_csv: Path):

@@ -43,15 +43,6 @@ def tb_log(
         dataformats="nchw",
     )
 
-
-def read_keypoints(path: Union[str, Path], sep: str = ",") -> torch.Tensor:
-    with open(path, "r") as f:
-        keypoints = np.array(
-            [[float(i) for i in fl.split(sep)] for fl in f.readlines()]
-        )
-    return torch.from_numpy(keypoints)
-
-
 @lru_cache(maxsize=None)
 def identity_grid(size: Tuple[int, ...]) -> np.ndarray:
     """
@@ -876,9 +867,9 @@ def load_keypoints(keypoints_path: Path) -> torch.Tensor:
     with open(keypoints_path, 'r') as f:
         arr = np.array([[float(j) for j in i.strip().split(',')] 
               for i in f.readlines()])
-    if not (torch.floor(torch.from_numpy(arr)) == torch.ceil(torch.from_numpy(arr))).all():
-        raise ValueError("Keypoints must be integers")
-    return torch.floor(torch.from_numpy(arr)).long()
+    # if not (torch.floor(torch.from_numpy(arr)) == torch.ceil(torch.from_numpy(arr))).all():
+    #     raise ValueError("Keypoints must be integers")
+    return torch.from_numpy(arr)
 
 
 def load_labels(data_json: Path) -> List[int]:
