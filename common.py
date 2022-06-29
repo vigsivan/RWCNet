@@ -276,7 +276,7 @@ def MINDSEG(imseg, shape, weight):
     mindssc = (
         10
         * (
-            F.one_hot(imseg.cuda().view(1, *shape).long())
+            F.one_hot(imseg.cuda().view(1, *shape).long(), num_classes=weight.shape[0])
             .float()
             .permute(0, 4, 1, 2, 3)
             .contiguous()

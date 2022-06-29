@@ -608,6 +608,7 @@ def train_with_labels(
 
         fixed_seg = tio.LabelMap(data.fixed_segmentation).data.float().squeeze()
         moving_seg = tio.LabelMap(data.moving_segmentation).data.float().squeeze()
+        fixed_seg[16,32,32] = 2.
 
 
         torch.cuda.synchronize()
