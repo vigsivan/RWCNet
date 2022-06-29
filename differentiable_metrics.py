@@ -75,6 +75,10 @@ class TotalRegistrationLoss(nn.Module):
         #NOTE: I only do linear interpolation, so this could be made more accurate.
 
         # TODO: verify this implementation
+        fixed_landmarks = fixed_landmarks.to(displacement_field.device)
+        moving_landmarks = moving_landmarks.to(displacement_field.device)
+        moving_spacing = moving_spacing.to(displacement_field.device)
+
         assert fixed_landmarks.shape == moving_landmarks.shape
         fcoords, ccoords = torch.floor(moving_landmarks).long(), torch.ceil(moving_landmarks).long()
         f_displacements = displacement_field[:,:,fcoords[:,0], fcoords[:,1], fcoords[:,2]]
@@ -82,7 +86,7 @@ class TotalRegistrationLoss(nn.Module):
         displacements = (f_displacements + c_displacements)/2
         assert displacements.requires_grad
         displacements = einops.rearrange(displacements, 'b n N -> (b N) n')
-        return (moving_landmarks + displacements-fixed_landmarks)*moving_spacing
+        return torch.linalg.norm((moving_landmarks + displacements-fixed_landmarks)*moving_spacing)
 
 class MINDLoss(nn.Module):
     """
