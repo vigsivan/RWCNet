@@ -64,8 +64,8 @@ class TotalRegistrationLoss(nn.Module):
 
     def forward(
         self,
-        fixed_landmarks: torch.Tensor,
-        moving_landmarks: torch.Tensor,
+        fixed_landmarks: torch.LongTensor,
+        moving_landmarks: torch.LongTensor,
         displacement_field: torch.Tensor,
         fixed_spacing: torch.Tensor,
         moving_spacing: torch.Tensor,
@@ -73,32 +73,13 @@ class TotalRegistrationLoss(nn.Module):
         #FIXME: this is hacky and likely slower than it should be, because PT doesn't have grid_sample
         #FIXME: figure out why the spacing was passed in
         #NOTE: I only do linear interpolation, so this could be made more accurate.
+
+        # TODO: verify this implementation
         assert fixed_landmarks.shape == moving_landmarks.shape
-        n_coords = fixed_landmarks.shape[0]
-        
-        floor_arr = torch.zeros(n_coords, *displacement_field.shape[1:])
-        ceil_arr = torch.zeros(n_coords, *displacement_field.shape[1:])
-
-        with torch.no_grad():
-            for i in range(n_coords):
-                floor_coords = torch.floor(moving_landmarks[i,...]).long()
-                ceil_coords = torch.ceil(moving_landmarks[i,...]).long()
-                for i in range(ceil_coords.shape[0]):
-                    ceil_coords[i]=torch.clamp(ceil_coords[i], max=displacement_field.shape[i+2]-1)
-                floor_arr[i,:,floor_coords[0], floor_coords[1], floor_coords[2]] = 1
-                ceil_arr[i,:,ceil_coords[0], ceil_coords[1], ceil_coords[2]] = 1
-
-        floor_disp = torch.sum(floor_arr.to(displacement_field.device) * displacement_field, dim=(-1,-2,-3))
-        ceil_disp = torch.sum(ceil_arr.to(displacement_field.device) * displacement_field, dim=(-1,-2,-3))
-        disp = (floor_disp + ceil_disp)/2
-        torch.cuda.empty_cache()
-        fixed_landmarks, moving_landmarks = [i.to(displacement_field.device) 
-                                             for i in (fixed_landmarks, moving_landmarks)]
-        moving_spacing = moving_spacing.to(displacement_field.device)
-        err = torch.linalg.norm((disp + moving_landmarks-fixed_landmarks)*moving_spacing)
-
-        return err
-
+        displacements = displacement_field[:,:,moving_landmarks[:,0], moving_landmarks[:,1], moving_landmarks[:,2]]
+        assert displacements.requires_grad
+        displacements = einops.rearrange(displacements, 'b n N -> (b N) n')
+        return (moving_landmarks + displacements-fixed_landmarks)*moving_spacing
 
 class MINDLoss(nn.Module):
     """
@@ -153,3 +134,28 @@ class Grad(nn.Module):
         grad = d / 3.0
 
         return grad
+
+if __name__ == "__main__":
+    from common import load_keypoints
+    from pathlib import Path
+    import math
+    import typer
+
+    app = typer.Typer()
+
+    @app.command()
+    def main(keypoints_csv: Path):
+        keypoints = load_keypoints(keypoints_csv) 
+        disp_shape = [math.ceil(torch.max(keypoints[:,i]).item())+1 for i in range(keypoints.shape[-1])]
+        disp = torch.rand((1, 3, *disp_shape))
+        disp.requires_grad = True
+        tre = TotalRegistrationLoss()(
+            fixed_landmarks=keypoints,
+            moving_landmarks=keypoints,
+            displacement_field= disp,
+            fixed_spacing= torch.randn((1,3)),
+            moving_spacing= torch.randn((1,3)),
+        )
+
+
+    app()

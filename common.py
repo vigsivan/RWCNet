@@ -876,7 +876,9 @@ def load_keypoints(keypoints_path: Path) -> torch.Tensor:
     with open(keypoints_path, 'r') as f:
         arr = np.array([[float(j) for j in i.strip().split(',')] 
               for i in f.readlines()])
-    return torch.from_numpy(arr)
+    if not (torch.floor(torch.from_numpy(arr)) == torch.ceil(torch.from_numpy(arr))).all():
+        raise ValueError("Keypoints must be integers")
+    return torch.floor(torch.from_numpy(arr)).long()
 
 
 def load_labels(data_json: Path) -> List[int]:
