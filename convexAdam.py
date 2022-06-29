@@ -532,8 +532,8 @@ def train_with_labels(
     iterations: int = 100,
     compute_mind_from_seg: bool=True,
     skip_normalize: bool = False,
-    warp_images: bool = False,
-    warp_segmentations: bool = False,
+    warp_images: bool = True,
+    warp_segmentations: bool = True,
 ):
     """
     Performs registration with labels.
@@ -615,7 +615,7 @@ def train_with_labels(
 
         with torch.no_grad():
             if compute_mind_from_seg:
-                maxlabels = max(torch.unique(fixed_seg).shape[0], torch.unique(moving_seg).shape[0])
+                maxlabels = max(torch.unique(fixed_seg.long()).shape[0], torch.unique(moving_seg.long()).shape[0])
                 weight = 1 / (
                     torch.bincount(fixed_seg.long().reshape(-1), minlength=maxlabels)
                     + torch.bincount(moving_seg.long().reshape(-1), minlength=maxlabels)
@@ -695,13 +695,13 @@ def train_with_labels(
         moved_seg = apply_displacement_field(disp_np, moving_seg.numpy())
 
         # Fix any problems that may have arisen due to linear interpolation
-        fixed_seg[fixed_seg > 0.5] = 1
-        moving_seg[moving_seg > 0.5] = 1
-        moved_seg[moved_seg > 0.5] = 1
+        # fixed_seg[fixed_seg > 0.5] = 1
+        # moving_seg[moving_seg > 0.5] = 1
+        # moved_seg[moved_seg > 0.5] = 1
 
         disp_name = f"{data.moving_image.name}2{data.fixed_image.name}"
         dice = compute_dice(
-            fixed_seg.numpy(), moving_seg.numpy(), moved_seg, labels=[1]
+            fixed_seg.numpy(), moving_seg.numpy(), moved_seg, labels=list(range(maxlabels))
         )
         measurements[disp_name]["dice"] = dice
 
