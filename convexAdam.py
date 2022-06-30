@@ -16,6 +16,7 @@ import torchio as tio
 from torch.utils.tensorboard.writer import SummaryWriter
 from tqdm import tqdm
 import typer
+import pdb
 
 from common import (
     MINDSEG,
@@ -27,6 +28,7 @@ from common import (
     coupled_convex,
     data_generator,
     random_never_ending_generator,
+    get_labels,
 )
 from metrics import compute_dice, compute_total_registation_error
 from networks import FeatureExtractor
@@ -606,28 +608,28 @@ def train_with_labels(
 
         data_shape = fixed_tio.spatial_shape
 
+        nib.load(data.fixed_segmentation)
+
         fixed_seg = tio.LabelMap(data.fixed_segmentation).data.float().squeeze()
         moving_seg = tio.LabelMap(data.moving_segmentation).data.float().squeeze()
-        fixed_seg[16,32,32] = 2.
-
 
         torch.cuda.synchronize()
 
         with torch.no_grad():
             if compute_mind_from_seg:
+                label_list = get_labels(fixed_seg, moving_seg)
                 maxlabels = max(torch.unique(fixed_seg.long()).shape[0], torch.unique(moving_seg.long()).shape[0])
                 weight = 1 / (
                     torch.bincount(fixed_seg.long().reshape(-1), minlength=maxlabels)
                     + torch.bincount(moving_seg.long().reshape(-1), minlength=maxlabels)
                 ).float().pow(0.3)
+                weight[torch.isinf(weight)]=0.
                 weight /= weight.mean()
-
                 mindssc_fix_ = MINDSEG(fixed_seg, data_shape, weight)
                 mindssc_mov_ = MINDSEG(moving_seg, data_shape, weight)
             else:
                 mindssc_fix_ = MINDSSC(fixed.unsqueeze(0).unsqueeze(0).cuda(), 1, 2).half()
                 mindssc_mov_ = MINDSSC(moving.unsqueeze(0).unsqueeze(0).cuda(), 1, 2).half()
-
             mind_fix_ = F.avg_pool3d(mindssc_fix_, grid_sp, stride=grid_sp)
             mind_mov_ = F.avg_pool3d(mindssc_mov_, grid_sp, stride=grid_sp)
             ssd, ssd_argmin = correlate(
@@ -692,16 +694,30 @@ def train_with_labels(
 
         # NOTE: we are using scipy's interpolate func, which does not take a batch dimension
         disp_np = einops.rearrange(disp_np, "b c d h w -> (b c) d h w")
+        # pdb.set_trace()
         moved_seg = apply_displacement_field(disp_np, moving_seg.numpy())
+        # pdb.set_trace()
 
         # Fix any problems that may have arisen due to linear interpolation
-        # fixed_seg[fixed_seg > 0.5] = 1
-        # moving_seg[moving_seg > 0.5] = 1
-        # moved_seg[moved_seg > 0.5] = 1
+
+        # this needs a list of ALL labels in the labelmap to work
+        # ISSUE: will set incorrect pixels to 0, when they should have a different value
+        # make sure that the DF does not
+        for i in label_list:
+            if ((moving_seg == i).sum() == 0) and ((moved_seg == i).sum() > 0):
+                moved_seg[moved_seg==i] = 0
+
+        # hard code the label list to give this a fighting chance
+        # for i in range(25):
+        #     if ((moving_seg == i).sum() == 0) and ((moved_seg == i).sum() > 0):
+        #         moved_seg[moved_seg==i] = 0
 
         disp_name = f"{data.moving_image.name}2{data.fixed_image.name}"
+        # dice = compute_dice(
+        #     fixed_seg.numpy(), moving_seg.numpy(), moved_seg, labels=list(range(maxlabels))
+        # )
         dice = compute_dice(
-            fixed_seg.numpy(), moving_seg.numpy(), moved_seg, labels=list(range(maxlabels))
+            fixed_seg.numpy(), moving_seg.numpy(), moved_seg, labels=label_list
         )
         measurements[disp_name]["dice"] = dice
 

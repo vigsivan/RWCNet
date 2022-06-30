@@ -47,6 +47,13 @@ def get_identity_affine_grid(size: Tuple[int, ...], grid_sp: int) -> torch.Tenso
     return grid0
 
 
+def get_labels(fixed_seg: torch.Tensor, moving_seg: torch.Tensor) -> list:
+    fixed_labels = (torch.unique(fixed_seg.long())).tolist()
+    moving_labels = (torch.unique(moving_seg.long())).tolist()
+    label_list = list((np.unique(set(fixed_labels + moving_labels)))[0])
+    return label_list
+
+
 def apply_displacement_field(disp_field: np.ndarray, image: np.ndarray) -> np.ndarray:
     """
     Applies displacement field to the image
@@ -68,7 +75,7 @@ def apply_displacement_field(disp_field: np.ndarray, image: np.ndarray) -> np.nd
     assert len(size) == 3
 
     id_grid = identity_grid(size)
-    moved_image = map_coordinates(image, id_grid + disp_field, order=1)
+    moved_image = map_coordinates(image, id_grid + disp_field, order=0)
     if has_channel:
         moved_image = moved_image[None, ...]
     return moved_image
@@ -283,7 +290,7 @@ def MINDSEG(imseg, shape, weight):
             * weight.view(1, -1, 1, 1, 1).cuda()
         ).half()
     )
-
+    # import pdb; pdb.set_trace()
     return mindssc
 
 
