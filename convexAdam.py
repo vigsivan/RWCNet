@@ -16,7 +16,6 @@ import torchio as tio
 from torch.utils.tensorboard.writer import SummaryWriter
 from tqdm import tqdm
 import typer
-import pdb
 
 from common import (
     MINDSEG,
@@ -695,7 +694,7 @@ def train_with_labels(
         # NOTE: we are using scipy's interpolate func, which does not take a batch dimension
         disp_np = einops.rearrange(disp_np, "b c d h w -> (b c) d h w")
         # pdb.set_trace()
-        moved_seg = apply_displacement_field(disp_np, moving_seg.numpy())
+        moved_seg = apply_displacement_field(disp_np, moving_seg.numpy(), order=0)
         # pdb.set_trace()
 
         # Fix any problems that may have arisen due to linear interpolation

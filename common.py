@@ -54,7 +54,7 @@ def get_labels(fixed_seg: torch.Tensor, moving_seg: torch.Tensor) -> list:
     return label_list
 
 
-def apply_displacement_field(disp_field: np.ndarray, image: np.ndarray) -> np.ndarray:
+def apply_displacement_field(disp_field: np.ndarray, image: np.ndarray, order: int=1) -> np.ndarray:
     """
     Applies displacement field to the image
 
@@ -75,7 +75,7 @@ def apply_displacement_field(disp_field: np.ndarray, image: np.ndarray) -> np.nd
     assert len(size) == 3
 
     id_grid = identity_grid(size)
-    moved_image = map_coordinates(image, id_grid + disp_field, order=0)
+    moved_image = map_coordinates(image, id_grid + disp_field, order=order)
     if has_channel:
         moved_image = moved_image[None, ...]
     return moved_image
