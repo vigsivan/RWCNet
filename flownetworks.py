@@ -39,14 +39,14 @@ from metrics import (
     compute_dice,
     compute_hd95,
     compute_log_jacobian_determinant_standard_deviation,
-    compute_total_registation_error,
+    compute_total_registration_error,
 )
 from networks import SpatialTransformer, FlowNetCorr, VecInt
 
 app = typer.Typer()
 logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
-to5d = lambda x: einops.repeat(x, "d h w -> b c d h w", b=1, c=1).float()
+add_bc_dim = lambda x: einops.repeat(x, "d h w -> b c d h w", b=1, c=1).float()
 get_spacing = lambda x: np.sqrt(np.sum(x.affine[:3, :3] * x.affine[:3, :3], axis=0))
 
 
@@ -166,8 +166,8 @@ def train(
         fixed_nib = nib.load(data.fixed_image)
         moving_nib = nib.load(data.moving_image)
 
-        fixed = to5d(torch.from_numpy(fixed_nib.get_fdata())).to(device)
-        moving = to5d(torch.from_numpy(moving_nib.get_fdata())).to(device)
+        fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata())).to(device)
+        moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata())).to(device)
 
         flow = flownetc(moving, fixed)
         flow = VecInt(fixed.shape[2:], nsteps=7).to(device)(flow)
@@ -180,12 +180,12 @@ def train(
 
         if use_labels:
 
-            fixed_seg = to5d(
+            fixed_seg = add_bc_dim(
                 torch.from_numpy(
                     np.round(nib.load(data.fixed_segmentation).get_fdata())
                 )
             ).to(device)
-            moving_seg = to5d(
+            moving_seg = add_bc_dim(
                 torch.from_numpy(
                     np.round(nib.load(data.fixed_segmentation).get_fdata())
                 )
@@ -240,8 +240,8 @@ def train(
                     fixed_nib = nib.load(data.fixed_image)
                     moving_nib = nib.load(data.moving_image)
 
-                    fixed = to5d(torch.from_numpy(fixed_nib.get_fdata())).to(device)
-                    moving = to5d(torch.from_numpy(moving_nib.get_fdata())).to(device)
+                    fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata())).to(device)
+                    moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata())).to(device)
 
                     flow = flownetc(moving, fixed)
                     flow = VecInt(fixed.shape[2:], nsteps=7).to(device)(flow)
@@ -260,18 +260,18 @@ def train(
 
                     if use_labels:
 
-                        fixed_seg = to5d(
+                        fixed_seg = add_bc_dim(
                             torch.from_numpy(
                                 np.round(nib.load(data.fixed_segmentation).get_fdata())
                             )
                         ).to(device)
-                        moving_seg = to5d(
+                        moving_seg = add_bc_dim(
                             torch.from_numpy(
                                 np.round(nib.load(data.fixed_segmentation).get_fdata())
                             )
                         ).to(device)
 
-                        moved_seg = torch.round(transformer(moving_seg.float(), flow))
+                        moved_seg = torch.round(transformer(moving_seg.float(), flow, mode="nearest"))
                         losses_cum_dict["dice"].append(
                             dice_loss_weight
                             * DiceLoss()(
@@ -379,8 +379,8 @@ def eval(
         fixed_nib = nib.load(data.fixed_image)
         moving_nib = nib.load(data.moving_image)
 
-        fixed = to5d(torch.from_numpy(fixed_nib.get_fdata())).to(device)
-        moving = to5d(torch.from_numpy(moving_nib.get_fdata())).to(device)
+        fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata())).to(device)
+        moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata())).to(device)
 
         flow = flownetc(moving, fixed)
         transformer = SpatialTransformer(fixed.shape[2:]).to(device)
@@ -407,19 +407,18 @@ def eval(
 
         if use_labels:
 
-            fixed_seg = to5d(
+            fixed_seg = add_bc_dim(
                 torch.from_numpy(
                     np.round(nib.load(data.fixed_segmentation).get_fdata())
                 )
             )
-            moving_seg = to5d(
+            moving_seg = add_bc_dim(
                 torch.from_numpy(
                     np.round(nib.load(data.fixed_segmentation).get_fdata())
                 )
             ).to(device)
 
-            moved_seg = torch.round(transformer(moving_seg.float(), flow))
-            moved_seg = torch.round(moved_seg).detach().cpu()
+            moved_seg = torch.round(transformer(moving_seg.float(), flow, mode="nearest")).detach().cpu()
 
             fixed_seg, moving_seg, moved_seg = (
                 fixed_seg.numpy(),
@@ -435,7 +434,7 @@ def eval(
             )
 
         if use_keypoints:
-            tre = compute_total_registation_error(
+            tre = compute_total_registration_error(
                 fix_lms=load_keypoints_np(data.fixed_keypoints),
                 mov_lms=load_keypoints_np(data.moving_keypoints),
                 disp=disp_np,

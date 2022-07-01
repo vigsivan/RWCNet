@@ -92,7 +92,7 @@ def compute_hd95(fixed: np.ndarray, moving: np.ndarray, moving_warped: np.ndarra
     return hd95
 
 
-def compute_total_registation_error(
+def compute_total_registration_error(
     fix_lms: np.ndarray,
     mov_lms: np.ndarray,
     disp: np.ndarray,

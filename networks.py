@@ -430,10 +430,8 @@ class SpatialTransformer(nn.Module):
     N-D Spatial Transformer: taken directly from voxelmorph
     """
 
-    def __init__(self, size, mode='bilinear'):
+    def __init__(self, size):
         super().__init__()
-
-        self.mode = mode
 
         # create sampling grid
         vectors = [torch.arange(0, s) for s in size]
@@ -449,7 +447,7 @@ class SpatialTransformer(nn.Module):
         # see: https://discuss.pytorch.org/t/how-to-register-buffer-without-polluting-state-dict
         self.register_buffer('grid', grid)
 
-    def forward(self, src, flow):
+    def forward(self, src, flow, mode='bilinear'):
         # new locations
         new_locs = self.grid + flow
         shape = flow.shape[2:]
@@ -467,7 +465,7 @@ class SpatialTransformer(nn.Module):
             new_locs = new_locs.permute(0, 2, 3, 4, 1)
             new_locs = new_locs[..., [2, 1, 0]]
 
-        return F.grid_sample(src, new_locs, align_corners=True, mode=self.mode)
+        return F.grid_sample(src, new_locs, align_corners=True, mode=mode)
 
 class ConvBlock(nn.Module):
     """

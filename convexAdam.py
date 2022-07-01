@@ -26,7 +26,7 @@ from common import (
     coupled_convex_grad,
     data_generator,
 )
-from metrics import compute_dice, compute_total_registation_error
+from metrics import compute_dice, compute_total_registration_error
 from networks import FeatureExtractorVxm
 
 app = typer.Typer()
@@ -175,7 +175,7 @@ def without_labels(
             spacing_mov = np.array(moving_tio.spacing)
             fixed_keypoints = np.loadtxt(data.fixed_keypoints, delimiter=",")
             moving_keypoints = np.loadtxt(data.moving_keypoints, delimiter=",")
-            tre = compute_total_registation_error(
+            tre = compute_total_registration_error(
                 fixed_keypoints, moving_keypoints, disp_np, spacing_fix, spacing_mov
             )
             measurements[disp_name]["total_registration_error"] = tre
@@ -359,7 +359,7 @@ def with_feature_extractor(
             spacing_mov = np.array(moving_tio.spacing)
             fixed_keypoints = np.loadtxt(data.fixed_keypoints, delimiter=",")
             moving_keypoints = np.loadtxt(data.moving_keypoints, delimiter=",")
-            tre = compute_total_registation_error(
+            tre = compute_total_registration_error(
                 fixed_keypoints, moving_keypoints, disp_np, spacing_fix, spacing_mov
             )
             measurements[disp_name]["total_registration_error"] = tre
@@ -591,7 +591,7 @@ def with_labels(
             spacing_mov = np.array(moving_tio.spacing)
             fixed_keypoints = np.loadtxt(data.fixed_keypoints, delimiter=",")
             moving_keypoints = np.loadtxt(data.moving_keypoints, delimiter=",")
-            tre = compute_total_registation_error(
+            tre = compute_total_registration_error(
                 fixed_keypoints, moving_keypoints, disp_np, spacing_fix, spacing_mov
             )
             measurements[disp_name]["total_registration_error"] = tre
@@ -827,7 +827,7 @@ def test_differentiable_comps(
             spacing_mov = np.array(moving_tio.spacing)
             fixed_keypoints = np.loadtxt(data.fixed_keypoints, delimiter=",")
             moving_keypoints = np.loadtxt(data.moving_keypoints, delimiter=",")
-            tre = compute_total_registation_error(
+            tre = compute_total_registration_error(
                 fixed_keypoints, moving_keypoints, disp_np, spacing_fix, spacing_mov
             )
             measurements[disp_name]["total_registration_error"] = tre
