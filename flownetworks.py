@@ -23,6 +23,7 @@ from common import (
     random_never_ending_generator,
     load_labels,
     load_keypoints,
+    load_keypoints_np,
     torch2skimage_disp,
     tb_log,
 )
@@ -62,6 +63,8 @@ def train(
     checkpoint_dir: Path,
     steps: int = 1000,
     lr: float = 3e-4,
+    correlation_patch_size: int=3,
+    flownet_redir_feats: int=32,
     feature_extractor_strides: str = "2,1,1",
     feature_extractor_feature_sizes: str = "8,32,64",
     feature_extractor_kernel_sizes: str = "7,5,5",
@@ -128,7 +131,12 @@ def train(
         len(set(len(v) for v in flownet_kwargs.values())) == 1
     ), "Feature extractor params must all have the same size"
 
-    flownetc = FlowNetCorr(**flownet_kwargs).to(device)
+    flownetc = FlowNetCorr(
+        correlation_patch_size= correlation_patch_size,
+        redir_feats= flownet_redir_feats,
+        **flownet_kwargs
+    ).to(device)
+
     opt = torch.optim.Adam(flownetc.parameters(), lr=lr)
 
     image_loss_fn = get_loss_fn(image_loss)
@@ -309,6 +317,11 @@ def eval(
     checkpoint: Path,
     data_json: Path,
     savedir: Path,
+    correlation_patch_size: int=3,
+    flownet_redir_feats: int=32,
+    feature_extractor_strides: str = "2,1,1",
+    feature_extractor_feature_sizes: str = "8,32,64",
+    feature_extractor_kernel_sizes: str = "7,5,5",
     device: str = "cuda",
     save_images: bool = True,
 ):
@@ -329,7 +342,27 @@ def eval(
         Default=False.
     """
     savedir.mkdir(exist_ok=True)
-    flownetc = FlowNetCorr()
+    flownet_kwargs = {
+        "feature_extractor_strides": [
+            int(i.strip()) for i in feature_extractor_strides.split(",")
+        ],
+        "feature_extractor_feature_sizes": [
+            int(i.strip()) for i in feature_extractor_feature_sizes.split(",")
+        ],
+        "feature_extractor_kernel_sizes": [
+            int(i.strip()) for i in feature_extractor_kernel_sizes.split(",")
+        ],
+    }
+
+    assert (
+        len(set(len(v) for v in flownet_kwargs.values())) == 1
+    ), "Feature extractor params must all have the same size"
+
+    flownetc = FlowNetCorr(
+        correlation_patch_size= correlation_patch_size,
+        redir_feats= flownet_redir_feats,
+        **flownet_kwargs
+    )
     flownetc.load_state_dict(torch.load(checkpoint))
     flownetc = flownetc.to(device).eval()
     gen = data_generator(data_json, split="val")
@@ -394,8 +427,8 @@ def eval(
 
         if use_keypoints:
             tre = compute_total_registation_error(
-                fix_lms=np.array(data.fixed_keypoints),
-                mov_lms=np.array(data.moving_keypoints),
+                fix_lms=load_keypoints_np(data.fixed_keypoints),
+                mov_lms=load_keypoints_np(data.moving_keypoints),
                 disp=disp_np,
                 spacing_fix=get_spacing(fixed_nib),
                 spacing_mov=get_spacing(moving_nib),
