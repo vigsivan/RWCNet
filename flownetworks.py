@@ -35,19 +35,26 @@ from differentiable_metrics import (
     Grad,
     TotalRegistrationLoss,
 )
-from metrics import compute_dice, compute_total_registation_error
+from metrics import (
+    compute_dice,
+    compute_hd95,
+    compute_log_jacobian_determinant_standard_deviation,
+    compute_total_registation_error,
+)
 from networks import SpatialTransformer, FlowNetCorr, VecInt
 
 app = typer.Typer()
 logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
-to5d = lambda x: einops.repeat(x, "d h w -> b c d h w", b=1, c=1).float() 
+to5d = lambda x: einops.repeat(x, "d h w -> b c d h w", b=1, c=1).float()
 get_spacing = lambda x: np.sqrt(np.sum(x.affine[:3, :3] * x.affine[:3, :3], axis=0))
 
+
 class ImageLoss(str, Enum):
-    MutualInformation="mi"
+    MutualInformation = "mi"
     MeanSquareError = "mse"
     NormalizedCrossCorrelation = "ncc"
+
 
 def get_loss_fn(loss: ImageLoss):
     if loss == ImageLoss.MeanSquareError:
@@ -57,19 +64,20 @@ def get_loss_fn(loss: ImageLoss):
     else:
         return MutualInformationLoss()
 
+
 @app.command()
 def train(
     data_json: Path,
     checkpoint_dir: Path,
     steps: int = 1000,
     lr: float = 3e-4,
-    correlation_patch_size: int=3,
-    flownet_redir_feats: int=32,
+    correlation_patch_size: int = 3,
+    flownet_redir_feats: int = 32,
     feature_extractor_strides: str = "2,1,1",
     feature_extractor_feature_sizes: str = "8,32,64",
     feature_extractor_kernel_sizes: str = "7,5,5",
     device: str = "cuda",
-    image_loss: ImageLoss=ImageLoss.MutualInformation,
+    image_loss: ImageLoss = ImageLoss.MutualInformation,
     image_loss_weight: float = 1,
     dice_loss_weight: float = 1.0,
     reg_loss_weight: float = 0.01,
@@ -132,9 +140,9 @@ def train(
     ), "Feature extractor params must all have the same size"
 
     flownetc = FlowNetCorr(
-        correlation_patch_size= correlation_patch_size,
-        redir_feats= flownet_redir_feats,
-        **flownet_kwargs
+        correlation_patch_size=correlation_patch_size,
+        redir_feats=flownet_redir_feats,
+        **flownet_kwargs,
     ).to(device)
 
     opt = torch.optim.Adam(flownetc.parameters(), lr=lr)
@@ -144,20 +152,19 @@ def train(
 
     data_sample = next(train_gen)
     use_labels = data_sample.fixed_segmentation is not None
-    use_keypoints = data_sample.fixed_keypoints is not None and data_sample.moving_image is not None
+    use_keypoints = (
+        data_sample.fixed_keypoints is not None and data_sample.moving_image is not None
+    )
 
     if use_labels:
         labels = load_labels(data_json)
-        logging.debug(
-            f"Using labels. Found labels {','.join(str(i) for i in labels)}"
-        )
+        logging.debug(f"Using labels. Found labels {','.join(str(i) for i in labels)}")
 
     for step in trange(steps):
         data = next(train_gen)
 
         fixed_nib = nib.load(data.fixed_image)
         moving_nib = nib.load(data.moving_image)
-
 
         fixed = to5d(torch.from_numpy(fixed_nib.get_fdata())).to(device)
         moving = to5d(torch.from_numpy(moving_nib.get_fdata())).to(device)
@@ -190,17 +197,18 @@ def train(
             )
 
         if use_keypoints:
-            assert (data.fixed_keypoints is not None and 
-                    data.moving_keypoints is not None)
+            assert (
+                data.fixed_keypoints is not None and data.moving_keypoints is not None
+            )
 
             fixed_kps = load_keypoints(data.fixed_keypoints)
             moving_kps = load_keypoints(data.moving_keypoints)
-            losses_dict["keypoints"] = kp_loss_weight*TotalRegistrationLoss()(
+            losses_dict["keypoints"] = kp_loss_weight * TotalRegistrationLoss()(
                 fixed_landmarks=fixed_kps,
                 moving_landmarks=moving_kps,
                 displacement_field=flow,
                 fixed_spacing=torch.Tensor(get_spacing(fixed_nib)),
-                moving_spacing=torch.Tensor(get_spacing(moving_nib))
+                moving_spacing=torch.Tensor(get_spacing(moving_nib)),
             )
 
         opt.zero_grad()
@@ -233,9 +241,7 @@ def train(
                     moving_nib = nib.load(data.moving_image)
 
                     fixed = to5d(torch.from_numpy(fixed_nib.get_fdata())).to(device)
-                    moving = to5d(torch.from_numpy(moving_nib.get_fdata())).to(
-                        device
-                    )
+                    moving = to5d(torch.from_numpy(moving_nib.get_fdata())).to(device)
 
                     flow = flownetc(moving, fixed)
                     flow = VecInt(fixed.shape[2:], nsteps=7).to(device)(flow)
@@ -249,32 +255,23 @@ def train(
                         .numpy()
                     )
                     losses_cum_dict["grad"].append(
-                        (reg_loss_weight * grad_loss_fn(flow))
-                        .detach()
-                        .cpu()
-                        .numpy()
+                        (reg_loss_weight * grad_loss_fn(flow)).detach().cpu().numpy()
                     )
 
                     if use_labels:
 
                         fixed_seg = to5d(
                             torch.from_numpy(
-                                np.round(
-                                    nib.load(data.fixed_segmentation).get_fdata()
-                                )
+                                np.round(nib.load(data.fixed_segmentation).get_fdata())
                             )
                         ).to(device)
                         moving_seg = to5d(
                             torch.from_numpy(
-                                np.round(
-                                    nib.load(data.fixed_segmentation).get_fdata()
-                                )
+                                np.round(nib.load(data.fixed_segmentation).get_fdata())
                             )
                         ).to(device)
 
-                        moved_seg = torch.round(
-                            transformer(moving_seg.float(), flow)
-                        )
+                        moved_seg = torch.round(transformer(moving_seg.float(), flow))
                         losses_cum_dict["dice"].append(
                             dice_loss_weight
                             * DiceLoss()(
@@ -288,37 +285,39 @@ def train(
                         )
 
                     if use_keypoints:
-                        assert (data.fixed_keypoints is not None and 
-                                data.moving_keypoints is not None)
+                        assert (
+                            data.fixed_keypoints is not None
+                            and data.moving_keypoints is not None
+                        )
 
                         fixed_kps = load_keypoints(data.fixed_keypoints)
                         moving_kps = load_keypoints(data.moving_keypoints)
                         losses_cum_dict["keypoints"].append(
-                            kp_loss_weight*TotalRegistrationLoss()(
+                            kp_loss_weight
+                            * TotalRegistrationLoss()(
                                 fixed_landmarks=fixed_kps,
                                 moving_landmarks=moving_kps,
                                 displacement_field=flow,
                                 fixed_spacing=torch.Tensor(get_spacing(fixed_nib)),
-                                moving_spacing=torch.Tensor(get_spacing(moving_nib))
+                                moving_spacing=torch.Tensor(get_spacing(moving_nib)),
                             )
                         )
                 for k, v in losses_cum_dict.items():
-                    writer.add_scalar(
-                        f"val_{k}", np.mean(v).item(), global_step=step
-                    )
+                    writer.add_scalar(f"val_{k}", np.mean(v).item(), global_step=step)
 
                 del losses_cum_dict
                 flownetc = flownetc.train()
 
     torch.save(flownetc.state_dict(), checkpoint_dir / f"flownet_step{steps}.pth")
 
+
 @app.command()
 def eval(
     checkpoint: Path,
     data_json: Path,
     savedir: Path,
-    correlation_patch_size: int=3,
-    flownet_redir_feats: int=32,
+    correlation_patch_size: int = 3,
+    flownet_redir_feats: int = 32,
     feature_extractor_strides: str = "2,1,1",
     feature_extractor_feature_sizes: str = "8,32,64",
     feature_extractor_kernel_sizes: str = "7,5,5",
@@ -359,9 +358,9 @@ def eval(
     ), "Feature extractor params must all have the same size"
 
     flownetc = FlowNetCorr(
-        correlation_patch_size= correlation_patch_size,
-        redir_feats= flownet_redir_feats,
-        **flownet_kwargs
+        correlation_patch_size=correlation_patch_size,
+        redir_feats=flownet_redir_feats,
+        **flownet_kwargs,
     )
     flownetc.load_state_dict(torch.load(checkpoint))
     flownetc = flownetc.to(device).eval()
@@ -402,6 +401,10 @@ def eval(
         disp_np = torch2skimage_disp(flow)
         np.savez_compressed(savedir / "disps" / disp_name, disp_np)
 
+        measurements[disp_name][
+            "sdlogj"
+        ] = compute_log_jacobian_determinant_standard_deviation(disp_np)
+
         if use_labels:
 
             fixed_seg = to5d(
@@ -418,11 +421,17 @@ def eval(
             moved_seg = torch.round(transformer(moving_seg.float(), flow))
             moved_seg = torch.round(moved_seg).detach().cpu()
 
-            measurements[disp_name]["dice"] = compute_dice(
+            fixed_seg, moving_seg, moved_seg = (
                 fixed_seg.numpy(),
                 moving_seg.detach().cpu().numpy(),
                 moved_seg.numpy(),
-                labels=labels,
+            )
+
+            measurements[disp_name]["dice"] = compute_dice(
+                fixed_seg, moving_seg, moved_seg, labels=labels
+            )
+            measurements[disp_name]["hd95"] = compute_hd95(
+                fixed_seg, moving_seg, moved_seg, labels
             )
 
         if use_keypoints:
@@ -437,5 +446,6 @@ def eval(
 
     with open(savedir / "measurements.json", "w") as f:
         json.dump(measurements, f)
+
 
 app()
