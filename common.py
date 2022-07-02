@@ -884,6 +884,51 @@ def load_labels(data_json: Path) -> List[int]:
     labels = [int(i) for i in labels]
     return labels
 
+def random_unpaired_never_ending_generator(
+    data_json: Path, *, split: str, seed: Optional[int] = None
+) -> Generator[Data, None, None]:
+    """
+    Generator that randomly generates pairs from an unpaird dataset.
+
+    Parameters
+    ----------
+    data_json: Path
+        JSON file containing data information
+    split: str
+        One of train or val
+    seed: Optional[int]
+        Default=None
+
+    """
+    if seed:
+        random.seed(seed)
+
+    with open(data_json, "r") as f:
+        data = json.load(f)[split]
+
+    while True:
+        random.shuffle(data)
+        for i in range(0, len(data), 2):
+            fixed = data[i]
+            moving = data[i+1]
+
+            fixed_image = fixed["image"]
+            moving_image = moving["image"]
+
+            segmentation = "label" in fixed and "label" in moving
+            keypoints = "keypoints" in fixed and "keypoints" in moving
+
+            yield Data(
+                fixed_image=fixed_image,
+                moving_image=moving_image,
+                fixed_segmentation=fixed["label"] if segmentation else None,
+                moving_segmentation=moving["label"] if segmentation else None,
+                fixed_keypoints=fixed["keypoints"] if keypoints else None,
+                moving_keypoints=moving["keypoints"] if keypoints else None,
+            )
+
+
+
 
 def randomized_pair_never_ending_generator(
     data_json: Path, *, split: str, seed: Optional[int] = None

@@ -21,6 +21,7 @@ import typer
 from common import (
     data_generator,
     random_never_ending_generator,
+    random_unpaired_never_ending_generator,
     load_labels,
     load_keypoints,
     load_keypoints_np,
@@ -76,6 +77,9 @@ def train(
     feature_extractor_strides: str = "2,1,1",
     feature_extractor_feature_sizes: str = "8,32,64",
     feature_extractor_kernel_sizes: str = "7,5,5",
+    enforce_inverse_consistency: bool=False, # TODO
+    train_paired: bool=True,
+    val_paired: bool=True,
     device: str = "cuda",
     image_loss: ImageLoss = ImageLoss.MutualInformation,
     image_loss_weight: float = 1,
@@ -104,8 +108,18 @@ def train(
         Comma-separated string. If not provided, default is 8,32,64
     feature_extractor_kernel_sizes: str
         Comma-separated string. If not provided, default is 7,5,5
-    mi_loss_weight: float
-        Mutual information loss weight. Default=1.
+    enforce_inverse_consistency: bool
+        Default=False, # TODO
+    train_paired: bool
+        Default=True,
+    val_paired: bool
+        Default=True,
+    device: str = 
+        Default="cuda",
+    image_loss: ImageLoss 
+        Default= ImageLoss.MutualInformation,
+    image_loss_weight: float
+        Image similarity loss weight. Default=1.
     dice_loss_weight
         Dice loss weight. Note, this only applies if labels present in the dataset. Default=1.
     reg_loss_weight
@@ -119,7 +133,11 @@ def train(
     val_feq: int
         Frequency at which to evaluate model against validation. Default=0 (never).
     """
-    train_gen = random_never_ending_generator(data_json, split="train", seed=42)
+    if train_paired:
+        train_gen = random_never_ending_generator(data_json, split="train", seed=42)
+    else:
+        train_gen = random_unpaired_never_ending_generator(data_json, split="train", seed=42)
+
     checkpoint_dir.mkdir(exist_ok=True)
     writer = SummaryWriter(log_dir=checkpoint_dir)
 
@@ -233,7 +251,10 @@ def train(
         if val_freq > 0 and step % val_freq == 0:
             flownetc.eval()
             with torch.no_grad():
-                val_gen = data_generator(data_json, split="val")
+                if val_paired:
+                    val_gen = data_generator(data_json, split="val")
+                else:
+                    raise NotImplementedError("Unpaired validation not implemented!")
                 losses_cum_dict = defaultdict(list)
                 for data in val_gen:
 
