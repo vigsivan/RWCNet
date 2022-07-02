@@ -3,7 +3,7 @@ from functools import lru_cache
 import json
 from pathlib import Path
 import random
-from typing import Dict, Generator, List, Optional, Tuple, Union
+from typing import Dict, Generator, List, Optional, Tuple
 
 import einops
 import numpy as np
@@ -497,7 +497,6 @@ def MINDSEG(
     segfeats: torch.Tensor
     """
 
-    breakpoint()
     mindssc = (
         feature_weight
         * (
@@ -1035,11 +1034,6 @@ if __name__ == "__main__":
     import typer
 
     app = typer.Typer()
-
-    @app.command()
-    def test_keypoints_reader(keypoints_csv: Path):
-        keypoints_tensor = read_keypoints(keypoints_csv)
-        print(keypoints_tensor.shape)
 
     @app.command()
     def visualize_mind(data_json: Path, save_dir: Path):

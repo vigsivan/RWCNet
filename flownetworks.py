@@ -137,7 +137,7 @@ def train(
 
     assert (
         len(set(len(v) for v in flownet_kwargs.values())) == 1
-    ), "Feature extractor params must all have the same size"
+    ), "Feature extractor list params must all have the same size"
 
     flownetc = FlowNetCorr(
         correlation_patch_size=correlation_patch_size,
@@ -321,6 +321,7 @@ def eval(
     feature_extractor_strides: str = "2,1,1",
     feature_extractor_feature_sizes: str = "8,32,64",
     feature_extractor_kernel_sizes: str = "7,5,5",
+    diffeomorphic: bool=False,
     device: str = "cuda",
     save_images: bool = True,
 ):
@@ -383,6 +384,8 @@ def eval(
         moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata())).to(device)
 
         flow = flownetc(moving, fixed)
+        if diffeomorphic:
+            flow = VecInt(fixed.shape[2:], nsteps=7).to(device)(flow)
         transformer = SpatialTransformer(fixed.shape[2:]).to(device)
 
         if save_images:
