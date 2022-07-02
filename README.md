@@ -7,6 +7,8 @@ The following packages are needed.
 ```bash
 einops==0.4.0                                                                   
 
+click==8.0.4
+
 numpy==1.20.0
 
 scipy==1.8.0
