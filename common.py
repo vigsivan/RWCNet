@@ -20,7 +20,7 @@ def torch2skimage_disp(disp_field: torch.Tensor) -> np.ndarray:
     y1 = disp_field[0, 1, :, :, :].cpu().float().data.numpy()
     z1 = disp_field[0, 2, :, :, :].cpu().float().data.numpy()
 
-    displacement = np.stack([x1, y1, z1], 0)
+    displacement = np.stack([x1, y1, z1], -1)
     return displacement
 
 

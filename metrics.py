@@ -3,16 +3,19 @@ Metrics stolen from the evaluation script
 """
 
 from typing import List
-# import einops
 import numpy as np
 from scipy.ndimage import map_coordinates, correlate
 from surface_distance import compute_surface_distances, compute_robust_hausdorff
 
 
-def compute_log_jacobian_determinant_standard_deviation(disp: np.ndarray):
-    if len(disp.shape) == 4:
-        disp = disp[None,...]
-    jac_det = ( jacobian_determinant(disp) + 3).clip(0.000000001, 1000000000)
+def compute_log_jacobian_determinant_standard_deviation(
+    disp: np.ndarray,
+):
+    # TODO: what is this business about the mask?
+    jac_det = (
+        jacobian_determinant(disp[np.newaxis, :, :, :, :].transpose((0, 4, 1, 2, 3)))
+        + 3
+    ).clip(0.000000001, 1000000000)
     log_jac_det = np.log(jac_det)
     return log_jac_det.std()
 
@@ -32,7 +35,7 @@ def jacobian_determinant(disp: np.ndarray):
         ],
         axis=1,
     )
-    
+
     grady_disp = np.stack(
         [
             correlate(disp[:, 0, :, :, :], grady, mode="constant", cval=0.0),
@@ -41,7 +44,7 @@ def jacobian_determinant(disp: np.ndarray):
         ],
         axis=1,
     )
-    
+
     gradz_disp = np.stack(
         [
             correlate(disp[:, 0, :, :, :], gradz, mode="constant", cval=0.0),
@@ -50,9 +53,9 @@ def jacobian_determinant(disp: np.ndarray):
         ],
         axis=1,
     )
-    
+
     grad_disp = np.concatenate([gradx_disp, grady_disp, gradz_disp], 0)
-    
+
     jacobian = grad_disp + np.eye(3, 3).reshape(3, 3, 1, 1, 1)
     jacobian = jacobian[:, :, 2:-2, 2:-2, 2:-2]
     jacdet = (
@@ -76,8 +79,14 @@ def jacobian_determinant(disp: np.ndarray):
     return jacdet
 
 
-def compute_hd95(fixed: np.ndarray, moving: np.ndarray, moving_warped: np.ndarray, labels):
-    fixed, moving, moving_warped = fixed.squeeze(), moving.squeeze(), moving_warped.squeeze()
+def compute_hd95(
+    fixed: np.ndarray, moving: np.ndarray, moving_warped: np.ndarray, labels
+):
+    fixed, moving, moving_warped = (
+        fixed.squeeze(),
+        moving.squeeze(),
+        moving_warped.squeeze(),
+    )
     hd95 = 0
     count = 0
     for i in labels:
