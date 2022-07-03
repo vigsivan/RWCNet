@@ -507,7 +507,7 @@ def MINDSEG(
     mindssc = (
         feature_weight
         * (
-            F.one_hot(imseg.cuda().view(1, *shape).long(), num_classes=weight.shape[0])
+            F.one_hot(imseg.cuda().view(1, *shape).long(), num_classes=norm_weight.shape[0])
             .float()
             .permute(0, 4, 1, 2, 3)
             .contiguous()
