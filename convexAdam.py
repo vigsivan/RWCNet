@@ -185,14 +185,15 @@ def main(
             mind_mov_ = F.avg_pool3d(mindssc_mov_, grid_sp, stride=grid_sp)
         del mindssc_fix_, mindssc_mov_
 
+        # TODO: test this
         net = adam_optimization(
-            disp_lr=disp_lr,
+            disp=tuple([s // grid_sp for s in disp_lr.shape]),
             mind_fixed=mind_fix_,
             mind_moving=mind_mov_,
             lambda_weight=lambda_weight,
             image_shape=data_shape,
-            grid_sp=grid_sp,
             iterations=iterations,
+            norm=grid_sp
         )
 
         torch.cuda.synchronize()

@@ -87,7 +87,7 @@ def displacement_permutations_grid(displacement: int) -> torch.Tensor:
 
 
 @lru_cache(maxsize=None)
-def get_identity_affine_grid(size: Tuple[int, ...], grid_sp: int) -> torch.Tensor:
+def get_identity_affine_grid(size: Tuple[int, ...]) -> torch.Tensor:
     """
     Computes an identity grid for a specific size.
 
@@ -100,7 +100,7 @@ def get_identity_affine_grid(size: Tuple[int, ...], grid_sp: int) -> torch.Tenso
 
     grid0 = F.affine_grid(
         torch.eye(3, 4).unsqueeze(0).cuda(),
-        [1, 1, H // grid_sp, W // grid_sp, D // grid_sp],
+        [1, 1, H, W, D],
         align_corners=False,
     )
     return grid0
@@ -654,7 +654,6 @@ def adam_optimization(
     mind_fixed: torch.Tensor,
     mind_moving: torch.Tensor,
     lambda_weight: float,
-    grid_sp: int,
     image_shape: Tuple[int, int, int],
     iterations: int,
 
@@ -666,12 +665,12 @@ def adam_optimization(
     H, W, D = image_shape
     # create optimisable displacement grid
     net = nn.Sequential(
-        nn.Conv3d(3, 1, (H // grid_sp, W // grid_sp, D // grid_sp), bias=False)
+        nn.Conv3d(3, 1, (H, Wg, D // grid_sp), bias=False)
     )
-    net[0].weight.data[:] = disp_lr / grid_sp
+    net[0].weight.data[:] = disp / norm
     net.cuda()
     optimizer = torch.optim.Adam(net.parameters(), lr=1)
-    grid0 = get_identity_affine_grid(image_shape, grid_sp)
+    grid0 = get_identity_affine_grid(image_shape)
 
     for _ in range(iterations):
         optimizer.zero_grad()
@@ -691,9 +690,9 @@ def adam_optimization(
         scale = (
             torch.tensor(
                 [
-                    (H // grid_sp - 1) / 2,
-                    (W // grid_sp - 1) / 2,
-                    (D // grid_sp - 1) / 2,
+                    (H - 1) / 2,
+                    (W - 1) / 2,
+                    (D - 1) / 2,
                 ]
             )
             .cuda()
@@ -706,7 +705,7 @@ def adam_optimization(
 
         patch_mov_sampled = F.grid_sample(
             mind_moving.float(),
-            grid_disp.view(1, H // grid_sp, W // grid_sp, D // grid_sp, 3).cuda(),
+            grid_disp.view(1, H, W, D, 3).cuda(),
             align_corners=False,
             mode="bilinear",
         )  # ,padding_mode='border')
