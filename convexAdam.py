@@ -29,6 +29,7 @@ from metrics import compute_dice, compute_total_registration_error
 app = typer.Typer()
 
 add_bc_dim = lambda x: einops.repeat(x, "d h w -> b c d h w", b=1, c=1).float()
+get_spacing = lambda x: np.sqrt(np.sum(x.affine[:3, :3] * x.affine[:3, :3], axis=0))
 
 @app.command()
 def main(
@@ -139,14 +140,6 @@ def main(
                 mindssc_fix_ = MINDSEG(fixed_seg, data_shape, weight)
                 mindssc_mov_ = MINDSEG(moving_seg, data_shape, weight)
 
-                l2 = torch.linalg.norm(mindssc_fix_ - mindssc_mov_)
-                measurements[disp_name]["l2"] = l2.item()
-                measurements[disp_name]["min"] = min(
-                    mindssc_fix_.min().item(), mindssc_mov_.min().item()
-                )
-                measurements[disp_name]["max"] = max(
-                    mindssc_fix_.max().item(), mindssc_mov_.max().item()
-                )
             else:
                 mindssc_fix_ = MINDSSC(
                     fixed.unsqueeze(0).unsqueeze(0).cuda(), 1, 2
@@ -241,8 +234,8 @@ def main(
 
         # log total registration error if keypoints present
         if data.fixed_keypoints is not None:
-            spacing_fix = np.array(fixed_nib.spacing)
-            spacing_mov = np.array(moving_nib.spacing)
+            spacing_fix = get_spacing(fixed_nib)
+            spacing_mov = get_spacing(moving_nib)
             fixed_keypoints = np.loadtxt(data.fixed_keypoints, delimiter=",")
             moving_keypoints = np.loadtxt(data.moving_keypoints, delimiter=",")
             tre = compute_total_registration_error(
