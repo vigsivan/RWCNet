@@ -402,6 +402,7 @@ def with_labels(
     save_directory: Path,
     grid_sp: int = 2,
     disp_hw: int = 3,
+    split: str="train",
     lambda_weight: float = 1.25,
     iterations: int = 100,
     compute_mind_from_seg: bool = True,
@@ -455,7 +456,7 @@ def with_labels(
         warp_images_dir = save_directory / "segmentations"
         warp_images_dir.mkdir(exist_ok=True)
 
-    gen = tqdm(data_generator(data_json, split="train"))
+    gen = tqdm(data_generator(data_json, split=split))
     measurements = defaultdict(dict)
 
     for data in gen:
