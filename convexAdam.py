@@ -127,7 +127,7 @@ def main(
                 ).cuda().squeeze()
                 moving_seg = add_bc_dim(
                     torch.from_numpy(
-                        np.round(nib.load(data.fixed_segmentation).get_fdata())
+                        np.round(nib.load(data.moving_segmentation).get_fdata())
                     )
                 ).cuda().squeeze()
 
