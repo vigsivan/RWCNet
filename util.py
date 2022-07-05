@@ -8,13 +8,42 @@ import typer
 app = typer.Typer()
 
 @app.command()
-def oasis(dataset_json: Path, dataset_path: Path, output_json: Path):
+def abdomen_mrct_val(dataset_json: Path, dataset_path: Path, output_json: Path):
+    # TODO: enable training
     with open(dataset_json, "r") as f:
         l2r_data = json.load(f)
 
-    training_data = {
-        Path(subject["image"]).name: subject for subject in l2r_data["training"]
-    }
+    val_pairs = l2r_data["registration_val"]
+
+    train_data = []
+    val_data = []
+    mask_dir = dataset_path / "masksTr"
+    label_dir = dataset_path / "labelsTr"
+    labels = [0, 1, 2, 3, 4]
+
+    for val_pair in val_pairs:
+        assert mask_dir is not None and label_dir is not None
+        data = {
+            "fixed_image": str(dataset_path / val_pair["fixed"]),
+            "moving_image": str(dataset_path / val_pair["moving"]),
+            "fixed_segmentation": str(label_dir / Path(val_pair["fixed"]).name),
+            "moving_segmentation": str(label_dir / Path(val_pair["moving"]).name),
+            "fixed_mask": str(mask_dir / Path(val_pair["fixed"]).name),
+            "moving_mask": str(mask_dir / Path(val_pair["moving"]).name),
+        }
+        for p in data.values():
+            assert Path(p).exists()
+        val_data.append(data)
+
+
+    with open(output_json, "w") as f:
+        json.dump({"labels": labels, "train": train_data, "val": val_data}, f)
+
+
+@app.command()
+def oasis(dataset_json: Path, dataset_path: Path, output_json: Path):
+    with open(dataset_json, "r") as f:
+        l2r_data = json.load(f)
 
     images = l2r_data["training"]
     val_pairs = l2r_data["registration_val"]
@@ -26,8 +55,6 @@ def oasis(dataset_json: Path, dataset_path: Path, output_json: Path):
     mask_dir: Optional[Path] = None
     label_dir: Optional[Path] = None
     for image in images:
-        data_dict = val_data if image["image"] in val_images else train_data
-        labels_nib = nib.load(dataset_path / image["label"]).get_fdata()
         if image["image"] in val_images:
             continue
         if mask_dir is None:
