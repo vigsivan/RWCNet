@@ -1,0 +1,2166 @@
+{
+    "labels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35
+    ],
+    "train": [
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0001_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0001_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0001_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0002_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0002_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0002_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0003_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0003_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0003_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0004_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0004_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0004_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0005_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0005_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0005_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0006_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0006_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0006_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0007_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0007_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0007_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0008_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0008_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0008_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0009_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0009_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0009_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0010_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0010_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0010_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0011_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0011_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0011_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0012_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0012_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0012_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0013_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0013_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0013_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0014_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0014_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0014_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0015_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0015_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0015_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0016_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0016_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0016_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0017_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0017_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0017_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0018_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0018_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0018_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0019_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0019_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0019_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0020_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0020_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0020_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0021_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0021_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0021_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0022_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0022_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0022_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0023_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0023_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0023_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0024_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0024_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0024_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0025_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0025_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0025_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0026_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0026_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0026_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0027_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0027_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0027_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0028_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0028_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0028_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0029_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0029_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0029_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0030_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0030_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0030_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0031_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0031_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0031_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0032_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0032_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0032_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0033_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0033_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0033_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0034_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0034_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0034_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0035_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0035_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0035_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0036_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0036_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0036_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0037_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0037_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0037_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0038_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0038_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0038_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0039_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0039_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0039_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0040_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0040_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0040_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0041_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0041_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0041_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0042_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0042_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0042_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0043_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0043_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0043_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0044_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0044_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0044_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0045_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0045_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0045_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0046_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0046_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0046_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0047_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0047_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0047_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0048_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0048_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0048_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0049_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0049_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0049_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0050_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0050_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0050_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0051_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0051_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0051_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0052_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0052_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0052_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0053_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0053_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0053_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0054_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0054_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0054_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0055_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0055_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0055_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0056_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0056_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0056_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0057_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0057_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0057_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0058_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0058_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0058_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0059_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0059_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0059_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0060_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0060_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0060_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0061_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0061_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0061_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0062_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0062_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0062_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0063_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0063_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0063_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0064_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0064_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0064_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0065_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0065_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0065_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0066_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0066_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0066_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0067_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0067_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0067_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0068_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0068_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0068_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0069_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0069_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0069_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0070_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0070_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0070_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0071_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0071_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0071_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0072_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0072_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0072_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0073_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0073_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0073_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0074_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0074_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0074_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0075_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0075_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0075_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0076_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0076_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0076_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0077_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0077_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0077_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0078_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0078_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0078_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0079_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0079_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0079_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0080_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0080_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0080_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0081_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0081_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0081_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0082_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0082_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0082_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0083_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0083_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0083_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0084_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0084_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0084_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0085_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0085_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0085_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0086_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0086_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0086_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0087_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0087_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0087_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0088_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0088_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0088_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0089_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0089_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0089_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0090_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0090_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0090_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0091_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0091_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0091_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0092_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0092_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0092_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0093_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0093_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0093_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0094_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0094_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0094_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0095_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0095_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0095_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0096_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0096_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0096_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0097_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0097_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0097_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0098_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0098_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0098_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0099_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0099_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0099_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0100_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0100_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0100_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0101_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0101_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0101_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0102_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0102_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0102_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0103_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0103_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0103_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0104_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0104_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0104_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0105_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0105_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0105_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0106_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0106_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0106_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0107_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0107_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0107_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0108_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0108_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0108_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0109_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0109_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0109_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0110_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0110_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0110_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0111_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0111_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0111_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0112_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0112_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0112_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0113_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0113_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0113_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0114_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0114_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0114_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0115_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0115_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0115_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0116_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0116_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0116_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0117_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0117_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0117_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0118_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0118_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0118_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0119_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0119_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0119_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0120_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0120_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0120_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0121_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0121_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0121_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0122_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0122_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0122_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0123_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0123_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0123_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0124_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0124_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0124_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0125_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0125_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0125_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0126_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0126_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0126_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0127_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0127_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0127_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0128_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0128_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0128_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0129_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0129_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0129_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0130_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0130_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0130_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0131_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0131_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0131_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0132_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0132_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0132_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0133_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0133_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0133_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0134_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0134_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0134_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0135_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0135_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0135_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0136_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0136_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0136_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0137_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0137_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0137_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0138_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0138_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0138_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0139_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0139_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0139_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0140_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0140_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0140_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0141_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0141_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0141_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0142_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0142_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0142_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0143_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0143_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0143_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0144_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0144_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0144_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0145_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0145_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0145_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0146_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0146_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0146_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0147_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0147_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0147_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0148_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0148_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0148_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0149_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0149_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0149_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0150_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0150_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0150_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0151_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0151_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0151_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0152_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0152_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0152_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0153_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0153_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0153_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0154_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0154_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0154_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0155_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0155_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0155_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0156_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0156_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0156_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0157_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0157_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0157_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0158_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0158_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0158_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0159_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0159_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0159_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0160_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0160_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0160_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0161_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0161_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0161_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0162_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0162_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0162_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0163_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0163_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0163_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0164_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0164_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0164_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0165_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0165_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0165_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0166_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0166_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0166_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0167_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0167_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0167_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0168_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0168_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0168_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0169_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0169_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0169_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0170_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0170_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0170_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0171_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0171_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0171_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0172_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0172_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0172_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0173_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0173_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0173_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0174_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0174_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0174_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0175_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0175_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0175_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0176_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0176_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0176_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0177_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0177_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0177_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0178_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0178_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0178_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0179_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0179_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0179_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0180_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0180_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0180_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0181_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0181_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0181_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0182_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0182_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0182_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0183_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0183_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0183_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0184_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0184_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0184_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0185_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0185_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0185_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0186_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0186_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0186_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0187_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0187_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0187_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0188_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0188_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0188_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0189_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0189_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0189_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0190_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0190_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0190_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0191_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0191_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0191_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0192_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0192_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0192_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0193_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0193_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0193_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0194_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0194_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0194_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0195_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0195_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0195_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0196_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0196_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0196_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0197_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0197_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0197_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0198_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0198_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0198_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0199_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0199_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0199_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0200_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0200_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0200_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0201_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0201_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0201_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0202_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0202_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0202_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0203_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0203_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0203_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0204_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0204_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0204_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0205_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0205_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0205_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0206_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0206_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0206_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0207_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0207_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0207_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0208_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0208_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0208_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0209_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0209_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0209_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0210_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0210_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0210_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0211_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0211_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0211_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0212_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0212_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0212_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0213_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0213_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0213_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0214_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0214_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0214_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0215_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0215_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0215_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0216_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0216_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0216_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0217_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0217_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0217_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0218_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0218_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0218_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0219_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0219_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0219_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0220_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0220_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0220_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0221_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0221_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0221_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0222_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0222_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0222_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0223_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0223_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0223_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0224_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0224_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0224_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0225_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0225_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0225_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0226_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0226_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0226_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0227_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0227_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0227_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0228_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0228_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0228_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0229_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0229_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0229_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0230_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0230_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0230_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0231_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0231_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0231_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0232_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0232_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0232_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0233_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0233_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0233_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0234_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0234_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0234_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0235_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0235_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0235_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0236_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0236_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0236_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0237_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0237_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0237_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0238_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0238_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0238_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0239_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0239_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0239_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0240_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0240_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0240_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0241_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0241_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0241_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0242_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0242_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0242_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0243_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0243_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0243_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0244_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0244_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0244_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0245_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0245_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0245_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0246_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0246_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0246_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0247_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0247_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0247_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0248_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0248_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0248_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0249_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0249_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0249_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0250_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0250_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0250_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0251_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0251_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0251_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0252_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0252_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0252_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0253_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0253_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0253_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0254_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0254_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0254_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0255_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0255_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0255_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0256_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0256_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0256_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0257_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0257_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0257_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0258_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0258_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0258_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0259_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0259_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0259_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0260_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0260_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0260_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0261_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0261_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0261_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0262_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0262_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0262_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0263_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0263_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0263_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0264_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0264_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0264_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0265_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0265_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0265_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0266_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0266_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0266_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0267_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0267_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0267_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0268_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0268_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0268_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0269_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0269_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0269_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0270_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0270_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0270_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0271_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0271_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0271_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0272_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0272_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0272_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0273_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0273_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0273_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0274_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0274_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0274_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0275_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0275_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0275_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0276_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0276_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0276_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0277_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0277_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0277_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0278_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0278_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0278_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0279_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0279_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0279_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0280_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0280_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0280_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0281_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0281_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0281_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0282_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0282_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0282_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0283_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0283_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0283_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0284_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0284_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0284_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0285_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0285_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0285_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0286_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0286_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0286_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0287_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0287_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0287_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0288_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0288_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0288_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0289_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0289_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0289_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0290_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0290_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0290_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0291_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0291_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0291_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0292_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0292_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0292_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0293_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0293_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0293_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0294_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0294_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0294_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0295_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0295_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0295_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0296_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0296_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0296_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0297_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0297_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0297_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0298_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0298_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0298_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0299_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0299_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0299_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0300_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0300_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0300_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0301_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0301_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0301_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0302_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0302_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0302_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0303_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0303_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0303_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0304_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0304_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0304_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0305_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0305_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0305_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0306_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0306_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0306_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0307_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0307_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0307_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0308_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0308_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0308_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0309_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0309_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0309_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0310_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0310_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0310_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0311_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0311_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0311_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0312_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0312_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0312_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0313_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0313_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0313_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0314_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0314_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0314_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0315_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0315_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0315_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0316_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0316_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0316_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0317_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0317_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0317_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0318_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0318_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0318_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0319_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0319_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0319_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0320_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0320_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0320_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0321_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0321_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0321_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0322_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0322_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0322_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0323_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0323_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0323_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0324_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0324_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0324_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0325_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0325_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0325_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0326_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0326_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0326_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0327_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0327_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0327_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0328_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0328_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0328_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0329_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0329_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0329_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0330_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0330_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0330_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0331_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0331_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0331_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0332_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0332_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0332_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0333_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0333_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0333_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0334_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0334_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0334_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0335_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0335_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0335_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0336_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0336_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0336_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0337_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0337_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0337_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0338_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0338_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0338_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0339_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0339_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0339_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0340_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0340_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0340_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0341_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0341_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0341_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0342_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0342_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0342_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0343_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0343_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0343_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0344_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0344_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0344_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0345_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0345_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0345_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0346_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0346_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0346_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0347_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0347_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0347_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0348_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0348_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0348_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0349_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0349_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0349_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0350_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0350_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0350_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0351_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0351_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0351_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0352_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0352_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0352_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0353_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0353_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0353_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0354_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0354_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0354_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0355_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0355_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0355_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0356_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0356_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0356_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0357_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0357_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0357_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0358_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0358_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0358_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0359_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0359_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0359_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0360_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0360_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0360_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0361_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0361_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0361_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0362_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0362_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0362_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0363_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0363_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0363_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0364_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0364_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0364_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0365_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0365_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0365_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0366_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0366_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0366_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0367_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0367_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0367_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0368_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0368_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0368_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0369_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0369_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0369_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0370_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0370_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0370_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0371_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0371_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0371_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0372_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0372_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0372_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0373_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0373_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0373_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0374_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0374_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0374_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0375_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0375_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0375_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0376_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0376_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0376_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0377_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0377_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0377_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0378_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0378_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0378_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0379_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0379_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0379_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0380_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0380_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0380_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0381_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0381_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0381_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0382_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0382_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0382_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0383_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0383_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0383_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0384_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0384_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0384_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0385_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0385_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0385_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0386_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0386_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0386_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0387_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0387_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0387_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0388_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0388_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0388_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0389_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0389_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0389_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0390_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0390_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0390_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0391_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0391_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0391_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0392_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0392_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0392_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0393_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0393_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0393_0000.nii.gz"
+        },
+        {
+            "image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0394_0000.nii.gz",
+            "label": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0394_0000.nii.gz",
+            "mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0394_0000.nii.gz"
+        }
+    ],
+    "val": [
+        {
+            "fixed_image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0395_0000.nii.gz",
+            "moving_image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0396_0000.nii.gz",
+            "fixed_segmentation": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0395_0000.nii.gz",
+            "moving_segmentation": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0396_0000.nii.gz",
+            "fixed_mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0395_0000.nii.gz",
+            "moving_mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0396_0000.nii.gz"
+        },
+        {
+            "fixed_image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0396_0000.nii.gz",
+            "moving_image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0397_0000.nii.gz",
+            "fixed_segmentation": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0396_0000.nii.gz",
+            "moving_segmentation": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0397_0000.nii.gz",
+            "fixed_mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0396_0000.nii.gz",
+            "moving_mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0397_0000.nii.gz"
+        },
+        {
+            "fixed_image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0397_0000.nii.gz",
+            "moving_image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0398_0000.nii.gz",
+            "fixed_segmentation": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0397_0000.nii.gz",
+            "moving_segmentation": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0398_0000.nii.gz",
+            "fixed_mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0397_0000.nii.gz",
+            "moving_mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0398_0000.nii.gz"
+        },
+        {
+            "fixed_image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0398_0000.nii.gz",
+            "moving_image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0399_0000.nii.gz",
+            "fixed_segmentation": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0398_0000.nii.gz",
+            "moving_segmentation": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0399_0000.nii.gz",
+            "fixed_mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0398_0000.nii.gz",
+            "moving_mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0399_0000.nii.gz"
+        },
+        {
+            "fixed_image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0399_0000.nii.gz",
+            "moving_image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0400_0000.nii.gz",
+            "fixed_segmentation": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0399_0000.nii.gz",
+            "moving_segmentation": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0400_0000.nii.gz",
+            "fixed_mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0399_0000.nii.gz",
+            "moving_mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0400_0000.nii.gz"
+        },
+        {
+            "fixed_image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0400_0000.nii.gz",
+            "moving_image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0401_0000.nii.gz",
+            "fixed_segmentation": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0400_0000.nii.gz",
+            "moving_segmentation": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0401_0000.nii.gz",
+            "fixed_mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0400_0000.nii.gz",
+            "moving_mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0401_0000.nii.gz"
+        },
+        {
+            "fixed_image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0401_0000.nii.gz",
+            "moving_image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0402_0000.nii.gz",
+            "fixed_segmentation": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0401_0000.nii.gz",
+            "moving_segmentation": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0402_0000.nii.gz",
+            "fixed_mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0401_0000.nii.gz",
+            "moving_mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0402_0000.nii.gz"
+        },
+        {
+            "fixed_image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0402_0000.nii.gz",
+            "moving_image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0403_0000.nii.gz",
+            "fixed_segmentation": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0402_0000.nii.gz",
+            "moving_segmentation": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0403_0000.nii.gz",
+            "fixed_mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0402_0000.nii.gz",
+            "moving_mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0403_0000.nii.gz"
+        },
+        {
+            "fixed_image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0403_0000.nii.gz",
+            "moving_image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0404_0000.nii.gz",
+            "fixed_segmentation": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0403_0000.nii.gz",
+            "moving_segmentation": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0404_0000.nii.gz",
+            "fixed_mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0403_0000.nii.gz",
+            "moving_mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0404_0000.nii.gz"
+        },
+        {
+            "fixed_image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0404_0000.nii.gz",
+            "moving_image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0405_0000.nii.gz",
+            "fixed_segmentation": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0404_0000.nii.gz",
+            "moving_segmentation": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0405_0000.nii.gz",
+            "fixed_mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0404_0000.nii.gz",
+            "moving_mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0405_0000.nii.gz"
+        },
+        {
+            "fixed_image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0405_0000.nii.gz",
+            "moving_image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0406_0000.nii.gz",
+            "fixed_segmentation": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0405_0000.nii.gz",
+            "moving_segmentation": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0406_0000.nii.gz",
+            "fixed_mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0405_0000.nii.gz",
+            "moving_mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0406_0000.nii.gz"
+        },
+        {
+            "fixed_image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0406_0000.nii.gz",
+            "moving_image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0407_0000.nii.gz",
+            "fixed_segmentation": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0406_0000.nii.gz",
+            "moving_segmentation": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0407_0000.nii.gz",
+            "fixed_mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0406_0000.nii.gz",
+            "moving_mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0407_0000.nii.gz"
+        },
+        {
+            "fixed_image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0407_0000.nii.gz",
+            "moving_image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0408_0000.nii.gz",
+            "fixed_segmentation": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0407_0000.nii.gz",
+            "moving_segmentation": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0408_0000.nii.gz",
+            "fixed_mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0407_0000.nii.gz",
+            "moving_mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0408_0000.nii.gz"
+        },
+        {
+            "fixed_image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0408_0000.nii.gz",
+            "moving_image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0409_0000.nii.gz",
+            "fixed_segmentation": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0408_0000.nii.gz",
+            "moving_segmentation": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0409_0000.nii.gz",
+            "fixed_mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0408_0000.nii.gz",
+            "moving_mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0409_0000.nii.gz"
+        },
+        {
+            "fixed_image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0409_0000.nii.gz",
+            "moving_image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0410_0000.nii.gz",
+            "fixed_segmentation": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0409_0000.nii.gz",
+            "moving_segmentation": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0410_0000.nii.gz",
+            "fixed_mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0409_0000.nii.gz",
+            "moving_mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0410_0000.nii.gz"
+        },
+        {
+            "fixed_image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0410_0000.nii.gz",
+            "moving_image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0411_0000.nii.gz",
+            "fixed_segmentation": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0410_0000.nii.gz",
+            "moving_segmentation": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0411_0000.nii.gz",
+            "fixed_mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0410_0000.nii.gz",
+            "moving_mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0411_0000.nii.gz"
+        },
+        {
+            "fixed_image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0411_0000.nii.gz",
+            "moving_image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0412_0000.nii.gz",
+            "fixed_segmentation": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0411_0000.nii.gz",
+            "moving_segmentation": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0412_0000.nii.gz",
+            "fixed_mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0411_0000.nii.gz",
+            "moving_mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0412_0000.nii.gz"
+        },
+        {
+            "fixed_image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0412_0000.nii.gz",
+            "moving_image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0413_0000.nii.gz",
+            "fixed_segmentation": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0412_0000.nii.gz",
+            "moving_segmentation": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0413_0000.nii.gz",
+            "fixed_mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0412_0000.nii.gz",
+            "moving_mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0413_0000.nii.gz"
+        },
+        {
+            "fixed_image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0413_0000.nii.gz",
+            "moving_image": "/home/vsivan/l2rdata_zip/OASIS/imagesTr/OASIS_0414_0000.nii.gz",
+            "fixed_segmentation": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0413_0000.nii.gz",
+            "moving_segmentation": "/home/vsivan/l2rdata_zip/OASIS/labelsTr/OASIS_0414_0000.nii.gz",
+            "fixed_mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0413_0000.nii.gz",
+            "moving_mask": "/home/vsivan/l2rdata_zip/OASIS/masksTr/OASIS_0414_0000.nii.gz"
+        }
+    ]
+}
