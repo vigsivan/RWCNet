@@ -1,35 +1,39 @@
 # Optimization Based Registration
 
-# Setup
+## Setup
 
-The following packages are needed.
-
-```bash
-einops==0.4.0                                                                   
-
-click==8.0.4
-
-numpy==1.20.0
-
-scipy==1.8.0
-
-torch==1.10.1
-
-torchio==0.18.71
-
-tqdm
-
-typer==0.4.0                                                                                         
+```
+pip install -r requirements.txt
 ```
 
-# Usage
+To evaluate on L2R data, set up L2R eval repo
 
-```bash
-# Train without labels, --warp-images will save the moved images to the output directory
-python convexAdam.py train-without-labels <data.json> ./output2 --warp-images
-
-# Train with labels, dice score is saved as output/dice_measurements.json
-python convexAdam.py train-with-labels <data.json> ./output
+```
+git clone git@github.com:MDL-UzL/L2R.git
+cd L2R/evaluation/surface-distance/
+python setup.py install
 ```
 
-For an example of the json format, refer to example jsons provided.
+## Data Format
+
+The scripts expect the data to be in a JSON format. Please refer to the example for Oasis in the example directory.
+The util script provides a few script for converting L2R data to the required format.
+There is also support for training flownet with unpaired images.
+
+## Running
+
+### ConvexAdam
+
+```
+# for a full list of options
+python convexAdam.py --help
+
+python convexAdam.py ~/optimization-based-registration/oasis.json oasis_ca --split val
+# functionality for running without labels
+python convexAdam.py ~/optimization-based-registration/oasis.json oasis_ca --split val --no-use-labels 
+
+```
+
+### Flownet
+
+WIP
