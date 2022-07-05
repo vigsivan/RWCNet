@@ -19,6 +19,7 @@ from torch.utils.tensorboard.writer import SummaryWriter
 import typer
 
 from common import (
+    DisplacementFormat,
     data_generator,
     random_never_ending_generator,
     random_unpaired_never_ending_generator,
@@ -342,6 +343,8 @@ def eval(
     feature_extractor_strides: str = "2,1,1",
     feature_extractor_feature_sizes: str = "8,32,64",
     feature_extractor_kernel_sizes: str = "7,5,5",
+    use_l2r_naming: bool=True,
+    disp_format: DisplacementFormat=DisplacementFormat.Nifti,
     diffeomorphic: bool=False,
     device: str = "cuda",
     save_images: bool = True,
@@ -421,8 +424,20 @@ def eval(
             )
             nib.save(warped_nib, savedir / "images" / moved_image_name)
 
-        disp_name = f"{data.moving_image.name.split('.')[0]}2{data.fixed_image.name.split('.')[0]}"
+        if use_l2r_naming:
+            disp_name = f"disp_{data.fixed_image.name[-16:-12]}_{data.moving_image.name[-16:-12]}"
+        else:
+            disp_name = f"disp_{data.fixed_image.name.split('.')[0]}_{data.moving_image.name.split('.')[0]}"
         disp_np = torch2skimage_disp(flow)
+
+        l2r_disp = einops.rearrange(disp_np, 't h w d -> h w d t')
+        if disp_format == DisplacementFormat.Numpy:
+            np.savez_compressed(savedir / "disps" / f"{disp_name}.npz", l2r_disp)
+        else:
+            displacement_nib = nib.Nifti1Image(l2r_disp, affine=moving_nib.affine)
+            nib.save(displacement_nib, savedir / "disps" / f"{disp_name}.nii.gz")
+
+
         np.savez_compressed(savedir / "disps" / disp_name, disp_np)
 
         measurements[disp_name][
