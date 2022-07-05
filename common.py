@@ -110,10 +110,12 @@ def get_identity_affine_grid(size: Tuple[int, ...]) -> torch.Tensor:
     return grid0
 
 
-def get_labels(fixed_seg: torch.Tensor, moving_seg: torch.Tensor) -> list:
+def get_labels(fixed_seg: torch.Tensor, moving_seg: torch.Tensor, include_zero: bool=False) -> list:
     fixed_labels = (torch.unique(fixed_seg.long())).tolist()
     moving_labels = (torch.unique(moving_seg.long())).tolist()
     label_list = list((np.unique(set(fixed_labels + moving_labels)))[0])
+    if not include_zero:
+        label_list.remove(0)
     return label_list
 
 
