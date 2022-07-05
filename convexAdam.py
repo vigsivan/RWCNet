@@ -43,6 +43,7 @@ def main(
     iterations: int = 100,
     compute_mind_from_seg: bool = True,
     skip_normalize: bool = False,
+    use_l2r_naming: bool=True,
     disp_format: DisplacementFormat=DisplacementFormat.Nifti,
     warp_images: bool = True,
     warp_segmentations: bool = True,
@@ -220,7 +221,10 @@ def main(
             fixed_seg = fixed_seg.detach().cpu() #type: ignore
             moved_seg = apply_displacement_field(disp_np, moving_seg.numpy(), order=0) 
 
-            disp_name = f"{data.moving_image.name}2{data.fixed_image.name}"
+            if use_l2r_naming:
+                disp_name = f"disp_{data.fixed_image.name[-16:-12]}_{data.moving_image.name[-16:-12]}"
+            else:
+                disp_name = f"disp_{data.fixed_image.name.split('.')[0]}_{data.moving_image.name.split('.')[0]}"
             dice = compute_dice(
                 fixed_seg.numpy(), moving_seg.numpy(), moved_seg, labels=label_list #type: ignore
 
