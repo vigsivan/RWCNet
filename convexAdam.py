@@ -38,10 +38,10 @@ def main(
     save_directory: Path,
     grid_sp: int = 2,
     disp_hw: int = 3,
+    use_labels: bool = True,
     split: str="train",
     lambda_weight: float = 1.25,
     iterations: int = 100,
-    compute_mind_from_seg: bool = True,
     skip_normalize: bool = False,
     use_l2r_naming: bool=True,
     disp_format: DisplacementFormat=DisplacementFormat.Nifti,
@@ -119,7 +119,7 @@ def main(
         torch.cuda.synchronize()
 
         with torch.no_grad():
-            if compute_mind_from_seg:
+            if use_labels:
                 fixed_seg = add_bc_dim(
                     torch.from_numpy(
                         np.round(nib.load(data.fixed_segmentation).get_fdata())
@@ -216,7 +216,7 @@ def main(
         # NOTE: we are using scipy's interpolate func, which does not take a batch dimension
         disp_np = einops.rearrange(disp_np, "b c d h w -> (b c) d h w")
 
-        if compute_mind_from_seg:
+        if use_labels:
             moving_seg = moving_seg.detach().cpu() #type: ignore
             fixed_seg = fixed_seg.detach().cpu() #type: ignore
             moved_seg = apply_displacement_field(disp_np, moving_seg.numpy(), order=0) 
