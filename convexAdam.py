@@ -15,6 +15,7 @@ from tqdm import tqdm
 import typer
 
 from common import (
+    DisplacementFormat,
     MINDSEG,
     MINDSSC,
     adam_optimization,
@@ -42,6 +43,7 @@ def main(
     iterations: int = 100,
     compute_mind_from_seg: bool = True,
     skip_normalize: bool = False,
+    disp_format: DisplacementFormat=DisplacementFormat.Nifti,
     warp_images: bool = True,
     warp_segmentations: bool = True,
 ):
@@ -172,7 +174,7 @@ def main(
 
         disp_lr = F.interpolate(
             disp_soft * grid_sp,
-            size=tuple(s // 2 for s in data_shape),
+            size=tuple(s // grid_sp for s in data_shape),
             mode="trilinear",
             align_corners=False,
         )
@@ -185,13 +187,12 @@ def main(
             mind_mov_ = F.avg_pool3d(mindssc_mov_, grid_sp, stride=grid_sp)
         del mindssc_fix_, mindssc_mov_
 
-        # TODO: test this
         net = adam_optimization(
-            disp=tuple([s // grid_sp for s in disp_lr.shape]),
+            disp=disp_lr,
             mind_fixed=mind_fix_,
             mind_moving=mind_mov_,
             lambda_weight=lambda_weight,
-            image_shape=data_shape,
+            image_shape=tuple(s//grid_sp for s in data_shape),
             iterations=iterations,
             norm=grid_sp
         )
@@ -249,16 +250,13 @@ def main(
             moved_nib = nib.Nifti1Image(moved_image, affine=fixed_nib.affine)
             nib.save(moved_nib, save_directory / "images" / data.moving_image.name)
 
-
-        disp_field = F.interpolate(
-            disp_hr, scale_factor=0.5, mode="trilinear", align_corners=False
-        )
-        x1 = disp_field[0, 0, :, :, :].cpu().float().data.numpy()
-        y1 = disp_field[0, 1, :, :, :].cpu().float().data.numpy()
-        z1 = disp_field[0, 2, :, :, :].cpu().float().data.numpy()
-
-        displacement = np.stack([x1, y1, z1], 0)
-        np.savez_compressed(save_directory / "disps" / f"{disp_name}.npz", displacement)
+        # L2R evaluation scripts expects displacements with the shape (*data_shape, 3)
+        l2r_disp = einops.rearrange(disp_np, 't h w d -> h w d t')
+        if disp_format == DisplacementFormat.Numpy:
+            np.savez_compressed(save_directory / "disps" / f"{disp_name}.npz", l2r_disp)
+        else:
+            displacement_nib = nib.Nifti1Image(l2r_disp, affine=moving_nib.affine)
+            nib.save(displacement_nib, save_directory / "disps" / f"{disp_name}.nii.gz")
 
         torch.cuda.synchronize()
 

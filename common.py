@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from enum import Enum
 from functools import lru_cache
 import json
 from pathlib import Path
@@ -14,6 +15,9 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 from torch.utils.tensorboard.writer import SummaryWriter
 
+class DisplacementFormat(str, Enum):
+    Nifti ="nifti"
+    Numpy = "numpy"
 
 def torch2skimage_disp(disp_field: torch.Tensor) -> np.ndarray:
     x1 = disp_field[0, 0, :, :, :].cpu().float().data.numpy()
@@ -665,7 +669,7 @@ def adam_optimization(
     H, W, D = image_shape
     # create optimisable displacement grid
     net = nn.Sequential(
-        nn.Conv3d(3, 1, (H, Wg, D // grid_sp), bias=False)
+        nn.Conv3d(3, 1, (H, W, D), bias=False)
     )
     net[0].weight.data[:] = disp / norm
     net.cuda()
