@@ -1,0 +1,363 @@
+{
+    "name": "AbdomenCTCT",
+    "release": "1.0",
+    "description": "Subset AbdomenCTCT of Learn2Reg Dataset. Please see https://learn2reg.grand-challenge.org/ for more information. All scans were captured during portal venous contrast phase with variable volume sizes (512 × 512 × 53 ~ 512 × 512 × 368) and field of views (approx. 280 × 280 × 225 mm3 ~ 500 × 500 × 760 mm3). The in-plane resolution varies from 0.54 × 0.54 mm2 to 0.98 × 0.98 mm2, while the slice thickness ranged from 1.5 mm to 7.0 mm. Thirteen abdominal organs were considered regions of interest (ROI), including spleen, right kidney, left kidney, gall bladder, esophagus, liver, stomach, aorta, inferior vena cava, portal and splenic vein, pancreas, left adrenal gland, and right adrenal gland. The organ selection was essentially based on [Shimizu A, Ohno R, Ikegami T, Kobatake H, Nawano S, Smutek D. Segmentation of multiple organs in non-contrast 3D abdominal CT images. International Journal of Computer Assisted Radiology and Surgery. 2007;2:135–142.]. As suggested by a radiologist, the heart was excluded for lack of full appearance in the datasets, and instead the adrenal glands were included for clinical interest. These ROIs were manually labeled by two experienced undergraduate students with 6 months of training on anatomy identification and labeling, and then verified by a radiologist on a volumetric basis using the MIPAV software.",
+    "licence": "Citation: Xu, Zhoubing et al. Evaluation of six registration methods for the human abdomen on clinically acquired CT, IEEE Transactions on Biomedical Engineering, 63 (8), pages=1563-1572, 2016",
+    "reference": "",
+    "pairings": "unpaired",
+    "provided_data": {
+        "0": [
+            "image",
+            "label"
+        ]
+    },
+    "registration_direction": {
+        "fixed": 0,
+        "moving": 0
+    },
+    "modality": {
+        "0": "CT"
+    },
+    "labels": {
+        "0": {
+            "0": "background",
+            "1": "spleen",
+            "2": "right kidney",
+            "3": "left kidney",
+            "4": "gall bladder",
+            "5": "esophagus",
+            "6": "liver",
+            "7": "stomach",
+            "8": "aorta",
+            "9": "inferior vena cava",
+            "10": "portal and splenic vein",
+            "11": "pancreas",
+            "12": "left adrenal gland",
+            "13": "right adrenal gland"
+        }
+    },
+    "tensorImageSize": {
+        "0": "3D"
+    },
+    "tensorImageShape": {
+        "0": [
+            192,
+            160,
+            256
+        ]
+    },
+    "numTraining": 30,
+    "numTest": 0,
+    "training": [
+        {
+            "image": "./imagesTr/AbdomenCTCT_0001_0000.nii.gz",
+            "label": "./labelsTr/AbdomenCTCT_0001_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/AbdomenCTCT_0002_0000.nii.gz",
+            "label": "./labelsTr/AbdomenCTCT_0002_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/AbdomenCTCT_0003_0000.nii.gz",
+            "label": "./labelsTr/AbdomenCTCT_0003_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/AbdomenCTCT_0004_0000.nii.gz",
+            "label": "./labelsTr/AbdomenCTCT_0004_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/AbdomenCTCT_0005_0000.nii.gz",
+            "label": "./labelsTr/AbdomenCTCT_0005_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/AbdomenCTCT_0006_0000.nii.gz",
+            "label": "./labelsTr/AbdomenCTCT_0006_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/AbdomenCTCT_0007_0000.nii.gz",
+            "label": "./labelsTr/AbdomenCTCT_0007_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/AbdomenCTCT_0008_0000.nii.gz",
+            "label": "./labelsTr/AbdomenCTCT_0008_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/AbdomenCTCT_0009_0000.nii.gz",
+            "label": "./labelsTr/AbdomenCTCT_0009_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/AbdomenCTCT_0010_0000.nii.gz",
+            "label": "./labelsTr/AbdomenCTCT_0010_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/AbdomenCTCT_0011_0000.nii.gz",
+            "label": "./labelsTr/AbdomenCTCT_0011_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/AbdomenCTCT_0012_0000.nii.gz",
+            "label": "./labelsTr/AbdomenCTCT_0012_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/AbdomenCTCT_0013_0000.nii.gz",
+            "label": "./labelsTr/AbdomenCTCT_0013_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/AbdomenCTCT_0014_0000.nii.gz",
+            "label": "./labelsTr/AbdomenCTCT_0014_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/AbdomenCTCT_0015_0000.nii.gz",
+            "label": "./labelsTr/AbdomenCTCT_0015_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/AbdomenCTCT_0016_0000.nii.gz",
+            "label": "./labelsTr/AbdomenCTCT_0016_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/AbdomenCTCT_0017_0000.nii.gz",
+            "label": "./labelsTr/AbdomenCTCT_0017_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/AbdomenCTCT_0018_0000.nii.gz",
+            "label": "./labelsTr/AbdomenCTCT_0018_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/AbdomenCTCT_0019_0000.nii.gz",
+            "label": "./labelsTr/AbdomenCTCT_0019_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/AbdomenCTCT_0020_0000.nii.gz",
+            "label": "./labelsTr/AbdomenCTCT_0020_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/AbdomenCTCT_0021_0000.nii.gz",
+            "label": "./labelsTr/AbdomenCTCT_0021_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/AbdomenCTCT_0022_0000.nii.gz",
+            "label": "./labelsTr/AbdomenCTCT_0022_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/AbdomenCTCT_0023_0000.nii.gz",
+            "label": "./labelsTr/AbdomenCTCT_0023_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/AbdomenCTCT_0024_0000.nii.gz",
+            "label": "./labelsTr/AbdomenCTCT_0024_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/AbdomenCTCT_0025_0000.nii.gz",
+            "label": "./labelsTr/AbdomenCTCT_0025_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/AbdomenCTCT_0026_0000.nii.gz",
+            "label": "./labelsTr/AbdomenCTCT_0026_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/AbdomenCTCT_0027_0000.nii.gz",
+            "label": "./labelsTr/AbdomenCTCT_0027_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/AbdomenCTCT_0028_0000.nii.gz",
+            "label": "./labelsTr/AbdomenCTCT_0028_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/AbdomenCTCT_0029_0000.nii.gz",
+            "label": "./labelsTr/AbdomenCTCT_0029_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/AbdomenCTCT_0030_0000.nii.gz",
+            "label": "./labelsTr/AbdomenCTCT_0030_0000.nii.gz"
+        }
+    ],
+    "test": [],
+    "numPairedTraining": 0,
+    "training_paired_images": [],
+    "numPairedTest": 0,
+    "test_paired_images": [],
+    "numRegistration_val": 45,
+    "registration_val": [
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0001_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0004_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0001_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0007_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0001_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0010_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0001_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0013_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0001_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0016_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0001_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0019_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0001_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0022_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0001_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0025_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0001_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0028_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0004_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0007_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0004_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0010_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0004_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0013_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0004_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0016_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0004_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0019_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0004_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0022_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0004_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0025_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0004_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0028_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0007_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0010_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0007_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0013_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0007_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0016_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0007_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0019_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0007_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0022_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0007_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0025_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0007_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0028_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0010_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0013_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0010_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0016_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0010_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0019_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0010_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0022_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0010_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0025_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0010_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0028_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0013_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0016_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0013_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0019_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0013_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0022_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0013_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0025_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0013_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0028_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0016_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0019_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0016_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0022_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0016_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0025_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0016_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0028_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0019_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0022_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0019_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0025_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0019_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0028_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0022_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0025_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0022_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0028_0000.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenCTCT_0025_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenCTCT_0028_0000.nii.gz"
+        }
+    ],
+    "numRegistration_test": 0,
+    "registration_test": []
+}

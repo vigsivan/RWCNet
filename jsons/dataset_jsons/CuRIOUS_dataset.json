@@ -1,0 +1,503 @@
+{
+    "name": "CuRIOUS",
+    "release": "1.0",
+    "description": "Subset CuRIOUS of Learn2Reg Dataset. Please see https://learn2reg.grand-challenge.org/ for more information. The database contains 22 subjects with low-grade brain gliomas and is intended to help develop MRI vs. US registration algorithms to correct tissue shift in brain tumor resection. For the task, we included the T1w and T2-FLAIR MRIs, and spatially tracked intra-operative ultrasound volumes taken after craniotomy and before resection started. Matching anatomical landmarks were annotated between T2FLAIR MRI and 3D ultrasound volumes to help validate registration algorithm accuracy. All scans were acquired for routine clinical care of brain tumor resection procedures at St Olavs University Hospital (Trondheim, Norway). For each clinical case, the pre-operative 3T MRI includes Gadolinium-enhanced T1w and T2 FLAIR scans, and the intra-operative US volume was obtained to cover the entire tumor region after craniotomy but before dura opening, as well as after resection was completed. Matching anatomical landmarks were annotated between T2FLAIR MRI and 3D ultrasound volumes. The reference anatomical landmarks were selected by Rater 1 in the ultrasound volume before dura is open after craniotomy. Then two raters selected matching anatomical landmarks in the ultrasound volumes obtained after tumor resection using the software 'register' from MINC Toolkit. The ultrasound landmark selection was repeated twice for each rater with a time interval of at least one week. Finally, the results (4 points for each landmark location) were averaged. Eligible anatomical landmarks include deep grooves and corners of sulci, convex points of gyri, and vanishing points of sulci. Same raters produced the anatomical landmarks for both the training and testing data.",
+    "licence": "Citation:  Y. Xiao, M. Fortin, G. Unsg\u00e5rd , H. Rivaz, and I. Reinertsen, \u201cREtroSpective Evaluation of Cerebral Tumors (RESECT): a clinical database of pre-operative MRI and intra-operative ultrasound in low-grade glioma surgeries\u201d. Medical Physics, Vol. 44(7), pp. 3875-3882, 2017. !",
+    "reference": "",
+    "pairings": "paired",
+    "provided_data": {
+        "0": [
+            "image",
+            "landmarks"
+        ],
+        "1": [
+            "image",
+            "landmarks"
+        ],
+        "2": [
+            "image",
+            "landmarks",
+            "mask"
+        ]
+    },
+    "registration_direction": {
+        "fixed": 0,
+        "moving": 2
+    },
+    "modality": {
+        "0": "MR FLAIR",
+        "1": "MR T1",
+        "2": "US"
+    },
+    "labels": {
+        "0": {},
+        "1": {},
+        "2": {}
+    },
+    "tensorImageSize": {
+        "0": "3D",
+        "1": "3D",
+        "2": "3D"
+    },
+    "tensorImageShape": {
+        "0": [
+            256,
+            256,
+            288
+        ],
+        "1": [
+            256,
+            256,
+            288
+        ],
+        "2": [
+            256,
+            256,
+            288
+        ]
+    },
+    "training": {
+        "0": [
+            {
+                "image": "./imagesTr/CuRIOUS_0001_0000.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0001_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0002_0000.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0002_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0003_0000.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0003_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0004_0000.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0004_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0005_0000.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0005_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0006_0000.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0006_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0007_0000.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0007_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0008_0000.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0008_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0009_0000.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0009_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0010_0000.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0010_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0011_0000.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0011_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0012_0000.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0012_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0013_0000.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0013_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0014_0000.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0014_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0015_0000.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0015_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0016_0000.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0016_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0017_0000.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0017_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0018_0000.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0018_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0019_0000.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0019_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0020_0000.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0020_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0021_0000.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0021_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0022_0000.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0022_0000.csv"
+            }
+        ],
+        "1": [
+            {
+                "image": "./imagesTr/CuRIOUS_0001_0001.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0001_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0002_0001.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0002_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0003_0001.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0003_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0004_0001.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0004_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0005_0001.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0005_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0006_0001.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0006_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0007_0001.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0007_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0008_0001.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0008_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0009_0001.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0009_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0010_0001.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0010_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0011_0001.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0011_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0012_0001.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0012_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0013_0001.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0013_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0014_0001.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0014_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0015_0001.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0015_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0016_0001.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0016_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0017_0001.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0017_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0018_0001.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0018_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0019_0001.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0019_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0020_0001.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0020_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0021_0001.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0021_0000.csv"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0022_0001.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0022_0000.csv"
+            }
+        ],
+        "2": [
+            {
+                "image": "./imagesTr/CuRIOUS_0001_0002.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0001_0002csv",
+                "mask": "./masksTr/CuRIOUS_0001_0002.nii.gz"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0002_0002.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0002_0002csv",
+                "mask": "./masksTr/CuRIOUS_0002_0002.nii.gz"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0003_0002.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0003_0002csv",
+                "mask": "./masksTr/CuRIOUS_0003_0002.nii.gz"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0004_0002.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0004_0002csv",
+                "mask": "./masksTr/CuRIOUS_0004_0002.nii.gz"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0005_0002.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0005_0002csv",
+                "mask": "./masksTr/CuRIOUS_0005_0002.nii.gz"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0006_0002.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0006_0002csv",
+                "mask": "./masksTr/CuRIOUS_0006_0002.nii.gz"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0007_0002.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0007_0002csv",
+                "mask": "./masksTr/CuRIOUS_0007_0002.nii.gz"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0008_0002.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0008_0002csv",
+                "mask": "./masksTr/CuRIOUS_0008_0002.nii.gz"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0009_0002.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0009_0002csv",
+                "mask": "./masksTr/CuRIOUS_0009_0002.nii.gz"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0010_0002.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0010_0002csv",
+                "mask": "./masksTr/CuRIOUS_0010_0002.nii.gz"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0011_0002.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0011_0002csv",
+                "mask": "./masksTr/CuRIOUS_0011_0002.nii.gz"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0012_0002.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0012_0002csv",
+                "mask": "./masksTr/CuRIOUS_0012_0002.nii.gz"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0013_0002.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0013_0002csv",
+                "mask": "./masksTr/CuRIOUS_0013_0002.nii.gz"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0014_0002.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0014_0002csv",
+                "mask": "./masksTr/CuRIOUS_0014_0002.nii.gz"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0015_0002.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0015_0002csv",
+                "mask": "./masksTr/CuRIOUS_0015_0002.nii.gz"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0016_0002.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0016_0002csv",
+                "mask": "./masksTr/CuRIOUS_0016_0002.nii.gz"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0017_0002.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0017_0002csv",
+                "mask": "./masksTr/CuRIOUS_0017_0002.nii.gz"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0018_0002.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0018_0002csv",
+                "mask": "./masksTr/CuRIOUS_0018_0002.nii.gz"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0019_0002.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0019_0002csv",
+                "mask": "./masksTr/CuRIOUS_0019_0002.nii.gz"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0020_0002.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0020_0002csv",
+                "mask": "./masksTr/CuRIOUS_0020_0002.nii.gz"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0021_0002.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0021_0002csv",
+                "mask": "./masksTr/CuRIOUS_0021_0002.nii.gz"
+            },
+            {
+                "image": "./imagesTr/CuRIOUS_0022_0002.nii.gz",
+                "landmarks": "./landmarksTr/CuRIOUS_0022_0002csv",
+                "mask": "./masksTr/CuRIOUS_0022_0002.nii.gz"
+            }
+        ]
+    },
+    "test": [],
+    "numPairedTraining": 22,
+    "training_paired_images": [
+        {
+            "0": "/imagesTr/CuRIOUS_0001_0000.nii.gz",
+            "1": "/imagesTr/CuRIOUS_0001_0001.nii.gz",
+            "2": "/imagesTr/CuRIOUS_0001_0002.nii.gz"
+        },
+        {
+            "0": "/imagesTr/CuRIOUS_0002_0000.nii.gz",
+            "1": "/imagesTr/CuRIOUS_0002_0001.nii.gz",
+            "2": "/imagesTr/CuRIOUS_0002_0002.nii.gz"
+        },
+        {
+            "0": "/imagesTr/CuRIOUS_0003_0000.nii.gz",
+            "1": "/imagesTr/CuRIOUS_0003_0001.nii.gz",
+            "2": "/imagesTr/CuRIOUS_0003_0002.nii.gz"
+        },
+        {
+            "0": "/imagesTr/CuRIOUS_0004_0000.nii.gz",
+            "1": "/imagesTr/CuRIOUS_0004_0001.nii.gz",
+            "2": "/imagesTr/CuRIOUS_0004_0002.nii.gz"
+        },
+        {
+            "0": "/imagesTr/CuRIOUS_0005_0000.nii.gz",
+            "1": "/imagesTr/CuRIOUS_0005_0001.nii.gz",
+            "2": "/imagesTr/CuRIOUS_0005_0002.nii.gz"
+        },
+        {
+            "0": "/imagesTr/CuRIOUS_0006_0000.nii.gz",
+            "1": "/imagesTr/CuRIOUS_0006_0001.nii.gz",
+            "2": "/imagesTr/CuRIOUS_0006_0002.nii.gz"
+        },
+        {
+            "0": "/imagesTr/CuRIOUS_0007_0000.nii.gz",
+            "1": "/imagesTr/CuRIOUS_0007_0001.nii.gz",
+            "2": "/imagesTr/CuRIOUS_0007_0002.nii.gz"
+        },
+        {
+            "0": "/imagesTr/CuRIOUS_0008_0000.nii.gz",
+            "1": "/imagesTr/CuRIOUS_0008_0001.nii.gz",
+            "2": "/imagesTr/CuRIOUS_0008_0002.nii.gz"
+        },
+        {
+            "0": "/imagesTr/CuRIOUS_0009_0000.nii.gz",
+            "1": "/imagesTr/CuRIOUS_0009_0001.nii.gz",
+            "2": "/imagesTr/CuRIOUS_0009_0002.nii.gz"
+        },
+        {
+            "0": "/imagesTr/CuRIOUS_0010_0000.nii.gz",
+            "1": "/imagesTr/CuRIOUS_0010_0001.nii.gz",
+            "2": "/imagesTr/CuRIOUS_0010_0002.nii.gz"
+        },
+        {
+            "0": "/imagesTr/CuRIOUS_0011_0000.nii.gz",
+            "1": "/imagesTr/CuRIOUS_0011_0001.nii.gz",
+            "2": "/imagesTr/CuRIOUS_0011_0002.nii.gz"
+        },
+        {
+            "0": "/imagesTr/CuRIOUS_0012_0000.nii.gz",
+            "1": "/imagesTr/CuRIOUS_0012_0001.nii.gz",
+            "2": "/imagesTr/CuRIOUS_0012_0002.nii.gz"
+        },
+        {
+            "0": "/imagesTr/CuRIOUS_0013_0000.nii.gz",
+            "1": "/imagesTr/CuRIOUS_0013_0001.nii.gz",
+            "2": "/imagesTr/CuRIOUS_0013_0002.nii.gz"
+        },
+        {
+            "0": "/imagesTr/CuRIOUS_0014_0000.nii.gz",
+            "1": "/imagesTr/CuRIOUS_0014_0001.nii.gz",
+            "2": "/imagesTr/CuRIOUS_0014_0002.nii.gz"
+        },
+        {
+            "0": "/imagesTr/CuRIOUS_0015_0000.nii.gz",
+            "1": "/imagesTr/CuRIOUS_0015_0001.nii.gz",
+            "2": "/imagesTr/CuRIOUS_0015_0002.nii.gz"
+        },
+        {
+            "0": "/imagesTr/CuRIOUS_0016_0000.nii.gz",
+            "1": "/imagesTr/CuRIOUS_0016_0001.nii.gz",
+            "2": "/imagesTr/CuRIOUS_0016_0002.nii.gz"
+        },
+        {
+            "0": "/imagesTr/CuRIOUS_0017_0000.nii.gz",
+            "1": "/imagesTr/CuRIOUS_0017_0001.nii.gz",
+            "2": "/imagesTr/CuRIOUS_0017_0002.nii.gz"
+        },
+        {
+            "0": "/imagesTr/CuRIOUS_0018_0000.nii.gz",
+            "1": "/imagesTr/CuRIOUS_0018_0001.nii.gz",
+            "2": "/imagesTr/CuRIOUS_0018_0002.nii.gz"
+        },
+        {
+            "0": "/imagesTr/CuRIOUS_0019_0000.nii.gz",
+            "1": "/imagesTr/CuRIOUS_0019_0001.nii.gz",
+            "2": "/imagesTr/CuRIOUS_0019_0002.nii.gz"
+        },
+        {
+            "0": "/imagesTr/CuRIOUS_0020_0000.nii.gz",
+            "1": "/imagesTr/CuRIOUS_0020_0001.nii.gz",
+            "2": "/imagesTr/CuRIOUS_0020_0002.nii.gz"
+        },
+        {
+            "0": "/imagesTr/CuRIOUS_0021_0000.nii.gz",
+            "1": "/imagesTr/CuRIOUS_0021_0001.nii.gz",
+            "2": "/imagesTr/CuRIOUS_0021_0002.nii.gz"
+        },
+        {
+            "0": "/imagesTr/CuRIOUS_0022_0000.nii.gz",
+            "1": "/imagesTr/CuRIOUS_0022_0001.nii.gz",
+            "2": "/imagesTr/CuRIOUS_0022_0002.nii.gz"
+        }
+    ],
+    "numPairedTest": 0,
+    "test_paired_images": [],
+    "numRegistration_val": 7,
+    "registration_val": [
+        {
+            "fixed": "./imagesTr/CuRIOUS_0003_0000.nii.gz",
+            "moving": "./imagesTr/CuRIOUS_0003_0002.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/CuRIOUS_0006_0000.nii.gz",
+            "moving": "./imagesTr/CuRIOUS_0006_0002.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/CuRIOUS_0009_0000.nii.gz",
+            "moving": "./imagesTr/CuRIOUS_0009_0002.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/CuRIOUS_0012_0000.nii.gz",
+            "moving": "./imagesTr/CuRIOUS_0012_0002.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/CuRIOUS_0015_0000.nii.gz",
+            "moving": "./imagesTr/CuRIOUS_0015_0002.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/CuRIOUS_0018_0000.nii.gz",
+            "moving": "./imagesTr/CuRIOUS_0018_0002.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/CuRIOUS_0021_0000.nii.gz",
+            "moving": "./imagesTr/CuRIOUS_0021_0002.nii.gz"
+        }
+    ],
+    "numRegistration_test": 0,
+    "registration_test": [],
+    "numTest": 0
+}

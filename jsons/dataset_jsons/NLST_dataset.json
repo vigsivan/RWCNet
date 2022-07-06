@@ -1,0 +1,1490 @@
+{
+    "name": "NLST",
+    "release": "0.9",
+    "description": "Validation data will be provided alongside Validation on learn2reg.grand-challenge.com. Subset NLST of Learn2Reg Dataset. Please see https://learn2reg.grand-challenge.org/ for more information. ",
+    "licence": "National Lung Screening Trial Research Team. (2013). Data from the National Lung Screening Trial (NLST) [Data set]. The Cancer Imaging Archive. https://doi.org/10.7937/TCIA.HMQ8-J677. National Lung Screening Trial Research Team*; Aberle DR, Adams AM, Berg CD, Black WC, Clapp JD, Fagerstrom RM, Gareen IF, Gatsonis C, Marcus PM, Sicks JD (2011). Reduced Lung-Cancer Mortality with Low-Dose Computed Tomographic Screening. New England Journal of Medicine, 365(5), 395\u2013409. https://doi.org/10.1056/nejmoa1102873. Clark K, Vendt B, Smith K, Freymann J, Kirby J, Koppel P, Moore S, Phillips S, Maffitt D, Pringle M, Tarbox L, Prior F. The Cancer Imaging Archive (TCIA): Maintaining and Operating a Public Information Repository, Journal of Digital Imaging, Volume 26, Number 6, December, 2013, pp 1045-1057. DOI: https://doi.org/10.1007/s10278-013-9622-7. For more information, see https://wiki.cancerimagingarchive.net/plugins/servlet/mobile?contentId=5800702#content/view/5800702",
+    "reference": "",
+    "pairings": "paired",
+    "provided_data": {
+        "0": [
+            "image",
+            "mask",
+            "keypoints",
+            "landmarks"
+        ]
+    },
+    "registration_direction": {
+        "fixed": 0,
+        "moving": 1
+    },
+    "modality": {
+        "0": "initial scan",
+        "1": "followup scan"
+    },
+    "labels": {},
+    "tensorImageSize": {
+        "0": "3D"
+    },
+    "tensorImageShape": {
+        "0": [
+            224,
+            192,
+            224
+        ]
+    },
+    "numTraining": 200,
+    "numTest": 0,
+    "training": [
+        {
+            "image": "./imagesTr/NLST_0001_0000.nii.gz",
+            "mask": "./masksTr/NLST_0001_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0001_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0001_0001.nii.gz",
+            "mask": "./masksTr/NLST_0001_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0001_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0002_0000.nii.gz",
+            "mask": "./masksTr/NLST_0002_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0002_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0002_0001.nii.gz",
+            "mask": "./masksTr/NLST_0002_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0002_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0003_0000.nii.gz",
+            "mask": "./masksTr/NLST_0003_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0003_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0003_0001.nii.gz",
+            "mask": "./masksTr/NLST_0003_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0003_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0004_0000.nii.gz",
+            "mask": "./masksTr/NLST_0004_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0004_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0004_0001.nii.gz",
+            "mask": "./masksTr/NLST_0004_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0004_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0005_0000.nii.gz",
+            "mask": "./masksTr/NLST_0005_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0005_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0005_0001.nii.gz",
+            "mask": "./masksTr/NLST_0005_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0005_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0006_0000.nii.gz",
+            "mask": "./masksTr/NLST_0006_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0006_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0006_0001.nii.gz",
+            "mask": "./masksTr/NLST_0006_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0006_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0007_0000.nii.gz",
+            "mask": "./masksTr/NLST_0007_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0007_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0007_0001.nii.gz",
+            "mask": "./masksTr/NLST_0007_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0007_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0008_0000.nii.gz",
+            "mask": "./masksTr/NLST_0008_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0008_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0008_0001.nii.gz",
+            "mask": "./masksTr/NLST_0008_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0008_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0009_0000.nii.gz",
+            "mask": "./masksTr/NLST_0009_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0009_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0009_0001.nii.gz",
+            "mask": "./masksTr/NLST_0009_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0009_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0010_0000.nii.gz",
+            "mask": "./masksTr/NLST_0010_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0010_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0010_0001.nii.gz",
+            "mask": "./masksTr/NLST_0010_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0010_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0011_0000.nii.gz",
+            "mask": "./masksTr/NLST_0011_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0011_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0011_0001.nii.gz",
+            "mask": "./masksTr/NLST_0011_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0011_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0012_0000.nii.gz",
+            "mask": "./masksTr/NLST_0012_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0012_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0012_0001.nii.gz",
+            "mask": "./masksTr/NLST_0012_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0012_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0013_0000.nii.gz",
+            "mask": "./masksTr/NLST_0013_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0013_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0013_0001.nii.gz",
+            "mask": "./masksTr/NLST_0013_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0013_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0014_0000.nii.gz",
+            "mask": "./masksTr/NLST_0014_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0014_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0014_0001.nii.gz",
+            "mask": "./masksTr/NLST_0014_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0014_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0015_0000.nii.gz",
+            "mask": "./masksTr/NLST_0015_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0015_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0015_0001.nii.gz",
+            "mask": "./masksTr/NLST_0015_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0015_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0016_0000.nii.gz",
+            "mask": "./masksTr/NLST_0016_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0016_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0016_0001.nii.gz",
+            "mask": "./masksTr/NLST_0016_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0016_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0017_0000.nii.gz",
+            "mask": "./masksTr/NLST_0017_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0017_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0017_0001.nii.gz",
+            "mask": "./masksTr/NLST_0017_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0017_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0018_0000.nii.gz",
+            "mask": "./masksTr/NLST_0018_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0018_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0018_0001.nii.gz",
+            "mask": "./masksTr/NLST_0018_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0018_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0019_0000.nii.gz",
+            "mask": "./masksTr/NLST_0019_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0019_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0019_0001.nii.gz",
+            "mask": "./masksTr/NLST_0019_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0019_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0020_0000.nii.gz",
+            "mask": "./masksTr/NLST_0020_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0020_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0020_0001.nii.gz",
+            "mask": "./masksTr/NLST_0020_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0020_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0021_0000.nii.gz",
+            "mask": "./masksTr/NLST_0021_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0021_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0021_0001.nii.gz",
+            "mask": "./masksTr/NLST_0021_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0021_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0022_0000.nii.gz",
+            "mask": "./masksTr/NLST_0022_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0022_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0022_0001.nii.gz",
+            "mask": "./masksTr/NLST_0022_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0022_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0023_0000.nii.gz",
+            "mask": "./masksTr/NLST_0023_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0023_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0023_0001.nii.gz",
+            "mask": "./masksTr/NLST_0023_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0023_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0024_0000.nii.gz",
+            "mask": "./masksTr/NLST_0024_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0024_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0024_0001.nii.gz",
+            "mask": "./masksTr/NLST_0024_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0024_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0025_0000.nii.gz",
+            "mask": "./masksTr/NLST_0025_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0025_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0025_0001.nii.gz",
+            "mask": "./masksTr/NLST_0025_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0025_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0026_0000.nii.gz",
+            "mask": "./masksTr/NLST_0026_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0026_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0026_0001.nii.gz",
+            "mask": "./masksTr/NLST_0026_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0026_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0027_0000.nii.gz",
+            "mask": "./masksTr/NLST_0027_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0027_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0027_0001.nii.gz",
+            "mask": "./masksTr/NLST_0027_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0027_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0028_0000.nii.gz",
+            "mask": "./masksTr/NLST_0028_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0028_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0028_0001.nii.gz",
+            "mask": "./masksTr/NLST_0028_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0028_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0029_0000.nii.gz",
+            "mask": "./masksTr/NLST_0029_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0029_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0029_0001.nii.gz",
+            "mask": "./masksTr/NLST_0029_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0029_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0030_0000.nii.gz",
+            "mask": "./masksTr/NLST_0030_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0030_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0030_0001.nii.gz",
+            "mask": "./masksTr/NLST_0030_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0030_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0031_0000.nii.gz",
+            "mask": "./masksTr/NLST_0031_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0031_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0031_0001.nii.gz",
+            "mask": "./masksTr/NLST_0031_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0031_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0032_0000.nii.gz",
+            "mask": "./masksTr/NLST_0032_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0032_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0032_0001.nii.gz",
+            "mask": "./masksTr/NLST_0032_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0032_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0033_0000.nii.gz",
+            "mask": "./masksTr/NLST_0033_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0033_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0033_0001.nii.gz",
+            "mask": "./masksTr/NLST_0033_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0033_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0034_0000.nii.gz",
+            "mask": "./masksTr/NLST_0034_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0034_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0034_0001.nii.gz",
+            "mask": "./masksTr/NLST_0034_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0034_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0035_0000.nii.gz",
+            "mask": "./masksTr/NLST_0035_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0035_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0035_0001.nii.gz",
+            "mask": "./masksTr/NLST_0035_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0035_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0036_0000.nii.gz",
+            "mask": "./masksTr/NLST_0036_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0036_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0036_0001.nii.gz",
+            "mask": "./masksTr/NLST_0036_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0036_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0037_0000.nii.gz",
+            "mask": "./masksTr/NLST_0037_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0037_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0037_0001.nii.gz",
+            "mask": "./masksTr/NLST_0037_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0037_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0038_0000.nii.gz",
+            "mask": "./masksTr/NLST_0038_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0038_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0038_0001.nii.gz",
+            "mask": "./masksTr/NLST_0038_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0038_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0039_0000.nii.gz",
+            "mask": "./masksTr/NLST_0039_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0039_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0039_0001.nii.gz",
+            "mask": "./masksTr/NLST_0039_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0039_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0040_0000.nii.gz",
+            "mask": "./masksTr/NLST_0040_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0040_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0040_0001.nii.gz",
+            "mask": "./masksTr/NLST_0040_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0040_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0041_0000.nii.gz",
+            "mask": "./masksTr/NLST_0041_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0041_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0041_0001.nii.gz",
+            "mask": "./masksTr/NLST_0041_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0041_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0042_0000.nii.gz",
+            "mask": "./masksTr/NLST_0042_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0042_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0042_0001.nii.gz",
+            "mask": "./masksTr/NLST_0042_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0042_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0043_0000.nii.gz",
+            "mask": "./masksTr/NLST_0043_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0043_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0043_0001.nii.gz",
+            "mask": "./masksTr/NLST_0043_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0043_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0044_0000.nii.gz",
+            "mask": "./masksTr/NLST_0044_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0044_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0044_0001.nii.gz",
+            "mask": "./masksTr/NLST_0044_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0044_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0045_0000.nii.gz",
+            "mask": "./masksTr/NLST_0045_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0045_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0045_0001.nii.gz",
+            "mask": "./masksTr/NLST_0045_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0045_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0046_0000.nii.gz",
+            "mask": "./masksTr/NLST_0046_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0046_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0046_0001.nii.gz",
+            "mask": "./masksTr/NLST_0046_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0046_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0047_0000.nii.gz",
+            "mask": "./masksTr/NLST_0047_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0047_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0047_0001.nii.gz",
+            "mask": "./masksTr/NLST_0047_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0047_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0048_0000.nii.gz",
+            "mask": "./masksTr/NLST_0048_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0048_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0048_0001.nii.gz",
+            "mask": "./masksTr/NLST_0048_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0048_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0049_0000.nii.gz",
+            "mask": "./masksTr/NLST_0049_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0049_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0049_0001.nii.gz",
+            "mask": "./masksTr/NLST_0049_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0049_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0050_0000.nii.gz",
+            "mask": "./masksTr/NLST_0050_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0050_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0050_0001.nii.gz",
+            "mask": "./masksTr/NLST_0050_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0050_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0051_0000.nii.gz",
+            "mask": "./masksTr/NLST_0051_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0051_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0051_0001.nii.gz",
+            "mask": "./masksTr/NLST_0051_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0051_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0052_0000.nii.gz",
+            "mask": "./masksTr/NLST_0052_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0052_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0052_0001.nii.gz",
+            "mask": "./masksTr/NLST_0052_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0052_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0053_0000.nii.gz",
+            "mask": "./masksTr/NLST_0053_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0053_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0053_0001.nii.gz",
+            "mask": "./masksTr/NLST_0053_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0053_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0054_0000.nii.gz",
+            "mask": "./masksTr/NLST_0054_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0054_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0054_0001.nii.gz",
+            "mask": "./masksTr/NLST_0054_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0054_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0055_0000.nii.gz",
+            "mask": "./masksTr/NLST_0055_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0055_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0055_0001.nii.gz",
+            "mask": "./masksTr/NLST_0055_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0055_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0056_0000.nii.gz",
+            "mask": "./masksTr/NLST_0056_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0056_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0056_0001.nii.gz",
+            "mask": "./masksTr/NLST_0056_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0056_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0057_0000.nii.gz",
+            "mask": "./masksTr/NLST_0057_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0057_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0057_0001.nii.gz",
+            "mask": "./masksTr/NLST_0057_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0057_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0058_0000.nii.gz",
+            "mask": "./masksTr/NLST_0058_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0058_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0058_0001.nii.gz",
+            "mask": "./masksTr/NLST_0058_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0058_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0059_0000.nii.gz",
+            "mask": "./masksTr/NLST_0059_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0059_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0059_0001.nii.gz",
+            "mask": "./masksTr/NLST_0059_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0059_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0060_0000.nii.gz",
+            "mask": "./masksTr/NLST_0060_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0060_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0060_0001.nii.gz",
+            "mask": "./masksTr/NLST_0060_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0060_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0061_0000.nii.gz",
+            "mask": "./masksTr/NLST_0061_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0061_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0061_0001.nii.gz",
+            "mask": "./masksTr/NLST_0061_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0061_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0062_0000.nii.gz",
+            "mask": "./masksTr/NLST_0062_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0062_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0062_0001.nii.gz",
+            "mask": "./masksTr/NLST_0062_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0062_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0063_0000.nii.gz",
+            "mask": "./masksTr/NLST_0063_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0063_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0063_0001.nii.gz",
+            "mask": "./masksTr/NLST_0063_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0063_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0064_0000.nii.gz",
+            "mask": "./masksTr/NLST_0064_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0064_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0064_0001.nii.gz",
+            "mask": "./masksTr/NLST_0064_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0064_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0065_0000.nii.gz",
+            "mask": "./masksTr/NLST_0065_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0065_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0065_0001.nii.gz",
+            "mask": "./masksTr/NLST_0065_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0065_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0066_0000.nii.gz",
+            "mask": "./masksTr/NLST_0066_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0066_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0066_0001.nii.gz",
+            "mask": "./masksTr/NLST_0066_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0066_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0067_0000.nii.gz",
+            "mask": "./masksTr/NLST_0067_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0067_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0067_0001.nii.gz",
+            "mask": "./masksTr/NLST_0067_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0067_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0068_0000.nii.gz",
+            "mask": "./masksTr/NLST_0068_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0068_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0068_0001.nii.gz",
+            "mask": "./masksTr/NLST_0068_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0068_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0069_0000.nii.gz",
+            "mask": "./masksTr/NLST_0069_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0069_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0069_0001.nii.gz",
+            "mask": "./masksTr/NLST_0069_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0069_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0070_0000.nii.gz",
+            "mask": "./masksTr/NLST_0070_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0070_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0070_0001.nii.gz",
+            "mask": "./masksTr/NLST_0070_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0070_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0071_0000.nii.gz",
+            "mask": "./masksTr/NLST_0071_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0071_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0071_0001.nii.gz",
+            "mask": "./masksTr/NLST_0071_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0071_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0072_0000.nii.gz",
+            "mask": "./masksTr/NLST_0072_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0072_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0072_0001.nii.gz",
+            "mask": "./masksTr/NLST_0072_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0072_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0073_0000.nii.gz",
+            "mask": "./masksTr/NLST_0073_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0073_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0073_0001.nii.gz",
+            "mask": "./masksTr/NLST_0073_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0073_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0074_0000.nii.gz",
+            "mask": "./masksTr/NLST_0074_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0074_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0074_0001.nii.gz",
+            "mask": "./masksTr/NLST_0074_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0074_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0075_0000.nii.gz",
+            "mask": "./masksTr/NLST_0075_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0075_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0075_0001.nii.gz",
+            "mask": "./masksTr/NLST_0075_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0075_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0076_0000.nii.gz",
+            "mask": "./masksTr/NLST_0076_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0076_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0076_0001.nii.gz",
+            "mask": "./masksTr/NLST_0076_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0076_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0077_0000.nii.gz",
+            "mask": "./masksTr/NLST_0077_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0077_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0077_0001.nii.gz",
+            "mask": "./masksTr/NLST_0077_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0077_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0078_0000.nii.gz",
+            "mask": "./masksTr/NLST_0078_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0078_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0078_0001.nii.gz",
+            "mask": "./masksTr/NLST_0078_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0078_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0079_0000.nii.gz",
+            "mask": "./masksTr/NLST_0079_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0079_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0079_0001.nii.gz",
+            "mask": "./masksTr/NLST_0079_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0079_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0080_0000.nii.gz",
+            "mask": "./masksTr/NLST_0080_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0080_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0080_0001.nii.gz",
+            "mask": "./masksTr/NLST_0080_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0080_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0081_0000.nii.gz",
+            "mask": "./masksTr/NLST_0081_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0081_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0081_0001.nii.gz",
+            "mask": "./masksTr/NLST_0081_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0081_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0082_0000.nii.gz",
+            "mask": "./masksTr/NLST_0082_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0082_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0082_0001.nii.gz",
+            "mask": "./masksTr/NLST_0082_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0082_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0083_0000.nii.gz",
+            "mask": "./masksTr/NLST_0083_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0083_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0083_0001.nii.gz",
+            "mask": "./masksTr/NLST_0083_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0083_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0084_0000.nii.gz",
+            "mask": "./masksTr/NLST_0084_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0084_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0084_0001.nii.gz",
+            "mask": "./masksTr/NLST_0084_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0084_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0085_0000.nii.gz",
+            "mask": "./masksTr/NLST_0085_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0085_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0085_0001.nii.gz",
+            "mask": "./masksTr/NLST_0085_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0085_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0086_0000.nii.gz",
+            "mask": "./masksTr/NLST_0086_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0086_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0086_0001.nii.gz",
+            "mask": "./masksTr/NLST_0086_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0086_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0087_0000.nii.gz",
+            "mask": "./masksTr/NLST_0087_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0087_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0087_0001.nii.gz",
+            "mask": "./masksTr/NLST_0087_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0087_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0088_0000.nii.gz",
+            "mask": "./masksTr/NLST_0088_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0088_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0088_0001.nii.gz",
+            "mask": "./masksTr/NLST_0088_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0088_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0089_0000.nii.gz",
+            "mask": "./masksTr/NLST_0089_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0089_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0089_0001.nii.gz",
+            "mask": "./masksTr/NLST_0089_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0089_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0090_0000.nii.gz",
+            "mask": "./masksTr/NLST_0090_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0090_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0090_0001.nii.gz",
+            "mask": "./masksTr/NLST_0090_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0090_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0091_0000.nii.gz",
+            "mask": "./masksTr/NLST_0091_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0091_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0091_0001.nii.gz",
+            "mask": "./masksTr/NLST_0091_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0091_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0092_0000.nii.gz",
+            "mask": "./masksTr/NLST_0092_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0092_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0092_0001.nii.gz",
+            "mask": "./masksTr/NLST_0092_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0092_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0093_0000.nii.gz",
+            "mask": "./masksTr/NLST_0093_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0093_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0093_0001.nii.gz",
+            "mask": "./masksTr/NLST_0093_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0093_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0094_0000.nii.gz",
+            "mask": "./masksTr/NLST_0094_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0094_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0094_0001.nii.gz",
+            "mask": "./masksTr/NLST_0094_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0094_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0095_0000.nii.gz",
+            "mask": "./masksTr/NLST_0095_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0095_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0095_0001.nii.gz",
+            "mask": "./masksTr/NLST_0095_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0095_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0096_0000.nii.gz",
+            "mask": "./masksTr/NLST_0096_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0096_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0096_0001.nii.gz",
+            "mask": "./masksTr/NLST_0096_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0096_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0097_0000.nii.gz",
+            "mask": "./masksTr/NLST_0097_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0097_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0097_0001.nii.gz",
+            "mask": "./masksTr/NLST_0097_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0097_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0098_0000.nii.gz",
+            "mask": "./masksTr/NLST_0098_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0098_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0098_0001.nii.gz",
+            "mask": "./masksTr/NLST_0098_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0098_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0099_0000.nii.gz",
+            "mask": "./masksTr/NLST_0099_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0099_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0099_0001.nii.gz",
+            "mask": "./masksTr/NLST_0099_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0099_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0100_0000.nii.gz",
+            "mask": "./masksTr/NLST_0100_0000.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0100_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/NLST_0100_0001.nii.gz",
+            "mask": "./masksTr/NLST_0100_0001.nii.gz",
+            "keypoints": "./keypointsTr/NLST_0100_0001.nii.gz"
+        }
+    ],
+    "test": [],
+    "numPairedTraining": 100,
+    "training_paired_images": [
+        {
+            "fixed": "./imagesTr/NLST_0001_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0001_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0002_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0002_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0003_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0003_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0004_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0004_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0005_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0005_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0006_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0006_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0007_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0007_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0008_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0008_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0009_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0009_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0010_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0010_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0011_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0011_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0012_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0012_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0013_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0013_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0014_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0014_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0015_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0015_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0016_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0016_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0017_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0017_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0018_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0018_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0019_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0019_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0020_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0020_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0021_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0021_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0022_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0022_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0023_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0023_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0024_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0024_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0025_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0025_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0026_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0026_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0027_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0027_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0028_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0028_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0029_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0029_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0030_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0030_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0031_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0031_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0032_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0032_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0033_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0033_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0034_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0034_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0035_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0035_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0036_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0036_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0037_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0037_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0038_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0038_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0039_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0039_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0040_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0040_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0041_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0041_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0042_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0042_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0043_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0043_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0044_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0044_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0045_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0045_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0046_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0046_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0047_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0047_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0048_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0048_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0049_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0049_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0050_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0050_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0051_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0051_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0052_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0052_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0053_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0053_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0054_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0054_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0055_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0055_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0056_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0056_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0057_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0057_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0058_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0058_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0059_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0059_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0060_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0060_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0061_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0061_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0062_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0062_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0063_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0063_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0064_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0064_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0065_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0065_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0066_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0066_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0067_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0067_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0068_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0068_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0069_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0069_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0070_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0070_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0071_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0071_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0072_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0072_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0073_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0073_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0074_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0074_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0075_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0075_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0076_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0076_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0077_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0077_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0078_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0078_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0079_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0079_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0080_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0080_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0081_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0081_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0082_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0082_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0083_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0083_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0084_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0084_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0085_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0085_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0086_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0086_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0087_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0087_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0088_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0088_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0089_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0089_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0090_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0090_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0091_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0091_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0092_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0092_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0093_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0093_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0094_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0094_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0095_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0095_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0096_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0096_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0097_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0097_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0098_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0098_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0099_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0099_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0100_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0100_0001.nii.gz"
+        }
+    ],
+    "numPairedTest": 0,
+    "test_paired_images": [],
+    "numRegistration_val": 10,
+    "registration_val": [
+        {
+            "fixed": "./imagesTr/NLST_0041_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0041_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0042_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0042_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0043_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0043_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0044_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0044_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0045_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0045_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0046_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0046_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0047_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0047_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0048_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0048_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0049_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0049_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/NLST_0050_0000.nii.gz",
+            "moving": "./imagesTr/NLST_0050_0001.nii.gz"
+        }
+    ],
+    "numRegistration_test": 0,
+    "registration_test": []
+}

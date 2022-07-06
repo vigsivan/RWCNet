@@ -99,7 +99,6 @@ def main(
 
     for data in gen:
 
-        disp_name = f"{data.moving_image.name}2{data.fixed_image.name}"
         torch.cuda.synchronize()
 
         fixed_nib = nib.load(data.fixed_image)
@@ -216,15 +215,16 @@ def main(
         # NOTE: we are using scipy's interpolate func, which does not take a batch dimension
         disp_np = einops.rearrange(disp_np, "b c d h w -> (b c) d h w")
 
+        if use_l2r_naming:
+            disp_name = f"disp_{data.fixed_image.name[-16:-12]}_{data.moving_image.name[-16:-12]}"
+        else:
+            disp_name = f"disp_{data.fixed_image.name.split('.')[0]}_{data.moving_image.name.split('.')[0]}"
+
         if use_labels:
             moving_seg = moving_seg.detach().cpu() #type: ignore
             fixed_seg = fixed_seg.detach().cpu() #type: ignore
             moved_seg = apply_displacement_field(disp_np, moving_seg.numpy(), order=0) 
 
-            if use_l2r_naming:
-                disp_name = f"disp_{data.fixed_image.name[-16:-12]}_{data.moving_image.name[-16:-12]}"
-            else:
-                disp_name = f"disp_{data.fixed_image.name.split('.')[0]}_{data.moving_image.name.split('.')[0]}"
             dice = compute_dice(
                 fixed_seg.numpy(), moving_seg.numpy(), moved_seg, labels=label_list #type: ignore
 

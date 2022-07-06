@@ -1,0 +1,651 @@
+{
+    "name": "AbdomenMRCT",
+    "release": "1.0",
+    "description": "Subset AbdomenMRCT of Learn2Reg Dataset. Please see https://learn2reg.grand-challenge.org/ for more information",
+    "licence": "Please see README_LICENCE (README_LICENCE_TCIA_MRCT.txt,README_LICENCE_CHAOS_MR.txt,README_LICENCE_BCV_CT.txt) files in parent directory",
+    "reference": "",
+    "pairings": "hybrid",
+    "provided_data": {
+        "0": [
+            "image",
+            "label",
+            "mask"
+        ],
+        "1": [
+            "image",
+            "label",
+            "mask"
+        ]
+    },
+    "registration_direction": {
+        "fixed": 0,
+        "moving": 1
+    },
+    "modality": {
+        "0": "MR T1w",
+        "1": "CT"
+    },
+    "labels": {
+        "0": {
+            "0": "background",
+            "1": "liver",
+            "2": "spleen",
+            "3": "right kidney",
+            "4": "left kidney"
+        },
+        "1": {
+            "0": "background",
+            "1": "liver",
+            "2": "spleen",
+            "3": "right kidney",
+            "4": "left kidney"
+        }
+    },
+    "tensorImageSize": {
+        "0": "3D",
+        "1": "3D"
+    },
+    "tensorImageShape": {
+        "0": [
+            192,
+            160,
+            192
+        ],
+        "1": [
+            192,
+            160,
+            192
+        ]
+    },
+    "numTraining": {
+        "0": 48,
+        "1": 57
+    },
+    "numTest": 0,
+    "training": {
+        "0": [
+            {
+                "image": "./imagesTr/AbdomenMRCT_0001_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_0001_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_0001_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_0002_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_0002_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_0002_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_0003_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_0003_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_0003_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_0004_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_0004_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_0004_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_0005_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_0005_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_0005_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_0006_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_0006_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_0006_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_0007_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_0007_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_0007_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_0008_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_0008_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_0008_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1051_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1051_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1051_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1052_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1052_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1052_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1053_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1053_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1053_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1054_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1054_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1054_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1055_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1055_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1055_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1056_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1056_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1056_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1057_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1057_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1057_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1058_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1058_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1058_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1059_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1059_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1059_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1060_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1060_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1060_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1061_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1061_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1061_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1062_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1062_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1062_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1063_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1063_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1063_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1064_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1064_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1064_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1065_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1065_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1065_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1066_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1066_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1066_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1067_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1067_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1067_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1068_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1068_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1068_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1069_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1069_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1069_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1070_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1070_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1070_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1071_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1071_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1071_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1072_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1072_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1072_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1073_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1073_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1073_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1074_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1074_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1074_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1075_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1075_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1075_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1076_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1076_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1076_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1077_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1077_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1077_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1078_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1078_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1078_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1079_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1079_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1079_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1080_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1080_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1080_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1081_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1081_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1081_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1082_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1082_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1082_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1083_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1083_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1083_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1084_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1084_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1084_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1085_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1085_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1085_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1086_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1086_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1086_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1087_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1087_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1087_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1088_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1088_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1088_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1089_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1089_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1089_0000.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1090_0000.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1090_0000.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1090_0000.nii.gz"
+            }
+        ],
+        "1": [
+            {
+                "image": "./imagesTr/AbdomenMRCT_0001_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_0001_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_0001_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_0002_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_0002_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_0002_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_0003_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_0003_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_0003_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_0004_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_0004_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_0004_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_0005_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_0005_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_0005_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_0006_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_0006_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_0006_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_0007_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_0007_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_0007_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_0008_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_0008_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_0008_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1001_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1001_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1001_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1002_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1002_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1002_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1003_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1003_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1003_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1004_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1004_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1004_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1005_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1005_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1005_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1006_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1006_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1006_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1007_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1007_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1007_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1008_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1008_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1008_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1009_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1009_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1009_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1010_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1010_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1010_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1011_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1011_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1011_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1012_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1012_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1012_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1013_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1013_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1013_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1014_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1014_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1014_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1015_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1015_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1015_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1016_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1016_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1016_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1017_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1017_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1017_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1018_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1018_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1018_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1019_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1019_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1019_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1020_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1020_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1020_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1021_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1021_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1021_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1022_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1022_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1022_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1023_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1023_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1023_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1024_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1024_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1024_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1025_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1025_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1025_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1027_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1027_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1027_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1028_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1028_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1028_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1029_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1029_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1029_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1030_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1030_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1030_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1031_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1031_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1031_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1032_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1032_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1032_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1033_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1033_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1033_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1034_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1034_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1034_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1035_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1035_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1035_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1036_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1036_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1036_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1037_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1037_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1037_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1038_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1038_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1038_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1039_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1039_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1039_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1040_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1040_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1040_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1041_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1041_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1041_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1042_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1042_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1042_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1043_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1043_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1043_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1044_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1044_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1044_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1045_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1045_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1045_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1046_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1046_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1046_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1047_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1047_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1047_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1048_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1048_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1048_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1049_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1049_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1049_0001.nii.gz"
+            },
+            {
+                "image": "./imagesTr/AbdomenMRCT_1050_0001.nii.gz",
+                "label": "./labelsTr/AbdomenMRCT_1050_0001.nii.gz",
+                "mask": "./masksTr/AbdomenMRCT_1050_0001.nii.gz"
+            }
+        ]
+    },
+    "test": [],
+    "numPairedTraining": 8,
+    "training_paired_images": [
+        {
+            "0": "./imagesTr/AbdomenMRCT_0001_0000.nii.gz",
+            "1": "./imagesTr/AbdomenMRCT_0001_0001.nii.gz"
+        },
+        {
+            "0": "./imagesTr/AbdomenMRCT_0002_0000.nii.gz",
+            "1": "./imagesTr/AbdomenMRCT_0002_0001.nii.gz"
+        },
+        {
+            "0": "./imagesTr/AbdomenMRCT_0003_0000.nii.gz",
+            "1": "./imagesTr/AbdomenMRCT_0003_0001.nii.gz"
+        },
+        {
+            "0": "./imagesTr/AbdomenMRCT_0004_0000.nii.gz",
+            "1": "./imagesTr/AbdomenMRCT_0004_0001.nii.gz"
+        },
+        {
+            "0": "./imagesTr/AbdomenMRCT_0005_0000.nii.gz",
+            "1": "./imagesTr/AbdomenMRCT_0005_0001.nii.gz"
+        },
+        {
+            "0": "./imagesTr/AbdomenMRCT_0006_0000.nii.gz",
+            "1": "./imagesTr/AbdomenMRCT_0006_0001.nii.gz"
+        },
+        {
+            "0": "./imagesTr/AbdomenMRCT_0007_0000.nii.gz",
+            "1": "./imagesTr/AbdomenMRCT_0007_0001.nii.gz"
+        },
+        {
+            "0": "./imagesTr/AbdomenMRCT_TCIA0008_0000.nii.gz",
+            "1": "./imagesTr/AbdomenMRCT_TCIA0008_0001.nii.gz"
+        }
+    ],
+    "numPairedTest": 0,
+    "test_paired_images": [],
+    "numRegistration_val": 3,
+    "registration_val": [
+        {
+            "fixed": "./imagesTr/AbdomenMRCT_0006_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenMRCT_0006_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenMRCT_0007_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenMRCT_0007_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/AbdomenMRCT_0008_0000.nii.gz",
+            "moving": "./imagesTr/AbdomenMRCT_0008_0001.nii.gz"
+        }
+    ],
+    "numRegistration_test": 0,
+    "registration_test": []
+}

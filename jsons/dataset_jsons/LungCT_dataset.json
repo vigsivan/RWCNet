@@ -1,0 +1,307 @@
+{
+    "name": "LungCT",
+    "release": "1.0",
+    "description": "Subset LungCT of Learn2Reg Dataset. Please see https://learn2reg.grand-challenge.org/ for more information. The database consists of 60 3D HRCT thorax images taken from 30 subjects. For each subject, an inspiration and expiration scan is taken. The data was gathered from the Department of Radiology at the Radboud University Medical Center, Nijmegen, The Netherlands. One additional challenge with this data is that the lungs are not fully visible in the expiration scans. For all scans, an automatic lung segmentation is provided. For evaluating the registration methods, we use manually annotated landmarks.",
+    "licence": " Hering, Alessa, Murphy, Keelin, & van Ginneken, Bram. (2020). Learn2Reg Challenge: CT Lung Registration - Training Data [Data set]. Zenodo. http://doi.org/10.5281/zenodo.3835682 ",
+    "reference": "",
+    "pairings": "paired",
+    "provided_data": {
+        "0": [
+            "image",
+            "mask",
+            "landmarks"
+        ]
+    },
+    "registration_direction": {
+        "fixed": 0,
+        "moving": 1
+    },
+    "modality": {
+        "0": "exhale",
+        "1": "inhale"
+    },
+    "labels": {},
+    "tensorImageSize": {
+        "0": "3D"
+    },
+    "tensorImageShape": {
+        "0": [
+            192,
+            192,
+            208
+        ]
+    },
+    "numTraining": 40,
+    "numTest": 0,
+    "training": [
+        {
+            "image": "./imagesTr/LungCT_0001_0000.nii.gz",
+            "landmarks": "./landmarksTr/LungCT_0001_0000.csv",
+            "mask": "./masksTr/LungCT_0001_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0002_0000.nii.gz",
+            "landmarks": "./landmarksTr/LungCT_0002_0000.csv",
+            "mask": "./masksTr/LungCT_0002_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0003_0000.nii.gz",
+            "landmarks": "./landmarksTr/LungCT_0003_0000.csv",
+            "mask": "./masksTr/LungCT_0003_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0004_0000.nii.gz",
+            "mask": "./masksTr/LungCT_0004_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0005_0000.nii.gz",
+            "mask": "./masksTr/LungCT_0005_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0006_0000.nii.gz",
+            "mask": "./masksTr/LungCT_0006_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0007_0000.nii.gz",
+            "mask": "./masksTr/LungCT_0007_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0008_0000.nii.gz",
+            "mask": "./masksTr/LungCT_0008_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0009_0000.nii.gz",
+            "mask": "./masksTr/LungCT_0009_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0010_0000.nii.gz",
+            "mask": "./masksTr/LungCT_0010_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0011_0000.nii.gz",
+            "mask": "./masksTr/LungCT_0011_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0012_0000.nii.gz",
+            "mask": "./masksTr/LungCT_0012_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0013_0000.nii.gz",
+            "mask": "./masksTr/LungCT_0013_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0014_0000.nii.gz",
+            "mask": "./masksTr/LungCT_0014_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0015_0000.nii.gz",
+            "mask": "./masksTr/LungCT_0015_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0016_0000.nii.gz",
+            "mask": "./masksTr/LungCT_0016_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0017_0000.nii.gz",
+            "mask": "./masksTr/LungCT_0017_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0018_0000.nii.gz",
+            "mask": "./masksTr/LungCT_0018_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0019_0000.nii.gz",
+            "mask": "./masksTr/LungCT_0019_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0020_0000.nii.gz",
+            "mask": "./masksTr/LungCT_0020_0000.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0001_0001.nii.gz",
+            "landmarks": "./landmarksTr/LungCT_0001_0001.csv",
+            "mask": "./masksTr/LungCT_0001_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0002_0001.nii.gz",
+            "landmarks": "./landmarksTr/LungCT_0002_0001.csv",
+            "mask": "./masksTr/LungCT_0002_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0003_0001.nii.gz",
+            "landmarks": "./landmarksTr/LungCT_0003_0001.csv",
+            "mask": "./masksTr/LungCT_0003_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0004_0001.nii.gz",
+            "mask": "./masksTr/LungCT_0004_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0005_0001.nii.gz",
+            "mask": "./masksTr/LungCT_0005_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0006_0001.nii.gz",
+            "mask": "./masksTr/LungCT_0006_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0007_0001.nii.gz",
+            "mask": "./masksTr/LungCT_0007_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0008_0001.nii.gz",
+            "mask": "./masksTr/LungCT_0008_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0009_0001.nii.gz",
+            "mask": "./masksTr/LungCT_0009_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0010_0001.nii.gz",
+            "mask": "./masksTr/LungCT_0010_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0011_0001.nii.gz",
+            "mask": "./masksTr/LungCT_0011_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0012_0001.nii.gz",
+            "mask": "./masksTr/LungCT_0012_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0013_0001.nii.gz",
+            "mask": "./masksTr/LungCT_0013_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0014_0001.nii.gz",
+            "mask": "./masksTr/LungCT_0014_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0015_0001.nii.gz",
+            "mask": "./masksTr/LungCT_0015_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0016_0001.nii.gz",
+            "mask": "./masksTr/LungCT_0016_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0017_0001.nii.gz",
+            "mask": "./masksTr/LungCT_0017_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0018_0001.nii.gz",
+            "mask": "./masksTr/LungCT_0018_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0019_0001.nii.gz",
+            "mask": "./masksTr/LungCT_0019_0001.nii.gz"
+        },
+        {
+            "image": "./imagesTr/LungCT_0020_0001.nii.gz",
+            "mask": "./masksTr/LungCT_0020_0001.nii.gz"
+        }
+    ],
+    "test": [],
+    "numPairedTraining": 20,
+    "training_paired_images": [
+        {
+            "fixed": "./imagesTr/LungCT_0001_0000.nii.gz",
+            "moving": "./imagesTr/LungCT_0001_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/LungCT_0002_0000.nii.gz",
+            "moving": "./imagesTr/LungCT_0002_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/LungCT_0003_0000.nii.gz",
+            "moving": "./imagesTr/LungCT_0003_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/LungCT_0004_0000.nii.gz",
+            "moving": "./imagesTr/LungCT_0004_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/LungCT_0005_0000.nii.gz",
+            "moving": "./imagesTr/LungCT_0005_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/LungCT_0006_0000.nii.gz",
+            "moving": "./imagesTr/LungCT_0006_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/LungCT_0007_0000.nii.gz",
+            "moving": "./imagesTr/LungCT_0007_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/LungCT_0008_0000.nii.gz",
+            "moving": "./imagesTr/LungCT_0008_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/LungCT_0009_0000.nii.gz",
+            "moving": "./imagesTr/LungCT_0009_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/LungCT_0010_0000.nii.gz",
+            "moving": "./imagesTr/LungCT_0010_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/LungCT_0011_0000.nii.gz",
+            "moving": "./imagesTr/LungCT_0011_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/LungCT_0012_0000.nii.gz",
+            "moving": "./imagesTr/LungCT_0012_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/LungCT_0013_0000.nii.gz",
+            "moving": "./imagesTr/LungCT_0013_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/LungCT_0014_0000.nii.gz",
+            "moving": "./imagesTr/LungCT_0014_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/LungCT_0015_0000.nii.gz",
+            "moving": "./imagesTr/LungCT_0015_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/LungCT_0016_0000.nii.gz",
+            "moving": "./imagesTr/LungCT_0016_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/LungCT_0017_0000.nii.gz",
+            "moving": "./imagesTr/LungCT_0017_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/LungCT_0018_0000.nii.gz",
+            "moving": "./imagesTr/LungCT_0018_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/LungCT_0019_0000.nii.gz",
+            "moving": "./imagesTr/LungCT_0019_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/LungCT_0020_0000.nii.gz",
+            "moving": "./imagesTr/LungCT_0020_0001.nii.gz"
+        }
+    ],
+    "numPairedTest": 0,
+    "test_paired_images": [],
+    "numRegistration_val": 3,
+    "registration_val": [
+        {
+            "fixed": "./imagesTr/LungCT_0001_0000.nii.gz",
+            "moving": "./imagesTr/LungCT_0001_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/LungCT_0002_0000.nii.gz",
+            "moving": "./imagesTr/LungCT_0002_0001.nii.gz"
+        },
+        {
+            "fixed": "./imagesTr/LungCT_0003_0000.nii.gz",
+            "moving": "./imagesTr/LungCT_0003_0001.nii.gz"
+        }
+    ],
+    "numRegistration_test": 0,
+    "registration_test": []
+}
