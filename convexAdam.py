@@ -233,9 +233,10 @@ def main(
 
             if warp_segmentations:
                 moved_seg_nib = nib.Nifti1Image(moved_seg, affine=fixed_nib.affine)
+                warped_seg_name = disp_name.replace('disp','seg')
                 nib.save(
                     moved_seg_nib,
-                    save_directory / "segmentations" / data.moving_segmentation.name,
+                    save_directory / "segmentations" / warped_seg_name,
                 )
 
         # log total registration error if keypoints present
@@ -252,7 +253,8 @@ def main(
         if warp_images:
             moved_image = apply_displacement_field(disp_np, moving.detach().cpu().numpy())
             moved_nib = nib.Nifti1Image(moved_image, affine=fixed_nib.affine)
-            nib.save(moved_nib, save_directory / "images" / data.moving_image.name)
+            warped_img_name = disp_name.replace('disp','img')
+            nib.save(moved_nib, save_directory / "images" / warped_img_name)
 
         # L2R evaluation scripts expects displacements with the shape (*data_shape, 3)
         l2r_disp = einops.rearrange(disp_np, 't h w d -> h w d t')
