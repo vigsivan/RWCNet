@@ -22,7 +22,6 @@ def give_nickname(name):
 
 @app.command()
 def create_json_from_eval(data_directory: Path, json_path: Path, use_nickname: bool = True):
-
     """
     Creates a json file of the pairs found in the L2R eval config files.
 
@@ -69,13 +68,15 @@ def create_json_from_eval(data_directory: Path, json_path: Path, use_nickname: b
                  'moving_image': moving_image}
 
         if task_name in landmarks:
-            fixed_keypoints = os.path.join(data_directory, pair['fixed'].replace('images','landmarks'))
-            moving_keypoints = os.path.join(data_directory, pair['moving'].replace('images', 'landmarks'))
+            fixed_csv = pair['fixed'].replace('.nii.gz', '.csv')
+            moving_csv = pair['moving'].replace('.nii.gz', '.csv')
+            fixed_keypoints = os.path.join(data_directory, fixed_csv.replace('images', 'landmarks'))
+            moving_keypoints = os.path.join(data_directory, moving_csv.replace('images', 'landmarks'))
             group['fixed_keypoints'] = fixed_keypoints
             group['moving_keypoints'] = moving_keypoints
 
         if task_name in labels:
-            fixed_segmentation = os.path.join(data_directory, pair['fixed'].replace('images','labels'))
+            fixed_segmentation = os.path.join(data_directory, pair['fixed'].replace('images', 'labels'))
             moving_segmentation = os.path.join(data_directory, pair['moving'].replace('images', 'labels'))
             group['fixed_segmentation'] = fixed_segmentation
             group['moving_segmentation'] = moving_segmentation
