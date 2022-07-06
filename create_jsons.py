@@ -70,8 +70,12 @@ def create_json_from_eval(data_directory: Path, json_path: Path, use_nickname: b
         if task_name in landmarks:
             fixed_csv = pair['fixed'].replace('.nii.gz', '.csv')
             moving_csv = pair['moving'].replace('.nii.gz', '.csv')
-            fixed_keypoints = os.path.join(data_directory, fixed_csv.replace('images', 'landmarks'))
-            moving_keypoints = os.path.join(data_directory, moving_csv.replace('images', 'landmarks'))
+            if task_name == 'NLST':
+                fixed_keypoints = os.path.join(data_directory, fixed_csv.replace('images', 'keypoints'))
+                moving_keypoints = os.path.join(data_directory, moving_csv.replace('images', 'keypoints'))
+            else:
+                fixed_keypoints = os.path.join(data_directory, fixed_csv.replace('images', 'landmarks'))
+                moving_keypoints = os.path.join(data_directory, moving_csv.replace('images', 'landmarks'))
             group['fixed_keypoints'] = fixed_keypoints
             group['moving_keypoints'] = moving_keypoints
 
