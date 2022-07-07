@@ -428,17 +428,8 @@ def eval(
             disp_name = f"disp_{data.fixed_image.name[-16:-12]}_{data.moving_image.name[-16:-12]}"
         else:
             disp_name = f"disp_{data.fixed_image.name.split('.')[0]}_{data.moving_image.name.split('.')[0]}"
+
         disp_np = torch2skimage_disp(flow)
-
-        l2r_disp = einops.rearrange(disp_np, 't h w d -> h w d t')
-        if disp_format == DisplacementFormat.Numpy:
-            np.savez_compressed(savedir / "disps" / f"{disp_name}.npz", l2r_disp)
-        else:
-            displacement_nib = nib.Nifti1Image(l2r_disp, affine=moving_nib.affine)
-            nib.save(displacement_nib, savedir / "disps" / f"{disp_name}.nii.gz")
-
-
-        np.savez_compressed(savedir / "disps" / disp_name, disp_np)
 
         measurements[disp_name][
             "sdlogj"
@@ -481,6 +472,12 @@ def eval(
                 spacing_mov=get_spacing(moving_nib),
             )
             measurements[disp_name]["tre"] = tre
+
+        if disp_format == DisplacementFormat.Numpy:
+            np.savez_compressed(savedir / "disps" / f"{disp_name}.npz", disp_np)
+        else:
+            displacement_nib = nib.Nifti1Image(disp_np, affine=moving_nib.affine)
+            nib.save(displacement_nib, savedir / "disps" / f"{disp_name}.nii.gz")
 
     with open(savedir / "measurements.json", "w") as f:
         json.dump(measurements, f)
