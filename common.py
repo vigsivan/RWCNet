@@ -723,6 +723,10 @@ def adam_optimization(
 
     return net
 
+class TrainType(str, Enum):
+    Paired="paired" 
+    Unpaired="unpaired"
+    UnpairedSet="unpairedset"
 
 @dataclass
 class Data:
@@ -759,6 +763,52 @@ def load_labels(data_json: Path) -> List[int]:
 
     labels = [int(i) for i in labels]
     return labels
+
+def random_unpaired_split_never_ending_generator(data_json: Path, *, seed: Optional[int] = None) -> Generator[Data, None, None]:
+    """
+    This generator is used when you have a set of fixed images and a set of moving
+    images and you want to randomly sample fixed and moving images from their respective sets.
+
+    Parameters
+    ----------
+    data_json: Path
+        JSON file containing data information
+    split: str
+        One of train or val
+    seed: Optional[int]
+        Default=None
+
+    """
+    fixed_split = "train_fixed"
+    moving_split= "train_moving"
+    if seed:
+        random.seed(seed)
+
+    with open(data_json, "r") as f:
+        data_fixed = json.load(f)[fixed_split]
+
+    with open(data_json, "r") as f:
+        data_moving = json.load(f)[moving_split]
+
+    while True:
+        random.shuffle(data_fixed)
+        random.shuffle(data_moving)
+        for fixed, moving in zip(data_fixed, data_moving):
+
+            fixed_image = fixed["image"]
+            moving_image = moving["image"]
+
+            segmentation = "label" in fixed and "label" in moving
+            keypoints = "keypoints" in fixed and "keypoints" in moving
+
+            yield Data(
+                fixed_image=fixed_image,
+                moving_image=moving_image,
+                fixed_segmentation=fixed["label"] if segmentation else None,
+                moving_segmentation=moving["label"] if segmentation else None,
+                fixed_keypoints=fixed["keypoints"] if keypoints else None,
+                moving_keypoints=moving["keypoints"] if keypoints else None,)
+
 
 def random_unpaired_never_ending_generator(
     data_json: Path, *, split: str, seed: Optional[int] = None
