@@ -347,7 +347,7 @@ def train(
                 del losses_cum_dict
                 flownetc = flownetc.train()
 
-    torch.save(flownetc.state_dict(), checkpoint_dir / f"flownet_step{steps}.pth")
+    torch.save(flownetc.state_dict(), checkpoint_dir / f"flownet_step{starting_step+steps}.pth")
 
 
 @app.command()
