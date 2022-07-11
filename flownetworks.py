@@ -134,6 +134,15 @@ def train(
     val_feq: int
         Frequency at which to evaluate model against validation. Default=0 (never).
     """
+
+    # set which GPU to use if multiple are available
+    # GPU_iden = 1
+    # GPU_num = torch.cuda.device_count()
+    # for GPU_idx in range(GPU_num):
+    #     GPU_name = torch.cuda.get_device_name(GPU_idx)
+    # torch.cuda.set_device(GPU_iden)
+    # GPU_avai = torch.cuda.is_available()
+
     if train_paired:
         train_gen = random_never_ending_generator(data_json, split="train", seed=42)
     else:
