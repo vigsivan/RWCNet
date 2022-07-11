@@ -26,6 +26,7 @@ from common import (
     get_labels,
 )
 from metrics import compute_dice, compute_total_registration_error
+from differentiable_metrics import TotalRegistrationLoss
 
 app = typer.Typer()
 
@@ -210,10 +211,13 @@ def main(
             align_corners=False,
         )
 
+        trl = TotalRegistrationLoss()
+
         disp_np = disp_hr.detach().cpu().numpy()
 
         # NOTE: we are using scipy's interpolate func, which does not take a batch dimension
         disp_np = einops.rearrange(disp_np, "b c d h w -> (b c) d h w")
+        l2r_disp = einops.rearrange(disp_np, 't h w d -> h w d t')
 
         if use_l2r_naming:
             disp_name = f"disp_{data.fixed_image.name[-16:-12]}_{data.moving_image.name[-16:-12]}"
@@ -245,10 +249,20 @@ def main(
             spacing_mov = get_spacing(moving_nib)
             fixed_keypoints = np.loadtxt(data.fixed_keypoints, delimiter=",")
             moving_keypoints = np.loadtxt(data.moving_keypoints, delimiter=",")
-            tre = compute_total_registration_error(
-                fixed_keypoints, moving_keypoints, disp_np, spacing_fix, spacing_mov
+
+            tre_np = compute_total_registration_error(
+                fixed_keypoints, moving_keypoints, l2r_disp, spacing_fix, spacing_mov
             )
-            measurements[disp_name]["total_registration_error"] = tre
+
+            spacing_fix = torch.from_numpy(spacing_fix)
+            spacing_mov = torch.from_numpy(spacing_mov)
+            fixed_keypoints = torch.from_numpy(fixed_keypoints)
+            moving_keypoints = torch.from_numpy(moving_keypoints)
+
+            tre = trl(fixed_keypoints, moving_keypoints, disp_hr, spacing_fix, spacing_mov)
+
+            measurements[disp_name]["total_registration_error"] = tre_np
+            measurements[disp_name]['tre_torch'] = tre.item()
 
         if warp_images:
             moved_image = apply_displacement_field(disp_np, moving.detach().cpu().numpy())
@@ -257,7 +271,7 @@ def main(
             nib.save(moved_nib, save_directory / "images" / warped_img_name)
 
         # L2R evaluation scripts expects displacements with the shape (*data_shape, 3)
-        l2r_disp = einops.rearrange(disp_np, 't h w d -> h w d t')
+        # l2r_disp = einops.rearrange(disp_np, 't h w d -> h w d t')
         if disp_format == DisplacementFormat.Numpy:
             np.savez_compressed(save_directory / "disps" / f"{disp_name}.npz", l2r_disp)
         else:
@@ -269,4 +283,5 @@ def main(
     with open(save_directory / "measurements.json", "w") as f:
         json.dump(measurements, f)
 
-app()
+# leave for now for Teo's pycharm debugging purposes
+# main(data_json=Path('/home/tvujovic/repos/opt_based_reg_flow/optimization-based-registration/jsons/convAdam_bender_teo/NLST_eval_pairs_0706.json'), save_directory=Path('test_tre'), use_labels=False)
