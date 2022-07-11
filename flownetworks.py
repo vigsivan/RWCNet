@@ -79,6 +79,7 @@ def train(
     feature_extractor_feature_sizes: str = "8,32,64",
     feature_extractor_kernel_sizes: str = "7,5,5",
     enforce_inverse_consistency: bool=False, # TODO
+    skip_normalize: bool = False,
     train_paired: bool=True,
     val_paired: bool=True,
     device: str = "cuda",
@@ -188,6 +189,10 @@ def train(
         fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata())).to(device)
         moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata())).to(device)
 
+        if not skip_normalize:
+            fixed = (fixed - fixed.min())/(fixed.max() - fixed.min())
+            moving = (moving - moving.min())/(moving.max() - moving.min())
+
         flow = flownetc(moving, fixed)
         flow = VecInt(fixed.shape[2:], nsteps=7).to(device)(flow)
         transformer = SpatialTransformer(fixed.shape[2:]).to(device)
@@ -264,6 +269,10 @@ def train(
 
                     fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata())).to(device)
                     moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata())).to(device)
+
+                    if not skip_normalize:
+                        fixed = (fixed - fixed.min())/(fixed.max() - fixed.min())
+                        moving = (moving - moving.min())/(moving.max() - moving.min())
 
                     flow = flownetc(moving, fixed)
                     flow = VecInt(fixed.shape[2:], nsteps=7).to(device)(flow)
@@ -343,6 +352,7 @@ def eval(
     feature_extractor_strides: str = "2,1,1",
     feature_extractor_feature_sizes: str = "8,32,64",
     feature_extractor_kernel_sizes: str = "7,5,5",
+    skip_normalize: bool=False,
     use_l2r_naming: bool=True,
     disp_format: DisplacementFormat=DisplacementFormat.Nifti,
     diffeomorphic: bool=False,
@@ -406,6 +416,10 @@ def eval(
 
         fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata())).to(device)
         moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata())).to(device)
+
+        if not skip_normalize:
+            fixed = (fixed - fixed.min())/(fixed.max() - fixed.min())
+            moving = (moving - moving.min())/(moving.max() - moving.min())
 
         flow = flownetc(moving, fixed)
         if diffeomorphic:
