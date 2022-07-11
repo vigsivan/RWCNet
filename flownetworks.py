@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 import logging
 import sys
-from typing import Dict
+from typing import Dict, Optional
 
 import einops
 import numpy as np
@@ -71,6 +71,7 @@ def get_loss_fn(loss: ImageLoss):
 def train(
     data_json: Path,
     checkpoint_dir: Path,
+    start: Optional[Path]=None,
     steps: int = 1000,
     lr: float = 3e-4,
     correlation_patch_size: int = 3,
@@ -79,6 +80,7 @@ def train(
     feature_extractor_feature_sizes: str = "8,32,64",
     feature_extractor_kernel_sizes: str = "7,5,5",
     enforce_inverse_consistency: bool=False, # TODO
+    skip_normalize: bool = False,
     train_paired: bool=True,
     val_paired: bool=True,
     device: str = "cuda",
@@ -173,6 +175,12 @@ def train(
         **flownet_kwargs,
     ).to(device)
 
+    starting_step = 0
+    if start is not None:
+        flownetc.load_state_dict(torch.load(start))
+        if "step" in start.name:
+            starting_step = int(start.name.split("_step")[-1].split('.')[0])
+
     opt = torch.optim.Adam(flownetc.parameters(), lr=lr)
 
     image_loss_fn = get_loss_fn(image_loss)
@@ -188,7 +196,8 @@ def train(
         labels = load_labels(data_json)
         logging.debug(f"Using labels. Found labels {','.join(str(i) for i in labels)}")
 
-    for step in trange(steps):
+    print(f"Starting training from step {starting_step}")
+    for step in trange(starting_step, steps+starting_step):
         data = next(train_gen)
 
         fixed_nib = nib.load(data.fixed_image)
@@ -196,6 +205,10 @@ def train(
 
         fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata())).to(device)
         moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata())).to(device)
+
+        if not skip_normalize:
+            fixed = (fixed - fixed.min())/(fixed.max() - fixed.min())
+            moving = (moving - moving.min())/(moving.max() - moving.min())
 
         flow = flownetc(moving, fixed)
         flow = VecInt(fixed.shape[2:], nsteps=7).to(device)(flow)
@@ -274,6 +287,10 @@ def train(
                     fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata())).to(device)
                     moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata())).to(device)
 
+                    if not skip_normalize:
+                        fixed = (fixed - fixed.min())/(fixed.max() - fixed.min())
+                        moving = (moving - moving.min())/(moving.max() - moving.min())
+
                     flow = flownetc(moving, fixed)
                     flow = VecInt(fixed.shape[2:], nsteps=7).to(device)(flow)
                     transformer = SpatialTransformer(fixed.shape[2:]).to(device)
@@ -339,7 +356,7 @@ def train(
                 del losses_cum_dict
                 flownetc = flownetc.train()
 
-    torch.save(flownetc.state_dict(), checkpoint_dir / f"flownet_step{steps}.pth")
+    torch.save(flownetc.state_dict(), checkpoint_dir / f"flownet_step{starting_step+steps}.pth")
 
 
 @app.command()
@@ -352,6 +369,7 @@ def eval(
     feature_extractor_strides: str = "2,1,1",
     feature_extractor_feature_sizes: str = "8,32,64",
     feature_extractor_kernel_sizes: str = "7,5,5",
+    skip_normalize: bool=False,
     use_l2r_naming: bool=True,
     disp_format: DisplacementFormat=DisplacementFormat.Nifti,
     diffeomorphic: bool=False,
@@ -415,6 +433,10 @@ def eval(
 
         fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata())).to(device)
         moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata())).to(device)
+
+        if not skip_normalize:
+            fixed = (fixed - fixed.min())/(fixed.max() - fixed.min())
+            moving = (moving - moving.min())/(moving.max() - moving.min())
 
         flow = flownetc(moving, fixed)
         if diffeomorphic:
