@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 import logging
 import sys
-from typing import Dict
+from typing import Dict, Optional
 
 import einops
 import numpy as np
@@ -71,6 +71,7 @@ def get_loss_fn(loss: ImageLoss):
 def train(
     data_json: Path,
     checkpoint_dir: Path,
+    start: Optional[Path]=None,
     steps: int = 1000,
     lr: float = 3e-4,
     correlation_patch_size: int = 3,
@@ -165,6 +166,12 @@ def train(
         **flownet_kwargs,
     ).to(device)
 
+    starting_step = 0
+    if start is not None:
+        flownetc.load_state_dict(torch.load(start))
+        if "step" in start.name:
+            starting_step = int(start.name.split("_step")[-1].split('.')[0])
+
     opt = torch.optim.Adam(flownetc.parameters(), lr=lr)
 
     image_loss_fn = get_loss_fn(image_loss)
@@ -180,7 +187,8 @@ def train(
         labels = load_labels(data_json)
         logging.debug(f"Using labels. Found labels {','.join(str(i) for i in labels)}")
 
-    for step in trange(steps):
+    print(f"Starting training from step {starting_step}")
+    for step in trange(starting_step, steps+starting_step):
         data = next(train_gen)
 
         fixed_nib = nib.load(data.fixed_image)
