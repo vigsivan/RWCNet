@@ -339,7 +339,7 @@ def train(
                                 displacement_field=flow,
                                 fixed_spacing=torch.Tensor(get_spacing(fixed_nib)),
                                 moving_spacing=torch.Tensor(get_spacing(moving_nib)),
-                            )
+                            ).detach().cpu().numpy()
                         )
                 for k, v in losses_cum_dict.items():
                     writer.add_scalar(f"val_{k}", np.mean(v).item(), global_step=step)
