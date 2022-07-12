@@ -128,17 +128,28 @@ def compute_total_registration_error(
     -------
     total_registration_error: float
     """
-
+    #fix_lms_tmp = fix_lms
+    #fix_lms = fix_lms[0,:][None,...]
+    #mov_lms = mov_lms[0,:][None,...]
     fix_lms_disp_x = map_coordinates(disp[:, :, :, 0], fix_lms.transpose())
     fix_lms_disp_y = map_coordinates(disp[:, :, :, 1], fix_lms.transpose())
     fix_lms_disp_z = map_coordinates(disp[:, :, :, 2], fix_lms.transpose())
-    fix_lms_disp = np.array(
-        (fix_lms_disp_x, fix_lms_disp_y, fix_lms_disp_z)
-    ).transpose()
+    fix_lms_disp = np.array((fix_lms_disp_x, fix_lms_disp_y, fix_lms_disp_z)).transpose()
 
     fix_lms_warped = fix_lms + fix_lms_disp
 
+    # fixed_landmarks = (fixed_landmarks).to(displacement_field.device)
+    # moving_landmarks = (moving_landmarks).to(displacement_field.device)
+    # moving_spacing = (moving_spacing).to(displacement_field.device)
+    #
+    # assert fixed_landmarks.shape == moving_landmarks.shape
+    # fcoords, ccoords = torch.floor(moving_landmarks).long(), torch.ceil(moving_landmarks).long()
+    # f_displacements = displacement_field[:, :, fcoords[:, 0], fcoords[:, 1], fcoords[:, 2]]
+    # c_displacements = displacement_field[:, :, ccoords[:, 0], ccoords[:, 1], ccoords[:, 2]]
+    # displacements = (f_displacements + c_displacements) / 2
+
     tre = np.linalg.norm((fix_lms_warped - mov_lms) * spacing_mov, axis=1)
+
     return tre.mean().item()
 
 
