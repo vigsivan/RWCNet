@@ -15,6 +15,7 @@ import numpy as np
 import nibabel as nib
 from tqdm import tqdm, trange
 import torch
+import torch.nn.functional as F
 from torch.utils.tensorboard.writer import SummaryWriter
 import typer
 
@@ -30,6 +31,7 @@ from common import (
     load_keypoints_np,
     torch2skimage_disp,
     tb_log,
+    warp_image,
 )
 from differentiable_metrics import (
     MSE,
@@ -230,7 +232,7 @@ def train(
             ).to(device)
             moving_seg = add_bc_dim(
                 torch.from_numpy(
-                    np.round(nib.load(data.fixed_segmentation).get_fdata())
+                    np.round(nib.load(data.moving_segmentation).get_fdata())
                 )
             ).to(device)
 
@@ -317,7 +319,7 @@ def train(
                         ).to(device)
                         moving_seg = add_bc_dim(
                             torch.from_numpy(
-                                np.round(nib.load(data.fixed_segmentation).get_fdata())
+                                np.round(nib.load(data.moving_segmentation).get_fdata())
                             )
                         ).to(device)
 
@@ -451,16 +453,21 @@ def train_cascade(
             moving = (moving - moving.min())/(moving.max() - moving.min())
 
 
-        flow = flownetc(moving, fixed)
+        flow = flownetc(moving, fixed, resize=False)
+        moving_ = F.interpolate(moving, flow.shape[-3:])
+        fixed_ = F.interpolate(fixed, flow.shape[-3:])
+
+        transformer_half = SpatialTransformer(fixed_.shape[2:]).to(device)
 
         if vector_integration_steps > 0:
-            flow = VecInt(fixed.shape[2:], nsteps=vector_integration_steps).to(device)(flow)
-        transformer = SpatialTransformer(fixed.shape[2:]).to(device)
-        flow = cascade(moving, fixed, flow, transformer)
-        moved = transformer(moving, flow)
+            flow = VecInt(fixed_.shape[2:], nsteps=vector_integration_steps).to(device)(flow)
+
+        flow = cascade(moving_, fixed_, flow, transformer_half)
+        flow = flownetc.refine(flownetc.flow_resize(flow))
+        moved = warp_image(flow, moving)
 
         losses_dict: Dict[str, torch.Tensor] = {}
-        losses_dict["image_loss"] = image_loss_weight * image_loss_fn(moved, fixed)
+        losses_dict["image_loss"] = image_loss_weight * image_loss_fn(moved.squeeze(), fixed.squeeze())
         losses_dict["grad"] = reg_loss_weight * grad_loss_fn(flow)
 
         if use_labels:
@@ -476,7 +483,8 @@ def train_cascade(
                 )
             ).to(device)
 
-            moved_seg = torch.round(transformer(moving_seg.float(), flow))
+            breakpoint()
+            moved_seg = torch.round(warp_image(moving_seg.float(), flow, mode='nearest'))
             losses_dict["dice"] = dice_loss_weight * DiceLoss()(
                 fixed_seg.squeeze(), moving_seg.squeeze(), moved_seg.squeeze()
             )
@@ -535,8 +543,8 @@ def train_cascade(
                     flow = flownetc(moving, fixed)
                     if vector_integration_steps > 0:
                         flow = VecInt(fixed.shape[2:], nsteps=vector_integration_steps).to(device)(flow)
-                    transformer = SpatialTransformer(fixed.shape[2:]).to(device)
-                    moved = transformer(moving, flow)
+                    transformer_half = SpatialTransformer(fixed.shape[2:]).to(device)
+                    moved = transformer_half(moving, flow)
 
                     losses_cum_dict["image_loss"].append(
                         (image_loss_weight * image_loss_fn(moved, fixed))
@@ -557,11 +565,11 @@ def train_cascade(
                         ).to(device)
                         moving_seg = add_bc_dim(
                             torch.from_numpy(
-                                np.round(nib.load(data.fixed_segmentation).get_fdata())
+                                np.round(nib.load(data.moving_segmentation).get_fdata())
                             )
                         ).to(device)
 
-                        moved_seg = torch.round(transformer(moving_seg.float(), flow, mode="nearest"))
+                        moved_seg = torch.round(transformer_half(moving_seg.float(), flow, mode="nearest"))
                         losses_cum_dict["dice"].append(
                             dice_loss_weight
                             * DiceLoss()(
@@ -685,16 +693,20 @@ def eval_cascade(
             fixed = (fixed - fixed.min())/(fixed.max() - fixed.min())
             moving = (moving - moving.min())/(moving.max() - moving.min())
 
-        flow = flownetc(moving, fixed)
-        transformer = SpatialTransformer(fixed.shape[2:]).to(device)
+        flow = flownetc(moving, fixed, resize=False)
+        moving_ = F.interpolate(moving, flow.shape[-3:])
+        fixed_ = F.interpolate(fixed, flow.shape[-3:])
+
+        transformer = SpatialTransformer(fixed_.shape[2:]).to(device)
 
         if diffeomorphic:
             flow = VecInt(fixed.shape[2:], nsteps=7).to(device)(flow)
 
-        flow = cascade(moving, fixed, flow, transformer)
+        flow = cascade(moving_, fixed_, flow, transformer)
+        flow = flownetc.refine(flownetc.flow_resize(flow))
 
         if save_images:
-            moved = transformer(moving, flow)
+            moved = warp_image(flow, moving)
             moved_image_name = (
                 data.moving_image.name.split(".")[0]
                 + "_warped."
@@ -725,11 +737,12 @@ def eval_cascade(
             )
             moving_seg = add_bc_dim(
                 torch.from_numpy(
-                    np.round(nib.load(data.fixed_segmentation).get_fdata())
+                    np.round(nib.load(data.moving_segmentation).get_fdata())
                 )
             ).to(device)
 
-            moved_seg = torch.round(transformer(moving_seg.float(), flow, mode="nearest")).detach().cpu()
+            breakpoint()
+            moved_seg = torch.round(warp_image(moving_seg.float(), flow, mode="nearest")).detach().cpu()
 
             fixed_seg, moving_seg, moved_seg = (
                 fixed_seg.numpy(),
@@ -740,6 +753,7 @@ def eval_cascade(
             measurements[disp_name]["dice"] = compute_dice(
                 fixed_seg, moving_seg, moved_seg, labels=labels
             )
+            breakpoint()
             measurements[disp_name]["hd95"] = compute_hd95(
                 fixed_seg, moving_seg, moved_seg, labels
             )
@@ -881,7 +895,7 @@ def eval(
             )
             moving_seg = add_bc_dim(
                 torch.from_numpy(
-                    np.round(nib.load(data.fixed_segmentation).get_fdata())
+                    np.round(nib.load(data.moving_segmentation).get_fdata())
                 )
             ).to(device)
 

@@ -973,10 +973,10 @@ def data_generator(data_json: Path, *, split: str) -> Generator[Data, None, None
         )
 
 
-def transform_image(
-    displacement_field: torch.Tensor, image: torch.Tensor
+def warp_image(
+        displacement_field: torch.Tensor, image: torch.Tensor, mode: str="bilinear"
 ) -> torch.Tensor:
-    grid = identity_grid_torch(image.shape).to(image.device)
+    grid = identity_grid_torch(image.shape[-3:]).to(image.device)
     new_locs = grid + displacement_field
 
     shape = displacement_field.shape[2:]
@@ -992,10 +992,8 @@ def transform_image(
         new_locs = new_locs.permute(0, 2, 3, 4, 1)
         new_locs = new_locs[..., [2, 1, 0]]
 
-    # Grid sample expects a batch and channel dimensions
-    image = einops.repeat(image, "d h w -> b c d h w", b=1, c=1)
-    resampled = F.grid_sample(image, new_locs, align_corners=True, mode="bilinear")
-    return resampled.squeeze()
+    resampled = F.grid_sample(image, new_locs, align_corners=True, mode=mode)
+    return resampled
 
 
 if __name__ == "__main__":

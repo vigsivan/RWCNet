@@ -125,7 +125,7 @@ class FlowNetCorr(nn.Module):
         self.flow_resize = ResizeTransform(resize_factor, ndims=3)
         self.refine = FlownetRefinementModule()
 
-    def forward(self, moving_image: torch.Tensor, fixed_image: torch.Tensor):
+    def forward(self, moving_image: torch.Tensor, fixed_image: torch.Tensor, resize: bool=True):
         feat_mov = self.feature_extractor(moving_image)
         feat_fix = self.feature_extractor(fixed_image)
         corr = correlate_grad(
@@ -139,8 +139,9 @@ class FlowNetCorr(nn.Module):
         unet_in = torch.cat([corr, redir], dim=1)
         unet_out = self.unet(unet_in)
         flow = self.flow(unet_out)
-        flow = self.flow_resize(flow)
-        flow = self.refine(flow)
+        if resize:
+            flow = self.flow_resize(flow)
+            flow = self.refine(flow)
 
         return flow
 
@@ -149,7 +150,7 @@ class FlownetRefinementModule(nn.Module):
     def __init__(self):
         super().__init__()
         self.conv = nn.Conv3d(
-            in_channels=3, out_channels=3, kernel_size=1, padding="same"
+            in_channels=3, out_channels=3, kernel_size=3, padding="same"
         )
 
     def forward(self, x: torch.Tensor):
