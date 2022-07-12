@@ -366,6 +366,7 @@ def train_cascade(
     flownetc_checkpoint: Path,
     data_json: Path,
     checkpoint_dir: Path,
+    skip_normalize: bool=False,
     steps: int = 1000,
     lr: float = 3e-4,
     correlation_patch_size: int = 3,
@@ -445,6 +446,11 @@ def train_cascade(
         fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata())).to(device)
         moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata())).to(device)
 
+        if not skip_normalize:
+            fixed = (fixed - fixed.min())/(fixed.max() - fixed.min())
+            moving = (moving - moving.min())/(moving.max() - moving.min())
+
+
         flow = flownetc(moving, fixed)
 
         if vector_integration_steps > 0:
@@ -519,6 +525,10 @@ def train_cascade(
                     fixed_nib = nib.load(data.fixed_image)
                     moving_nib = nib.load(data.moving_image)
 
+                    if not skip_normalize:
+                        fixed = (fixed - fixed.min())/(fixed.max() - fixed.min())
+                        moving = (moving - moving.min())/(moving.max() - moving.min())
+
                     fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata())).to(device)
                     moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata())).to(device)
 
@@ -580,7 +590,7 @@ def train_cascade(
                                 displacement_field=flow,
                                 fixed_spacing=torch.Tensor(get_spacing(fixed_nib)),
                                 moving_spacing=torch.Tensor(get_spacing(moving_nib)),
-                            )
+                            ).detach().cpu().numpy()
                         )
                 for k, v in losses_cum_dict.items():
                     writer.add_scalar(f"val_{k}", np.mean(v).item(), global_step=step)
@@ -596,6 +606,7 @@ def eval_cascade(
     cascades_checkpoint: Path,
     data_json: Path,
     savedir: Path,
+    skip_normalize: bool=False,
     correlation_patch_size: int = 3,
     flownet_redir_feats: int = 32,
     feature_extractor_strides: str = "2,1,1",
@@ -669,6 +680,10 @@ def eval_cascade(
 
         fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata())).to(device)
         moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata())).to(device)
+
+        if not skip_normalize:
+            fixed = (fixed - fixed.min())/(fixed.max() - fixed.min())
+            moving = (moving - moving.min())/(moving.max() - moving.min())
 
         flow = flownetc(moving, fixed)
         transformer = SpatialTransformer(fixed.shape[2:]).to(device)
