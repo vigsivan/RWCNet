@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from torch.distributions.normal import Normal
 from common import correlate_grad
 
-from image_similarity_matrices import ncc
+from image_similarity_matrices import mind_mse
 
 
 def default_unet_features() -> List[List[int]]:
@@ -613,7 +613,7 @@ class Cascade(nn.Module):
     def __init__(self, N: int = 2, similarity_function: str = "mi"):
         super().__init__()
         self.cascades = nn.ModuleList([Unet3D(7, 3) for _ in range(N)])
-        self.similarity_function = ncc # FIXME
+        self.similarity_function = mind_mse
 
     def forward(
         self,

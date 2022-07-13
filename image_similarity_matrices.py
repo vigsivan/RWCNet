@@ -4,8 +4,12 @@ from typing import Tuple
 import numpy as np
 import torch
 import torch.nn.functional as F
+from common import MINDSSC
 
-__all__ = ["mi", "ncc", "mse"]
+__all__ = ["mi", "ncc", "mse", "mind_mse"]
+
+def mind_mse(y_true: torch.Tensor, y_pred: torch.Tensor):
+    return mse(MINDSSC(y_true), MINDSSC(y_pred))
 
 
 def mse(y_true: torch.Tensor, y_pred: torch.Tensor):
