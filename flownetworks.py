@@ -483,8 +483,7 @@ def train_cascade(
                 )
             ).to(device)
 
-            breakpoint()
-            moved_seg = torch.round(warp_image(moving_seg.float(), flow, mode='nearest'))
+            moved_seg = torch.round(warp_image(flow, moving_seg.float(), mode='nearest'))
             losses_dict["dice"] = dice_loss_weight * DiceLoss()(
                 fixed_seg.squeeze(), moving_seg.squeeze(), moved_seg.squeeze()
             )
@@ -741,8 +740,7 @@ def eval_cascade(
                 )
             ).to(device)
 
-            breakpoint()
-            moved_seg = torch.round(warp_image(moving_seg.float(), flow, mode="nearest")).detach().cpu()
+            moved_seg = torch.round(warp_image(flow, moving_seg.float(), mode="nearest")).detach().cpu()
 
             fixed_seg, moving_seg, moved_seg = (
                 fixed_seg.numpy(),
@@ -753,7 +751,6 @@ def eval_cascade(
             measurements[disp_name]["dice"] = compute_dice(
                 fixed_seg, moving_seg, moved_seg, labels=labels
             )
-            breakpoint()
             measurements[disp_name]["hd95"] = compute_hd95(
                 fixed_seg, moving_seg, moved_seg, labels
             )
