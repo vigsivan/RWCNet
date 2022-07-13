@@ -9,7 +9,9 @@ from common import MINDSSC
 __all__ = ["mi", "ncc", "mse", "mind_mse"]
 
 def mind_mse(y_true: torch.Tensor, y_pred: torch.Tensor):
-    return mse(MINDSSC(y_true), MINDSSC(y_pred))
+    mse_out = mse(MINDSSC(y_true), MINDSSC(y_pred))
+    mse_avg = torch.mean(mse_out, dim=1)[:,None,...] 
+    return mse_avg
 
 
 def mse(y_true: torch.Tensor, y_pred: torch.Tensor):
