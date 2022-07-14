@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 import logging
 import sys
+from collections import OrderedDict
 from typing import Dict, Optional
 
 import einops
@@ -140,14 +141,6 @@ def train(
     val_feq: int
         Frequency at which to evaluate model against validation. Default=0 (never).
     """
-
-    # set which GPU to use if multiple are available
-    # GPU_iden = 1
-    # GPU_num = torch.cuda.device_count()
-    # for GPU_idx in range(GPU_num):
-    #     GPU_name = torch.cuda.get_device_name(GPU_idx)
-    # torch.cuda.set_device(GPU_iden)
-    # GPU_avai = torch.cuda.is_available()
 
     if train_paired:
         train_gen = random_never_ending_generator(data_json, split="train", seed=42)
@@ -424,9 +417,26 @@ def train_cascade(
         **flownet_kwargs,
     ).to(device)
 
-    flownetc.load_state_dict(torch.load(flownetc_checkpoint))
+    checkpoint = torch.load(flownetc_checkpoint)
+    flownetc.load_state_dict(checkpoint)
     flownetc.requires_grad = False
     cascade = Cascade().to(device)
+
+    cascade_statedict = cascade.state_dict()
+    # first conv layer size not going to be the same due to different number of channels
+    skip_keys = ["encoder.0.0.main.weight", "encoder.0.0.main.bias"]
+    for param, weight in checkpoint.items():
+        if not param.startswith("unet"):
+            continue
+        key = param[5:]  # skip unet.
+        if key in skip_keys:
+            continue
+        for k in cascade_statedict.keys():
+            if key in k:
+                cascade_statedict[k] = weight
+                print(f"Loaded {k} from flownetc using {key}")
+        
+    cascade.load_state_dict(cascade_statedict)
 
     opt = torch.optim.Adam(flownetc.parameters(), lr=lr)
 
