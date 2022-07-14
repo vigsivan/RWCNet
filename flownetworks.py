@@ -297,10 +297,10 @@ def train(
                         (image_loss_weight * image_loss_fn(moved, fixed))
                         .detach()
                         .cpu()
-                        .numpy()
+                        .numpy().item()
                     )
                     losses_cum_dict["grad"].append(
-                        (reg_loss_weight * grad_loss_fn(flow)).detach().cpu().numpy()
+                        (reg_loss_weight * grad_loss_fn(flow)).detach().cpu().numpy().item()
                     )
 
                     if use_labels:
@@ -326,7 +326,7 @@ def train(
                             )
                             .detach()
                             .cpu()
-                            .numpy()
+                            .numpy().item()
                         )
 
                     if use_keypoints:
@@ -345,7 +345,7 @@ def train(
                                 displacement_field=flow,
                                 fixed_spacing=torch.Tensor(get_spacing(fixed_nib)),
                                 moving_spacing=torch.Tensor(get_spacing(moving_nib)),
-                            ).detach().cpu().numpy()
+                            ).detach().cpu().numpy().item()
                         )
                 for k, v in losses_cum_dict.items():
                     writer.add_scalar(f"val_{k}", np.mean(v).item(), global_step=step)
@@ -364,6 +364,7 @@ def train_cascade(
     skip_normalize: bool=False,
     steps: int = 1000,
     lr: float = 3e-4,
+    n_cascades: int=2,
     correlation_patch_size: int = 3,
     flownet_redir_feats: int = 32,
     feature_extractor_strides: str = "2,1,1",
@@ -420,7 +421,7 @@ def train_cascade(
     checkpoint = torch.load(flownetc_checkpoint)
     flownetc.load_state_dict(checkpoint)
     flownetc.requires_grad = False
-    cascade = Cascade().to(device)
+    cascade = Cascade(N=n_cascades).to(device)
 
     cascade_statedict = cascade.state_dict()
     # first conv layer size not going to be the same due to different number of channels
@@ -434,7 +435,6 @@ def train_cascade(
         for k in cascade_statedict.keys():
             if key in k:
                 cascade_statedict[k] = weight
-                print(f"Loaded {k} from flownetc using {key}")
         
     cascade.load_state_dict(cascade_statedict)
 
@@ -559,10 +559,10 @@ def train_cascade(
                         (image_loss_weight * image_loss_fn(moved, fixed))
                         .detach()
                         .cpu()
-                        .numpy()
+                        .numpy().item()
                     )
                     losses_cum_dict["grad"].append(
-                        (reg_loss_weight * grad_loss_fn(flow)).detach().cpu().numpy()
+                        (reg_loss_weight * grad_loss_fn(flow)).detach().cpu().numpy().item()
                     )
 
                     if use_labels:
@@ -588,7 +588,7 @@ def train_cascade(
                             )
                             .detach()
                             .cpu()
-                            .numpy()
+                            .numpy().item()
                         )
 
                     if use_keypoints:
@@ -607,7 +607,7 @@ def train_cascade(
                                 displacement_field=flow,
                                 fixed_spacing=torch.Tensor(get_spacing(fixed_nib)),
                                 moving_spacing=torch.Tensor(get_spacing(moving_nib)),
-                            ).detach().cpu().numpy()
+                            ).detach().cpu().numpy().item()
                         )
                 for k, v in losses_cum_dict.items():
                     writer.add_scalar(f"val_{k}", np.mean(v).item(), global_step=step)
@@ -624,6 +624,7 @@ def eval_cascade(
     data_json: Path,
     savedir: Path,
     skip_normalize: bool=False,
+    n_cascades: int=2,
     correlation_patch_size: int = 3,
     flownet_redir_feats: int = 32,
     feature_extractor_strides: str = "2,1,1",
@@ -676,7 +677,7 @@ def eval_cascade(
     flownetc.load_state_dict(torch.load(flownetc_checkpoint))
     flownetc = flownetc.to(device).eval()
 
-    cascade = Cascade()
+    cascade = Cascade(N=n_cascades)
     cascade.load_state_dict(torch.load(cascades_checkpoint))
     cascade = cascade.to(device).eval()
 
