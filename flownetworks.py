@@ -542,12 +542,12 @@ def train_cascade(
                     fixed_nib = nib.load(data.fixed_image)
                     moving_nib = nib.load(data.moving_image)
 
+                    fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata())).to(device)
+                    moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata())).to(device)
+
                     if not skip_normalize:
                         fixed = (fixed - fixed.min())/(fixed.max() - fixed.min())
                         moving = (moving - moving.min())/(moving.max() - moving.min())
-
-                    fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata())).to(device)
-                    moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata())).to(device)
 
                     flow = flownetc(moving, fixed)
                     if vector_integration_steps > 0:
