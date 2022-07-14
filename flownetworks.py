@@ -3,13 +3,14 @@ Flownet inspired models
 """
 
 from collections import defaultdict
+from dataclasses import dataclass
 from enum import Enum
 import json
 from pathlib import Path
 import logging
 import sys
-from collections import OrderedDict
 from typing import Dict, Optional
+from contextlib import nullcontext
 
 import einops
 import numpy as np
@@ -25,6 +26,7 @@ from common import (
     TrainType,
     data_generator,
     random_never_ending_generator,
+    randomized_pair_never_ending_generator,
     random_unpaired_never_ending_generator,
     random_unpaired_split_never_ending_generator,
     load_labels,
@@ -72,11 +74,199 @@ def get_loss_fn(loss: ImageLoss):
         return MutualInformationLoss()
 
 
+@dataclass
+class RunModelOut:
+    flow: torch.Tensor
+    fixed: torch.Tensor
+    moving: torch.Tensor
+    moved: torch.Tensor
+    total_loss: torch.Tensor
+    losses_dict: Dict[str, float]
+
+
+def run_flownetc(
+    data,
+    model,
+    skip_normalize: bool,
+    image_loss_weight: float,
+    reg_loss_weight: float,
+    dice_loss_weight: float,
+    kp_loss_weight: float,
+    use_labels: bool,
+    use_keypoints: bool,
+    with_grad: bool = True,
+    device: str = "cuda",
+    ) -> RunModelOut:
+
+    context = nullcontext() if with_grad else torch.no_grad()
+
+    with context:
+        fixed_nib = nib.load(data.fixed_image)
+        moving_nib = nib.load(data.moving_image)
+
+        fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata())).to(device)
+        moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata())).to(device)
+
+        if not skip_normalize:
+            fixed = (fixed - fixed.min()) / (fixed.max() - fixed.min())
+            moving = (moving - moving.min()) / (moving.max() - moving.min())
+
+        flow = model(moving, fixed)
+        flow = VecInt(fixed.shape[2:], nsteps=7).to(device)(flow)
+        transformer = SpatialTransformer(fixed.shape[2:]).to(device)
+        moved = transformer(moving, flow)
+
+        losses_dict: Dict[str, torch.Tensor] = {}
+        losses_dict["image_loss"] = image_loss_weight * MutualInformationLoss()(
+            moved, fixed
+        )
+        losses_dict["grad"] = reg_loss_weight * Grad()(flow)
+
+        if use_labels:
+
+            fixed_seg = add_bc_dim(
+                torch.from_numpy(
+                    np.round(nib.load(data.fixed_segmentation).get_fdata())
+                )
+            ).to(device)
+            moving_seg = add_bc_dim(
+                torch.from_numpy(
+                    np.round(nib.load(data.moving_segmentation).get_fdata())
+                )
+            ).to(device)
+
+            moved_seg = torch.round(transformer(moving_seg.float(), flow))
+            losses_dict["dice"] = dice_loss_weight * DiceLoss()(
+                fixed_seg.squeeze(), moving_seg.squeeze(), moved_seg.squeeze()
+            )
+
+        if use_keypoints:
+            assert (
+                data.fixed_keypoints is not None and data.moving_keypoints is not None
+            )
+
+            fixed_kps = load_keypoints(data.fixed_keypoints)
+            moving_kps = load_keypoints(data.moving_keypoints)
+            losses_dict["keypoints"] = kp_loss_weight * TotalRegistrationLoss()(
+                fixed_landmarks=fixed_kps,
+                moving_landmarks=moving_kps,
+                displacement_field=flow,
+                fixed_spacing=torch.Tensor(get_spacing(fixed_nib)),
+                moving_spacing=torch.Tensor(get_spacing(moving_nib)),
+            )
+
+        loss = sum(losses_dict.values())
+        assert isinstance(loss, torch.Tensor)
+        losses_dict_log = {k: v.item() for k, v in losses_dict.items()}
+
+        return RunModelOut(
+            flow=flow,
+            fixed=fixed,
+            moving=moving,
+            moved=moved,
+            total_loss = loss,
+            losses_dict=losses_dict_log
+        )
+
+def run_flownetcascade(
+    data,
+    flownet,
+    cascade,
+    skip_normalize: bool,
+    image_loss_weight: float,
+    reg_loss_weight: float,
+    dice_loss_weight: float,
+    kp_loss_weight: float,
+    use_labels: bool,
+    use_keypoints: bool,
+    with_grad: bool = True,
+    device: str = "cuda",
+    ) -> RunModelOut:
+
+    context = nullcontext() if with_grad else torch.no_grad()
+
+    with context:
+        fixed_nib = nib.load(data.fixed_image)
+        moving_nib = nib.load(data.moving_image)
+
+        fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata())).to(device)
+        moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata())).to(device)
+
+        if not skip_normalize:
+            fixed = (fixed - fixed.min()) / (fixed.max() - fixed.min())
+            moving = (moving - moving.min()) / (moving.max() - moving.min())
+
+        flow = flownet(moving, fixed, resize=False)
+
+        moving_ = F.interpolate(moving, flow.shape[-3:])
+        fixed_ = F.interpolate(fixed, flow.shape[-3:])
+
+        transformer_half = SpatialTransformer(fixed_.shape[2:]).to(device)
+
+        flow = cascade(moving_, fixed_, flow, transformer_half)
+        flow = flownet.refine(flownet.flow_resize(flow))
+        moved = warp_image(flow, moving)
+
+        losses_dict: Dict[str, torch.Tensor] = {}
+        losses_dict["image_loss"] = image_loss_weight * MutualInformationLoss()(
+            moved.squeeze(), fixed.squeeze()
+        )
+        losses_dict["grad"] = reg_loss_weight * Grad()(flow)
+
+        if use_labels:
+
+            fixed_seg = add_bc_dim(
+                torch.from_numpy(
+                    np.round(nib.load(data.fixed_segmentation).get_fdata())
+                )
+            ).to(device)
+            moving_seg = add_bc_dim(
+                torch.from_numpy(
+                    np.round(nib.load(data.moving_segmentation).get_fdata())
+                )
+            ).to(device)
+
+            moved_seg = torch.round(
+                warp_image(flow, moving_seg.float(), mode="nearest")
+            )
+            losses_dict["dice"] = dice_loss_weight * DiceLoss()(
+                fixed_seg.squeeze(), moving_seg.squeeze(), moved_seg.squeeze()
+            )
+
+        if use_keypoints:
+            assert (
+                data.fixed_keypoints is not None and data.moving_keypoints is not None
+            )
+
+            fixed_kps = load_keypoints(data.fixed_keypoints)
+            moving_kps = load_keypoints(data.moving_keypoints)
+            losses_dict["keypoints"] = kp_loss_weight * TotalRegistrationLoss()(
+                fixed_landmarks=fixed_kps,
+                moving_landmarks=moving_kps,
+                displacement_field=flow,
+                fixed_spacing=torch.Tensor(get_spacing(fixed_nib)),
+                moving_spacing=torch.Tensor(get_spacing(moving_nib)),
+            )
+
+
+        loss = sum(losses_dict.values())
+        assert isinstance(loss, torch.Tensor)
+        losses_dict_log = {k: v.item() for k, v in losses_dict.items()}
+
+        return RunModelOut(
+            flow=flow,
+            fixed=fixed,
+            moving=moving,
+            moved=moved,
+            total_loss = loss,
+            losses_dict=losses_dict_log
+        )
+
 @app.command()
 def train(
     data_json: Path,
     checkpoint_dir: Path,
-    start: Optional[Path]=None,
+    start: Optional[Path] = None,
     steps: int = 1000,
     lr: float = 3e-4,
     correlation_patch_size: int = 3,
@@ -84,12 +274,10 @@ def train(
     feature_extractor_strides: str = "2,1,1",
     feature_extractor_feature_sizes: str = "8,32,64",
     feature_extractor_kernel_sizes: str = "7,5,5",
-    enforce_inverse_consistency: bool=False, # TODO
     skip_normalize: bool = False,
-    train_paired: bool=True,
-    val_paired: bool=True,
+    train_paired: bool = True,
+    val_paired: bool = True,
     device: str = "cuda",
-    image_loss: ImageLoss = ImageLoss.MutualInformation,
     image_loss_weight: float = 1,
     dice_loss_weight: float = 1.0,
     reg_loss_weight: float = 0.01,
@@ -145,7 +333,9 @@ def train(
     if train_paired:
         train_gen = random_never_ending_generator(data_json, split="train", seed=42)
     else:
-        train_gen = random_unpaired_never_ending_generator(data_json, split="train", seed=42)
+        train_gen = random_unpaired_never_ending_generator(
+            data_json, split="train", seed=42
+        )
 
     checkpoint_dir.mkdir(exist_ok=True)
     writer = SummaryWriter(log_dir=checkpoint_dir)
@@ -176,12 +366,9 @@ def train(
     if start is not None:
         flownetc.load_state_dict(torch.load(start))
         if "step" in start.name:
-            starting_step = int(start.name.split("_step")[-1].split('.')[0])
+            starting_step = int(start.name.split("_step")[-1].split(".")[0])
 
     opt = torch.optim.Adam(flownetc.parameters(), lr=lr)
-
-    image_loss_fn = get_loss_fn(image_loss)
-    grad_loss_fn = Grad()
 
     data_sample = next(train_gen)
     use_labels = data_sample.fixed_segmentation is not None
@@ -194,73 +381,31 @@ def train(
         logging.debug(f"Using labels. Found labels {','.join(str(i) for i in labels)}")
 
     print(f"Starting training from step {starting_step}")
-    for step in trange(starting_step, steps+starting_step):
+    for step in trange(starting_step, steps + starting_step):
         data = next(train_gen)
 
-        fixed_nib = nib.load(data.fixed_image)
-        moving_nib = nib.load(data.moving_image)
-
-        fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata())).to(device)
-        moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata())).to(device)
-
-        if not skip_normalize:
-            fixed = (fixed - fixed.min())/(fixed.max() - fixed.min())
-            moving = (moving - moving.min())/(moving.max() - moving.min())
-
-        flow = flownetc(moving, fixed)
-        flow = VecInt(fixed.shape[2:], nsteps=7).to(device)(flow)
-        transformer = SpatialTransformer(fixed.shape[2:]).to(device)
-        moved = transformer(moving, flow)
-
-        losses_dict: Dict[str, torch.Tensor] = {}
-        losses_dict["image_loss"] = image_loss_weight * image_loss_fn(moved, fixed)
-        losses_dict["grad"] = reg_loss_weight * grad_loss_fn(flow)
-
-        if use_labels:
-
-            fixed_seg = add_bc_dim(
-                torch.from_numpy(
-                    np.round(nib.load(data.fixed_segmentation).get_fdata())
-                )
-            ).to(device)
-            moving_seg = add_bc_dim(
-                torch.from_numpy(
-                    np.round(nib.load(data.moving_segmentation).get_fdata())
-                )
-            ).to(device)
-
-            moved_seg = torch.round(transformer(moving_seg.float(), flow))
-            losses_dict["dice"] = dice_loss_weight * DiceLoss()(
-                fixed_seg.squeeze(), moving_seg.squeeze(), moved_seg.squeeze()
-            )
-
-        if use_keypoints:
-            assert (
-                data.fixed_keypoints is not None and data.moving_keypoints is not None
-            )
-
-            fixed_kps = load_keypoints(data.fixed_keypoints)
-            moving_kps = load_keypoints(data.moving_keypoints)
-            losses_dict["keypoints"] = kp_loss_weight * TotalRegistrationLoss()(
-                fixed_landmarks=fixed_kps,
-                moving_landmarks=moving_kps,
-                displacement_field=flow,
-                fixed_spacing=torch.Tensor(get_spacing(fixed_nib)),
-                moving_spacing=torch.Tensor(get_spacing(moving_nib)),
-            )
+        model_out = run_flownetc(
+            data,
+            flownetc,
+            skip_normalize,
+            image_loss_weight,
+            reg_loss_weight,
+            dice_loss_weight,
+            kp_loss_weight,
+            use_labels,
+            use_keypoints,
+        )
 
         opt.zero_grad()
-        loss = sum(losses_dict.values())
-        assert isinstance(loss, torch.Tensor)
-        loss.backward()
+        model_out.total_loss.backward()
         opt.step()
 
         if step % log_freq == 0:
             tb_log(
                 writer,
-                losses_dict,
+                model_out.losses_dict,
                 step=step,
-                moving_fixed_moved=(moving, fixed, moved),
+                moving_fixed_moved=(model_out.moving, model_out.fixed, model_out.moved),
             )
 
         if step % save_freq == 0:
@@ -270,90 +415,37 @@ def train(
 
         if val_freq > 0 and step % val_freq == 0:
             flownetc.eval()
-            with torch.no_grad():
-                if val_paired:
-                    val_gen = data_generator(data_json, split="val")
-                else:
-                    raise NotImplementedError("Unpaired validation not implemented!")
-                losses_cum_dict = defaultdict(list)
-                for data in val_gen:
 
-                    fixed_nib = nib.load(data.fixed_image)
-                    moving_nib = nib.load(data.moving_image)
+            if val_paired:
+                val_gen = data_generator(data_json, split="val")
+            else:
+                raise NotImplementedError("Unpaired validation not implemented!")
 
-                    fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata())).to(device)
-                    moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata())).to(device)
+            losses_cum_dict = defaultdict(list)
+            for data in val_gen:
+                model_out = run_flownetc(
+                    data,
+                    flownetc,
+                    skip_normalize,
+                    image_loss_weight,
+                    reg_loss_weight,
+                    dice_loss_weight,
+                    kp_loss_weight,
+                    use_labels,
+                    use_keypoints,
+                    with_grad=False,
+                )
+                for k,v in model_out.losses_dict.items():
+                    losses_cum_dict[k].append(v)
 
-                    if not skip_normalize:
-                        fixed = (fixed - fixed.min())/(fixed.max() - fixed.min())
-                        moving = (moving - moving.min())/(moving.max() - moving.min())
+            for k, v in losses_cum_dict.items():
+                writer.add_scalar(f"val_{k}", np.mean(v).item(), global_step=step)
 
-                    flow = flownetc(moving, fixed)
-                    flow = VecInt(fixed.shape[2:], nsteps=7).to(device)(flow)
-                    transformer = SpatialTransformer(fixed.shape[2:]).to(device)
-                    moved = transformer(moving, flow)
+            flownetc = flownetc.train()
 
-                    losses_cum_dict["image_loss"].append(
-                        (image_loss_weight * image_loss_fn(moved, fixed))
-                        .detach()
-                        .cpu()
-                        .numpy().item()
-                    )
-                    losses_cum_dict["grad"].append(
-                        (reg_loss_weight * grad_loss_fn(flow)).detach().cpu().numpy().item()
-                    )
-
-                    if use_labels:
-
-                        fixed_seg = add_bc_dim(
-                            torch.from_numpy(
-                                np.round(nib.load(data.fixed_segmentation).get_fdata())
-                            )
-                        ).to(device)
-                        moving_seg = add_bc_dim(
-                            torch.from_numpy(
-                                np.round(nib.load(data.moving_segmentation).get_fdata())
-                            )
-                        ).to(device)
-
-                        moved_seg = torch.round(transformer(moving_seg.float(), flow, mode="nearest"))
-                        losses_cum_dict["dice"].append(
-                            dice_loss_weight
-                            * DiceLoss()(
-                                fixed_seg.squeeze(),
-                                moving_seg.squeeze(),
-                                moved_seg.squeeze(),
-                            )
-                            .detach()
-                            .cpu()
-                            .numpy().item()
-                        )
-
-                    if use_keypoints:
-                        assert (
-                            data.fixed_keypoints is not None
-                            and data.moving_keypoints is not None
-                        )
-
-                        fixed_kps = load_keypoints(data.fixed_keypoints)
-                        moving_kps = load_keypoints(data.moving_keypoints)
-                        losses_cum_dict["keypoints"].append(
-                            kp_loss_weight
-                            * TotalRegistrationLoss()(
-                                fixed_landmarks=fixed_kps,
-                                moving_landmarks=moving_kps,
-                                displacement_field=flow,
-                                fixed_spacing=torch.Tensor(get_spacing(fixed_nib)),
-                                moving_spacing=torch.Tensor(get_spacing(moving_nib)),
-                            ).detach().cpu().numpy().item()
-                        )
-                for k, v in losses_cum_dict.items():
-                    writer.add_scalar(f"val_{k}", np.mean(v).item(), global_step=step)
-
-                del losses_cum_dict
-                flownetc = flownetc.train()
-
-    torch.save(flownetc.state_dict(), checkpoint_dir / f"flownet_step{starting_step+steps}.pth")
+    torch.save(
+        flownetc.state_dict(), checkpoint_dir / f"flownet_step{starting_step+steps}.pth"
+    )
 
 
 @app.command()
@@ -361,20 +453,18 @@ def train_cascade(
     flownetc_checkpoint: Path,
     data_json: Path,
     checkpoint_dir: Path,
-    skip_normalize: bool=False,
+    skip_normalize: bool = False,
     steps: int = 1000,
     lr: float = 3e-4,
-    n_cascades: int=2,
+    n_cascades: int = 2,
+    freeze_corr_weights: bool=False,
     correlation_patch_size: int = 3,
     flownet_redir_feats: int = 32,
     feature_extractor_strides: str = "2,1,1",
     feature_extractor_feature_sizes: str = "8,32,64",
     feature_extractor_kernel_sizes: str = "7,5,5",
-    enforce_inverse_consistency: bool=False, # TODO
-    vector_integration_steps: int=7,
-    train_type: TrainType=TrainType.Paired,
+    train_type: TrainType = TrainType.Paired,
     device: str = "cuda",
-    image_loss: ImageLoss = ImageLoss.MutualInformation,
     image_loss_weight: float = 1,
     dice_loss_weight: float = 1.0,
     reg_loss_weight: float = 0.01,
@@ -390,8 +480,12 @@ def train_cascade(
         train_gen = random_never_ending_generator(data_json, split="train", seed=42)
     elif train_type == TrainType.UnpairedSet:
         train_gen = random_unpaired_split_never_ending_generator(data_json, seed=42)
+    elif train_type == TrainType.Disregard:
+        train_gen = randomized_pair_never_ending_generator(data_json, split="train", seed=42)
     else:
-        train_gen = random_unpaired_never_ending_generator(data_json, split="train", seed=42)
+        train_gen = random_unpaired_never_ending_generator(
+            data_json, split="train", seed=42
+        )
 
     checkpoint_dir.mkdir(exist_ok=True)
     writer = SummaryWriter(log_dir=checkpoint_dir)
@@ -420,7 +514,8 @@ def train_cascade(
 
     checkpoint = torch.load(flownetc_checkpoint)
     flownetc.load_state_dict(checkpoint)
-    flownetc.requires_grad = False
+    if freeze_corr_weights:
+        flownetc.requires_grad = False
     cascade = Cascade(N=n_cascades).to(device)
 
     cascade_statedict = cascade.state_dict()
@@ -435,16 +530,16 @@ def train_cascade(
         for k in cascade_statedict.keys():
             if key in k:
                 cascade_statedict[k] = weight
-        
+
     cascade.load_state_dict(cascade_statedict)
 
     opt = torch.optim.Adam(flownetc.parameters(), lr=lr)
 
-    image_loss_fn = get_loss_fn(image_loss)
-    grad_loss_fn = Grad()
-
     data_sample = next(train_gen)
-    use_labels = data_sample.fixed_segmentation is not None and data_sample.moving_segmentation is not None
+    use_labels = (
+        data_sample.fixed_segmentation is not None
+        and data_sample.moving_segmentation is not None
+    )
     use_keypoints = (
         data_sample.fixed_keypoints is not None and data_sample.moving_image is not None
     )
@@ -452,79 +547,29 @@ def train_cascade(
     for step in trange(steps):
         data = next(train_gen)
 
-        fixed_nib = nib.load(data.fixed_image)
-        moving_nib = nib.load(data.moving_image)
-
-        fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata())).to(device)
-        moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata())).to(device)
-
-        if not skip_normalize:
-            fixed = (fixed - fixed.min())/(fixed.max() - fixed.min())
-            moving = (moving - moving.min())/(moving.max() - moving.min())
-
-
-        flow = flownetc(moving, fixed, resize=False)
-        moving_ = F.interpolate(moving, flow.shape[-3:])
-        fixed_ = F.interpolate(fixed, flow.shape[-3:])
-
-        transformer_half = SpatialTransformer(fixed_.shape[2:]).to(device)
-
-        if vector_integration_steps > 0:
-            flow = VecInt(fixed_.shape[2:], nsteps=vector_integration_steps).to(device)(flow)
-
-        flow = cascade(moving_, fixed_, flow, transformer_half)
-        flow = flownetc.refine(flownetc.flow_resize(flow))
-        moved = warp_image(flow, moving)
-
-        losses_dict: Dict[str, torch.Tensor] = {}
-        losses_dict["image_loss"] = image_loss_weight * image_loss_fn(moved.squeeze(), fixed.squeeze())
-        losses_dict["grad"] = reg_loss_weight * grad_loss_fn(flow)
-
-        if use_labels:
-
-            fixed_seg = add_bc_dim(
-                torch.from_numpy(
-                    np.round(nib.load(data.fixed_segmentation).get_fdata())
-                )
-            ).to(device)
-            moving_seg = add_bc_dim(
-                torch.from_numpy(
-                    np.round(nib.load(data.moving_segmentation).get_fdata())
-                )
-            ).to(device)
-
-            moved_seg = torch.round(warp_image(flow, moving_seg.float(), mode='nearest'))
-            losses_dict["dice"] = dice_loss_weight * DiceLoss()(
-                fixed_seg.squeeze(), moving_seg.squeeze(), moved_seg.squeeze()
-            )
-
-        if use_keypoints:
-            assert (
-                data.fixed_keypoints is not None and data.moving_keypoints is not None
-            )
-
-            fixed_kps = load_keypoints(data.fixed_keypoints)
-            moving_kps = load_keypoints(data.moving_keypoints)
-            losses_dict["keypoints"] = kp_loss_weight * TotalRegistrationLoss()(
-                fixed_landmarks=fixed_kps,
-                moving_landmarks=moving_kps,
-                displacement_field=flow,
-                fixed_spacing=torch.Tensor(get_spacing(fixed_nib)),
-                moving_spacing=torch.Tensor(get_spacing(moving_nib)),
-            )
+        model_out = run_flownetcascade(
+            data,
+            flownetc,
+            cascade,
+            skip_normalize,
+            image_loss_weight,
+            reg_loss_weight,
+            dice_loss_weight,
+            kp_loss_weight,
+            use_labels,
+            use_keypoints,
+        )
 
         opt.zero_grad()
-        loss = sum(losses_dict.values())
-        loss.backward() # type: ignore
+        model_out.total_loss.backward()
         opt.step()
 
         if step % log_freq == 0:
-            losses_dict["loss"] = loss.item() # type: ignore
             tb_log(
                 writer,
-                losses_dict,
+                model_out.losses_dict,
                 step=step,
-                moving_fixed_moved=(moving, fixed, moved),
+                moving_fixed_moved=(model_out.moving, model_out.fixed, model_out.moved),
             )
 
         if step % save_freq == 0:
@@ -534,88 +579,33 @@ def train_cascade(
 
         if val_freq > 0 and step % val_freq == 0:
             flownetc.eval()
-            with torch.no_grad():
-                val_gen = data_generator(data_json, split="val")
-                losses_cum_dict = defaultdict(list)
-                for data in val_gen:
+            val_gen = data_generator(data_json, split="val")
+            losses_cum_dict = defaultdict(list)
+            for data in val_gen:
 
-                    fixed_nib = nib.load(data.fixed_image)
-                    moving_nib = nib.load(data.moving_image)
+                model_out = run_flownetcascade(
+                    data,
+                    flownetc,
+                    cascade,
+                    skip_normalize,
+                    image_loss_weight,
+                    reg_loss_weight,
+                    dice_loss_weight,
+                    kp_loss_weight,
+                    use_labels,
+                    use_keypoints,
+                    with_grad=False,
+                )
+                for k,v in model_out.losses_dict.items():
+                    losses_cum_dict[k].append(v)
 
-                    fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata())).to(device)
-                    moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata())).to(device)
+            for k, v in losses_cum_dict.items():
+                writer.add_scalar(f"val_{k}", np.mean(v).item(), global_step=step)
 
-                    if not skip_normalize:
-                        fixed = (fixed - fixed.min())/(fixed.max() - fixed.min())
-                        moving = (moving - moving.min())/(moving.max() - moving.min())
-
-                    flow = flownetc(moving, fixed)
-                    if vector_integration_steps > 0:
-                        flow = VecInt(fixed.shape[2:], nsteps=vector_integration_steps).to(device)(flow)
-                    transformer_half = SpatialTransformer(fixed.shape[2:]).to(device)
-                    moved = transformer_half(moving, flow)
-
-                    losses_cum_dict["image_loss"].append(
-                        (image_loss_weight * image_loss_fn(moved, fixed))
-                        .detach()
-                        .cpu()
-                        .numpy().item()
-                    )
-                    losses_cum_dict["grad"].append(
-                        (reg_loss_weight * grad_loss_fn(flow)).detach().cpu().numpy().item()
-                    )
-
-                    if use_labels:
-
-                        fixed_seg = add_bc_dim(
-                            torch.from_numpy(
-                                np.round(nib.load(data.fixed_segmentation).get_fdata())
-                            )
-                        ).to(device)
-                        moving_seg = add_bc_dim(
-                            torch.from_numpy(
-                                np.round(nib.load(data.moving_segmentation).get_fdata())
-                            )
-                        ).to(device)
-
-                        moved_seg = torch.round(transformer_half(moving_seg.float(), flow, mode="nearest"))
-                        losses_cum_dict["dice"].append(
-                            dice_loss_weight
-                            * DiceLoss()(
-                                fixed_seg.squeeze(),
-                                moving_seg.squeeze(),
-                                moved_seg.squeeze(),
-                            )
-                            .detach()
-                            .cpu()
-                            .numpy().item()
-                        )
-
-                    if use_keypoints:
-                        assert (
-                            data.fixed_keypoints is not None
-                            and data.moving_keypoints is not None
-                        )
-
-                        fixed_kps = load_keypoints(data.fixed_keypoints)
-                        moving_kps = load_keypoints(data.moving_keypoints)
-                        losses_cum_dict["keypoints"].append(
-                            kp_loss_weight
-                            * TotalRegistrationLoss()(
-                                fixed_landmarks=fixed_kps,
-                                moving_landmarks=moving_kps,
-                                displacement_field=flow,
-                                fixed_spacing=torch.Tensor(get_spacing(fixed_nib)),
-                                moving_spacing=torch.Tensor(get_spacing(moving_nib)),
-                            ).detach().cpu().numpy().item()
-                        )
-                for k, v in losses_cum_dict.items():
-                    writer.add_scalar(f"val_{k}", np.mean(v).item(), global_step=step)
-
-                del losses_cum_dict
-                flownetc = flownetc.train()
+            flownetc = flownetc.train()
 
     torch.save(cascade.state_dict(), checkpoint_dir / f"cascade_step{steps}.pth")
+
 
 @app.command()
 def eval_cascade(
@@ -623,16 +613,15 @@ def eval_cascade(
     cascades_checkpoint: Path,
     data_json: Path,
     savedir: Path,
-    skip_normalize: bool=False,
-    n_cascades: int=2,
+    skip_normalize: bool = False,
+    n_cascades: int = 2,
     correlation_patch_size: int = 3,
     flownet_redir_feats: int = 32,
     feature_extractor_strides: str = "2,1,1",
     feature_extractor_feature_sizes: str = "8,32,64",
     feature_extractor_kernel_sizes: str = "7,5,5",
-    use_l2r_naming: bool=True,
-    disp_format: DisplacementFormat=DisplacementFormat.Nifti,
-    diffeomorphic: bool=False,
+    use_l2r_naming: bool = True,
+    disp_format: DisplacementFormat = DisplacementFormat.Nifti,
     device: str = "cuda",
     save_images: bool = True,
 ):
@@ -692,31 +681,25 @@ def eval_cascade(
     for data in tqdm(gen):
         use_labels = data.fixed_segmentation is not None
         use_keypoints = data.fixed_keypoints is not None
-
         fixed_nib = nib.load(data.fixed_image)
         moving_nib = nib.load(data.moving_image)
 
-        fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata())).to(device)
-        moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata())).to(device)
-
-        if not skip_normalize:
-            fixed = (fixed - fixed.min())/(fixed.max() - fixed.min())
-            moving = (moving - moving.min())/(moving.max() - moving.min())
-
-        flow = flownetc(moving, fixed, resize=False)
-        moving_ = F.interpolate(moving, flow.shape[-3:])
-        fixed_ = F.interpolate(fixed, flow.shape[-3:])
-
-        transformer = SpatialTransformer(fixed_.shape[2:]).to(device)
-
-        if diffeomorphic:
-            flow = VecInt(fixed.shape[2:], nsteps=7).to(device)(flow)
-
-        flow = cascade(moving_, fixed_, flow, transformer)
-        flow = flownetc.refine(flownetc.flow_resize(flow))
+        model_out = run_flownetcascade(
+            data,
+            flownetc,
+            cascade,
+            skip_normalize,
+            image_loss_weight=1,
+            reg_loss_weight=1,
+            dice_loss_weight=1,
+            kp_loss_weight=1,
+            use_labels=use_labels,
+            use_keypoints=use_keypoints,
+            with_grad=False
+        )
 
         if save_images:
-            moved = warp_image(flow, moving)
+            moved = warp_image(model_out.flow, model_out.moving)
             moved_image_name = (
                 data.moving_image.name.split(".")[0]
                 + "_warped."
@@ -732,7 +715,7 @@ def eval_cascade(
         else:
             disp_name = f"disp_{data.fixed_image.name.split('.')[0]}_{data.moving_image.name.split('.')[0]}"
 
-        disp_np = torch2skimage_disp(flow)
+        disp_np = torch2skimage_disp(model_out.flow)
 
         measurements[disp_name][
             "sdlogj"
@@ -751,7 +734,11 @@ def eval_cascade(
                 )
             ).to(device)
 
-            moved_seg = torch.round(warp_image(flow, moving_seg.float(), mode="nearest")).detach().cpu()
+            moved_seg = (
+                torch.round(warp_image(model_out.flow, moving_seg.float(), mode="nearest"))
+                .detach()
+                .cpu()
+            )
 
             fixed_seg, moving_seg, moved_seg = (
                 fixed_seg.numpy(),
@@ -786,7 +773,6 @@ def eval_cascade(
         json.dump(measurements, f)
 
 
-
 @app.command()
 def eval(
     checkpoint: Path,
@@ -797,10 +783,9 @@ def eval(
     feature_extractor_strides: str = "2,1,1",
     feature_extractor_feature_sizes: str = "8,32,64",
     feature_extractor_kernel_sizes: str = "7,5,5",
-    skip_normalize: bool=False,
-    use_l2r_naming: bool=True,
-    disp_format: DisplacementFormat=DisplacementFormat.Nifti,
-    diffeomorphic: bool=False,
+    skip_normalize: bool = False,
+    use_l2r_naming: bool = True,
+    disp_format: DisplacementFormat = DisplacementFormat.Nifti,
     device: str = "cuda",
     save_images: bool = True,
 ):
@@ -859,27 +844,27 @@ def eval(
         fixed_nib = nib.load(data.fixed_image)
         moving_nib = nib.load(data.moving_image)
 
-        fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata())).to(device)
-        moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata())).to(device)
-
-        if not skip_normalize:
-            fixed = (fixed - fixed.min())/(fixed.max() - fixed.min())
-            moving = (moving - moving.min())/(moving.max() - moving.min())
-
-        flow = flownetc(moving, fixed)
-        if diffeomorphic:
-            flow = VecInt(fixed.shape[2:], nsteps=7).to(device)(flow)
-        transformer = SpatialTransformer(fixed.shape[2:]).to(device)
+        model_out = run_flownetc(
+            data,
+            flownetc,
+            skip_normalize,
+            image_loss_weight=1,
+            reg_loss_weight=1,
+            dice_loss_weight=1,
+            kp_loss_weight=1,
+            use_labels=use_labels,
+            use_keypoints=use_keypoints,
+            with_grad=False
+        )
 
         if save_images:
-            moved = transformer(moving, flow)
             moved_image_name = (
                 data.moving_image.name.split(".")[0]
                 + "_warped."
                 + ".".join(data.moving_image.name.split(".")[1:])
             )
             warped_nib = nib.Nifti1Image(
-                moved.detach().cpu().numpy().squeeze(), affine=fixed_nib.affine
+                model_out.moved.detach().cpu().numpy().squeeze(), affine=fixed_nib.affine
             )
             nib.save(warped_nib, savedir / "images" / moved_image_name)
 
@@ -888,7 +873,7 @@ def eval(
         else:
             disp_name = f"disp_{data.fixed_image.name.split('.')[0]}_{data.moving_image.name.split('.')[0]}"
 
-        disp_np = torch2skimage_disp(flow)
+        disp_np = torch2skimage_disp(model_out.flow)
 
         measurements[disp_name][
             "sdlogj"
@@ -907,7 +892,11 @@ def eval(
                 )
             ).to(device)
 
-            moved_seg = torch.round(transformer(moving_seg.float(), flow, mode="nearest")).detach().cpu()
+            moved_seg = (
+                torch.round(warp_image(model_out.flow, moving_seg.float(), mode="nearest"))
+                .detach()
+                .cpu()
+            )
 
             fixed_seg, moving_seg, moved_seg = (
                 fixed_seg.numpy(),

@@ -30,7 +30,7 @@ def torch2skimage_disp(disp_field: torch.Tensor) -> np.ndarray:
 
 def tb_log(
     writer: SummaryWriter,
-    losses_dict: Dict[str, torch.Tensor],
+    losses_dict: Dict[str, float],
     step: int,
     moving_fixed_moved: Tuple[torch.Tensor, torch.Tensor, torch.Tensor],
 ) -> None:
@@ -725,6 +725,7 @@ def adam_optimization(
 
 class TrainType(str, Enum):
     Paired="paired" 
+    Disregard="disregard"
     Unpaired="unpaired"
     UnpairedSet="unpairedset"
 
