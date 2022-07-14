@@ -626,6 +626,6 @@ class Cascade(nn.Module):
             moved = transformer(moving, flow)
             similarity = self.similarity_function(moved, fixed)
             net_in = torch.concat((fixed, moving, flow, moved, similarity), dim=1)
-            flow = network(net_in)
+            flow = flow + network(net_in)
 
         return flow
