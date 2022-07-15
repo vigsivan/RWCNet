@@ -15,7 +15,7 @@ import torch.nn.functional as F
 from monai.losses.image_dissimilarity import GlobalMutualInformationLoss as MutualInformationLoss
 from common import MINDSSC
 
-__all__ = ["DiceLoss", "MutualInformationLoss", "TotalRegistrationLoss", "Grad", "NCC", "MSE"]
+__all__ = ["DiceLoss", "MutualInformationLoss", "TotalRegistrationLoss", "Grad", "NCC", "MSE", "MINDLoss"]
 
 class DiceLoss(nn.Module):
     def __init__(self, labels: List[int]=[1]):

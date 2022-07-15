@@ -39,6 +39,7 @@ from common import (
 from differentiable_metrics import (
     MSE,
     NCC,
+    MINDLoss,
     MutualInformationLoss,
     DiceLoss,
     Grad,
@@ -117,7 +118,7 @@ def run_flownetc(
         moved = transformer(moving, flow)
 
         losses_dict: Dict[str, torch.Tensor] = {}
-        losses_dict["image_loss"] = image_loss_weight * MutualInformationLoss()(
+        losses_dict["image_loss"] = image_loss_weight * MINDLoss()(
             moved, fixed
         )
         losses_dict["grad"] = reg_loss_weight * Grad()(flow)
@@ -208,7 +209,7 @@ def run_flownetcascade(
         moved = warp_image(flow, moving)
 
         losses_dict: Dict[str, torch.Tensor] = {}
-        losses_dict["image_loss"] = image_loss_weight * MutualInformationLoss()(
+        losses_dict["image_loss"] = image_loss_weight * MINDLoss()(
             moved.squeeze(), fixed.squeeze()
         )
         losses_dict["grad"] = reg_loss_weight * Grad()(flow)
@@ -465,10 +466,10 @@ def train_cascade(
     feature_extractor_kernel_sizes: str = "7,5,5",
     train_type: TrainType = TrainType.Disregard,
     device: str = "cuda",
-    image_loss_weight: float = 1,
-    dice_loss_weight: float = 1.0,
+    image_loss_weight: float = 100,
+    dice_loss_weight: float = 0.01,
     reg_loss_weight: float = 0.01,
-    kp_loss_weight: float = 1,
+    kp_loss_weight: float = .1,
     log_freq: int = 5,
     save_freq: int = 100,
     val_freq: int = 0,
