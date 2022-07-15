@@ -574,6 +574,9 @@ def train_cascade(
 
         if step % save_freq == 0:
             torch.save(
+                flownetc.state_dict(), checkpoint_dir / f"flownetc_pre_step{step}.pth"
+            )
+            torch.save(
                 cascade.state_dict(), checkpoint_dir / f"cascade_step{step}.pth",
             )
 
@@ -604,6 +607,7 @@ def train_cascade(
 
             flownetc = flownetc.train()
 
+    torch.save(flownetc.state_dict(), checkpoint_dir / f"flownetc_pre_step{steps}.pth")
     torch.save(cascade.state_dict(), checkpoint_dir / f"cascade_step{steps}.pth")
 
 
