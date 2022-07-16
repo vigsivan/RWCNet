@@ -910,7 +910,7 @@ def randomized_pair_never_ending_generator(
 
 
 def random_never_ending_generator(
-    data_json: Path, *, split: str, seed: Optional[int] = None
+    data_json: Path, *, split: str, random_switch: bool=False, seed: Optional[int] = None
 ) -> Generator[Data, None, None]:
     """
     Generator that 1) never ends and 2) yields samples from the dataset in random order
@@ -933,16 +933,20 @@ def random_never_ending_generator(
     segs = "fixed_segmentation" in data[0]
     kps = "fixed_keypoints" in data[0]
 
+    f, m = "fixed", "moving"
+    if random_switch and random.randint(0,10)%2 == 0:
+        f, m = m, f
+
     while True:
         random.shuffle(data)
         for v in data:
             yield Data(
-                fixed_image=Path(v["fixed_image"]),
-                moving_image=Path(v["moving_image"]),
-                fixed_segmentation=Path(v["fixed_segmentation"]) if segs else None,
-                moving_segmentation=Path(v["moving_segmentation"]) if segs else None,
-                fixed_keypoints=Path(v["fixed_keypoints"]) if kps else None,
-                moving_keypoints=Path(v["moving_keypoints"]) if kps else None,
+                fixed_image=Path(v[f"{f}_image"]),
+                moving_image=Path(v[f"{m}_image"]),
+                fixed_segmentation=Path(v[f"{f}_segmentation"]) if segs else None,
+                moving_segmentation=Path(v[f"{m}_segmentation"]) if segs else None,
+                fixed_keypoints=Path(v[f"{f}_keypoints"]) if kps else None,
+                moving_keypoints=Path(v[f"{m}_keypoints"]) if kps else None,
             )
 
 
