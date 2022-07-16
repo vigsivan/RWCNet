@@ -454,6 +454,7 @@ def train_cascade(
     flownetc_checkpoint: Path,
     data_json: Path,
     checkpoint_dir: Path,
+    cascade_checkpoint: Optional[Path]=None,
     skip_normalize: bool = False,
     steps: int = 1000,
     lr: float = 3e-4,
@@ -478,7 +479,7 @@ def train_cascade(
     Trains a FlowNetC Model.
     """
     if train_type == TrainType.Paired:
-        train_gen = random_never_ending_generator(data_json, split="train", seed=42)
+        train_gen = random_never_ending_generator(data_json, split="train", random_switch=True, seed=42)
     elif train_type == TrainType.UnpairedSet:
         train_gen = random_unpaired_split_never_ending_generator(data_json, seed=42)
     elif train_type == TrainType.Disregard:
@@ -519,19 +520,23 @@ def train_cascade(
         flownetc.requires_grad = False
     cascade = Cascade(N=n_cascades).to(device)
 
-    cascade_statedict = cascade.state_dict()
-    # first conv layer size not going to be the same due to different number of channels
-    skip_keys = ["encoder.0.0.main.weight", "encoder.0.0.main.bias"]
-    for param, weight in checkpoint.items():
-        if not param.startswith("unet"):
-            continue
-        key = param[5:]  # skip unet.
-        if key in skip_keys:
-            continue
-        for k in cascade_statedict.keys():
-            if key in k:
-                cascade_statedict[k] = weight
+    if cascade_checkpoint is None:
+        cascade_statedict = cascade.state_dict()
+        # first conv layer size not going to be the same due to different number of channels
+        skip_keys = ["encoder.0.0.main.weight", "encoder.0.0.main.bias"]
+        for param, weight in checkpoint.items():
+            if not param.startswith("unet"):
+                continue
+            key = param[5:]  # skip unet.
+            if key in skip_keys:
+                continue
+            for k in cascade_statedict.keys():
+                if key in k:
+                    cascade_statedict[k] = weight
 
+    else:
+        cascade_statedict = torch.load(cascade_checkpoint)
+        
     cascade.load_state_dict(cascade_statedict)
 
     opt = torch.optim.Adam(flownetc.parameters(), lr=lr)
