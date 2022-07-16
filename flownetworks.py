@@ -183,8 +183,9 @@ def run_flownetcascade(
     use_labels: bool,
     use_keypoints: bool,
     with_grad: bool = True,
+    vector_integration_steps: int=7,
     device: str = "cuda",
-    with_instance_opt: bool=True,
+    with_instance_opt: bool=False,
     ) -> RunModelOut:
 
     context = nullcontext() if with_grad else torch.no_grad()
@@ -222,6 +223,8 @@ def run_flownetcascade(
                 F.avg_pool3d(net[0].weight, 3, stride=1, padding=1), 3, stride=1, padding=1
             ).permute(0, 2, 3, 4, 1)
             flow = disp_sample.permute(0, 4, 1, 2, 3)
+
+        flow = VecInt(nsteps=vector_integration_steps, transformer=transformer_half)(flow)
 
         flow = flownet.refine(flownet.flow_resize(flow))
         moved = warp_image(flow, moving)
@@ -609,7 +612,7 @@ def train_cascade(
             val_gen = data_generator(data_json, split="val")
             losses_cum_dict = defaultdict(list)
             for data in val_gen:
-
+                use_keypoints = data.fixed_keypoints is not None
                 model_out = run_flownetcascade(
                     data,
                     flownetc,

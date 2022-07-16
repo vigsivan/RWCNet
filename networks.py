@@ -162,13 +162,17 @@ class VecInt(nn.Module):
     Integrates a vector field via scaling and squaring.
     """
 
-    def __init__(self, inshape, nsteps):
+    def __init__(self, inshape=None, nsteps=7, transformer=None):
         super().__init__()
 
         assert nsteps >= 0, "nsteps should be >= 0, found: %d" % nsteps
         self.nsteps = nsteps
         self.scale = 1.0 / (2 ** self.nsteps)
-        self.transformer = SpatialTransformer(inshape)
+        assert not (inshape is None and transformer is None)
+        if inshape is None:
+            self.transformer = transformer
+        else:
+            self.transformer = SpatialTransformer(inshape)
 
     def forward(self, vec):
         vec = vec * self.scale
