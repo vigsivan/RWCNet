@@ -718,7 +718,7 @@ def adam_optimization(
         sampled_cost = (patch_mov_sampled - mind_fixed).pow(2).mean(1) * 12
 
         loss = sampled_cost.mean()
-        (loss + reg_loss).backward()
+        (loss + reg_loss).backward(retain_graph=True)
         optimizer.step()
 
     return net

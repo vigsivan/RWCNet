@@ -23,7 +23,9 @@ import typer
 
 from common import (
     DisplacementFormat,
+    MINDSSC,
     TrainType,
+    adam_optimization,
     data_generator,
     random_never_ending_generator,
     randomized_pair_never_ending_generator,
@@ -182,6 +184,7 @@ def run_flownetcascade(
     use_keypoints: bool,
     with_grad: bool = True,
     device: str = "cuda",
+    with_instance_opt: bool=True,
     ) -> RunModelOut:
 
     context = nullcontext() if with_grad else torch.no_grad()
@@ -205,6 +208,22 @@ def run_flownetcascade(
         transformer_half = SpatialTransformer(fixed_.shape[2:]).to(device)
 
         flow = cascade(moving_, fixed_, flow, transformer_half)
+        if with_instance_opt:
+            net = adam_optimization(
+                disp=flow,
+                mind_fixed=MINDSSC(fixed_),
+                mind_moving=MINDSSC(moving_),
+                lambda_weight=1.25,
+                image_shape=fixed_.shape[-3:],
+                iterations=100
+            )
+
+            breakpoint()
+            disp_sample = F.avg_pool3d(
+                F.avg_pool3d(net[0].weight, 3, stride=1, padding=1), 3, stride=1, padding=1
+            ).permute(0, 2, 3, 4, 1)
+            flow = disp_sample.permute(0, 4, 1, 2, 3)
+
         flow = flownet.refine(flownet.flow_resize(flow))
         moved = warp_image(flow, moving)
 
