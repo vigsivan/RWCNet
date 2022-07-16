@@ -150,7 +150,7 @@ class FlownetRefinementModule(nn.Module):
     def __init__(self):
         super().__init__()
         self.conv = nn.Conv3d(
-            in_channels=3, out_channels=3, kernel_size=3, padding="same"
+            in_channels=3, out_channels=3, kernel_size=1, padding="same"
         )
 
     def forward(self, x: torch.Tensor):

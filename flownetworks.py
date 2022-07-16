@@ -208,7 +208,7 @@ def run_flownetcascade(
         transformer_half = SpatialTransformer(fixed_.shape[2:]).to(device)
 
         flow = cascade(moving_, fixed_, flow, transformer_half)
-        if with_instance_opt:
+        if with_instance_opt and with_grad:
             net = adam_optimization(
                 disp=flow,
                 mind_fixed=MINDSSC(fixed_),
@@ -218,7 +218,6 @@ def run_flownetcascade(
                 iterations=100
             )
 
-            breakpoint()
             disp_sample = F.avg_pool3d(
                 F.avg_pool3d(net[0].weight, 3, stride=1, padding=1), 3, stride=1, padding=1
             ).permute(0, 2, 3, 4, 1)
@@ -484,7 +483,7 @@ def train_cascade(
     feature_extractor_strides: str = "2,1,1",
     feature_extractor_feature_sizes: str = "8,32,64",
     feature_extractor_kernel_sizes: str = "7,5,5",
-    train_type: TrainType = TrainType.Disregard,
+    train_type: TrainType = TrainType.Paired,
     device: str = "cuda",
     image_loss_weight: float = 100,
     dice_loss_weight: float = 0.01,
