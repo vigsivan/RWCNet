@@ -626,10 +626,13 @@ class Cascade(nn.Module):
         flow: torch.Tensor,
         transformer: SpatialTransformer,
     ):
+        l2s = []
         for network in self.cascades:
             moved = transformer(moving, flow)
             similarity = self.similarity_function(moved, fixed)
             net_in = torch.concat((fixed, moving, flow, moved, similarity), dim=1)
-            flow = flow + network(net_in)
+            net_out = network(net_in)
+            flow = flow + net_out
+            l2s.append(torch.norm(net_out))
 
-        return flow
+        return flow, l2s

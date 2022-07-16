@@ -208,7 +208,7 @@ def run_flownetcascade(
 
         transformer_half = SpatialTransformer(fixed_.shape[2:]).to(device)
 
-        flow = cascade(moving_, fixed_, flow, transformer_half)
+        flow, l2s = cascade(moving_, fixed_, flow, transformer_half)
         if with_instance_opt and with_grad:
             net = adam_optimization(
                 disp=flow,
@@ -234,6 +234,13 @@ def run_flownetcascade(
             moved.squeeze(), fixed.squeeze()
         )
         losses_dict["grad"] = reg_loss_weight * Grad()(flow)
+        weights = torch.linspace(reg_loss_weight, .1, steps=len(l2s))
+        l2_total = 0.
+        for weight, l2 in zip(weights, l2s):
+            l2_total+= l2 * weight
+
+        assert isinstance(l2_total, torch.Tensor)
+        losses_dict["l2"] = l2_total
 
         if use_labels:
 
