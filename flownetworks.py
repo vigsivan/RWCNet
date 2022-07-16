@@ -562,17 +562,16 @@ def train_cascade(
 
     opt = torch.optim.Adam(flownetc.parameters(), lr=lr)
 
-    data_sample = next(train_gen)
-    use_labels = (
-        data_sample.fixed_segmentation is not None
-        and data_sample.moving_segmentation is not None
-    )
-    use_keypoints = (
-        data_sample.fixed_keypoints is not None and data_sample.moving_image is not None
-    )
-
     for step in trange(steps):
         data = next(train_gen)
+
+        train_use_labels = (
+            data.fixed_segmentation is not None
+            and data.moving_segmentation is not None
+        )
+        train_use_keypoints = (
+            data.fixed_keypoints is not None and data.moving_image is not None
+        )
 
         model_out = run_flownetcascade(
             data,
@@ -583,8 +582,8 @@ def train_cascade(
             reg_loss_weight,
             dice_loss_weight,
             kp_loss_weight,
-            use_labels,
-            use_keypoints,
+            train_use_labels,
+            train_use_keypoints,
         )
 
         opt.zero_grad()
@@ -612,7 +611,14 @@ def train_cascade(
             val_gen = data_generator(data_json, split="val")
             losses_cum_dict = defaultdict(list)
             for data in val_gen:
-                use_keypoints = data.fixed_keypoints is not None
+                val_use_labels = (
+                    data.fixed_segmentation is not None
+                    and data.moving_segmentation is not None
+                )
+                val_use_keypoints = (
+                    data.fixed_keypoints is not None and data.moving_image is not None
+                )
+
                 model_out = run_flownetcascade(
                     data,
                     flownetc,
@@ -622,8 +628,8 @@ def train_cascade(
                     reg_loss_weight,
                     dice_loss_weight,
                     kp_loss_weight,
-                    use_labels,
-                    use_keypoints,
+                    val_use_labels,
+                    val_use_keypoints,
                     with_grad=False,
                 )
                 for k,v in model_out.losses_dict.items():
