@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 import logging
 import sys
+import torchio as tio
 from typing import Dict, Optional
 from contextlib import nullcontext
 
@@ -186,16 +187,42 @@ def run_flownetcascade(
     vector_integration_steps: int=7,
     device: str = "cuda",
     with_instance_opt: bool=False,
+    apply_augmentation: bool=True,
     ) -> RunModelOut:
 
     context = nullcontext() if with_grad else torch.no_grad()
+    aug_func =  tio.OneOf([
+        tio.RandomBlur(),
+        tio.RandomNoise(),
+        tio.RandomGamma(),
+        ])
+
 
     with context:
-        fixed_nib = nib.load(data.fixed_image)
-        moving_nib = nib.load(data.moving_image)
 
-        fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata())).to(device)
-        moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata())).to(device)
+        if apply_augmentation:
+            if not (use_labels or use_keypoints):
+                aug_func = tio.Compose([tio.RandomElasticDeformation(), aug_func])
+
+            fixed_tio = tio.ScalarImage(data.fixed_image)
+            moving_tio = tio.ScalarImage(data.moving_image)
+
+            fixed_tio, moving_tio = aug_func(fixed_tio), aug_func(moving_tio)
+            fixed, moving = fixed_tio.data.unsqueeze(0), fixed_tio.data.unsqueeze(0)
+
+            assert isinstance(fixed, torch.Tensor)
+            assert isinstance(moving, torch.Tensor)
+
+            fixed, moving = fixed.to(device), moving.to(device)
+
+        else:
+            fixed_nib = nib.load(data.fixed_image)
+            moving_nib = nib.load(data.moving_image)
+
+            fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata()))
+            moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata()))
+
+            fixed, moving = fixed.to(device), moving.to(device)
 
         if not skip_normalize:
             fixed = (fixed - fixed.min()) / (fixed.max() - fixed.min())
@@ -506,6 +533,7 @@ def train_cascade(
     """
     Trains a FlowNetC Model.
     """
+
     if train_type == TrainType.Paired:
         train_gen = random_never_ending_generator(data_json, split="train", random_switch=True, seed=42)
     elif train_type == TrainType.UnpairedSet:
