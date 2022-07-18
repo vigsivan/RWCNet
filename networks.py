@@ -641,7 +641,7 @@ class Cascade(nn.Module):
             net_out = network(net_in)
             flow = flow + net_out
             l2s.append(torch.norm(net_out))
-            sims.append(torch.norm(similarity))
+            sims.append(torch.mean(similarity))
 
         return CascadeOut(
             flow=flow,
