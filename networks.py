@@ -617,7 +617,7 @@ class FeatureExtractorVxm(nn.Module):
 class CascadeOut:
     flow: torch.Tensor
     l2s: List[torch.Tensor]
-    sims: List[torch.Tensor]
+    sim_errors: List[torch.Tensor]
 
 class Cascade(nn.Module):
     def __init__(self, N: int = 2, similarity_function: str = "mi"):
@@ -646,5 +646,5 @@ class Cascade(nn.Module):
         return CascadeOut(
             flow=flow,
             l2s=l2s,
-            sims=sims
+            sim_errors=sims
         )

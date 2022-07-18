@@ -248,11 +248,11 @@ def run_flownetcascade(
 
         sim_errors = cascade_out.sim_errors
         sim_error_total = 0.
-        for i, sim in enumerate(sim_errors):
+        for i, sim_err in enumerate(sim_errors):
             weight = 1
-            if i > 0 and sim > sim_errors[i-1]:
+            if i > 0 and sim_err > sim_errors[i-1]:
                 weight = 10
-            sim_error_total+= weight * sim
+            sim_error_total+= weight * sim_err
 
         assert isinstance(sim_error_total, torch.Tensor)
         losses_dict["sim_error_total"] = sim_error_total
