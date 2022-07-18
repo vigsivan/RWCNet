@@ -11,6 +11,7 @@ __all__ = ["mi", "ncc", "mse", "mind_mse"]
 def mind_mse(y_true: torch.Tensor, y_pred: torch.Tensor):
     mse_out = mse(MINDSSC(y_true), MINDSSC(y_pred))
     mse_avg = torch.mean(mse_out, dim=1)[:,None,...] 
+    mse_avg = (mse_avg - mse_avg.min())/(mse_avg.max()-mse_avg.min()+1e-6)
     return mse_avg
 
 
