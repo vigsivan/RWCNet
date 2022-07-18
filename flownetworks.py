@@ -9,7 +9,6 @@ import json
 from pathlib import Path
 import logging
 import sys
-import torchio as tio
 from typing import Dict, Optional
 from contextlib import nullcontext
 
@@ -54,7 +53,7 @@ from metrics import (
     compute_log_jacobian_determinant_standard_deviation,
     compute_total_registration_error,
 )
-from networks import SpatialTransformer, FlowNetCorr, VecInt, Cascade
+from networks import SpatialTransformer, FlowNetCorr, VecInt, Cascade, CascadeOut
 
 app = typer.Typer()
 logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
@@ -187,42 +186,18 @@ def run_flownetcascade(
     vector_integration_steps: int=7,
     device: str = "cuda",
     with_instance_opt: bool=False,
-    apply_augmentation: bool=True,
     ) -> RunModelOut:
 
     context = nullcontext() if with_grad else torch.no_grad()
-    aug_func =  tio.OneOf([
-        tio.RandomBlur(),
-        tio.RandomNoise(),
-        tio.RandomGamma(),
-        ])
-
-
     with context:
 
-        if apply_augmentation:
-            if not (use_labels or use_keypoints):
-                aug_func = tio.Compose([tio.RandomElasticDeformation(), aug_func])
+        fixed_nib = nib.load(data.fixed_image)
+        moving_nib = nib.load(data.moving_image)
 
-            fixed_tio = tio.ScalarImage(data.fixed_image)
-            moving_tio = tio.ScalarImage(data.moving_image)
+        fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata()))
+        moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata()))
 
-            fixed_tio, moving_tio = aug_func(fixed_tio), aug_func(moving_tio)
-            fixed, moving = fixed_tio.data.unsqueeze(0), fixed_tio.data.unsqueeze(0)
-
-            assert isinstance(fixed, torch.Tensor)
-            assert isinstance(moving, torch.Tensor)
-
-            fixed, moving = fixed.to(device), moving.to(device)
-
-        else:
-            fixed_nib = nib.load(data.fixed_image)
-            moving_nib = nib.load(data.moving_image)
-
-            fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata()))
-            moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata()))
-
-            fixed, moving = fixed.to(device), moving.to(device)
+        fixed, moving = fixed.to(device), moving.to(device)
 
         if not skip_normalize:
             fixed = (fixed - fixed.min()) / (fixed.max() - fixed.min())
@@ -235,7 +210,8 @@ def run_flownetcascade(
 
         transformer_half = SpatialTransformer(fixed_.shape[2:]).to(device)
 
-        flow, l2s = cascade(moving_, fixed_, flow, transformer_half)
+        cascade_out: CascadeOut = cascade(moving_, fixed_, flow, transformer_half)
+        flow = cascade_out.flow
         if with_instance_opt and with_grad:
             net = adam_optimization(
                 disp=flow,
@@ -261,6 +237,7 @@ def run_flownetcascade(
             moved.squeeze(), fixed.squeeze()
         )
         losses_dict["grad"] = reg_loss_weight * Grad()(flow)
+        l2s = cascade_out.l2s
         weights = torch.linspace(reg_loss_weight, .1, steps=len(l2s))
         l2_total = 0.
         for weight, l2 in zip(weights, l2s):
@@ -268,6 +245,17 @@ def run_flownetcascade(
 
         assert isinstance(l2_total, torch.Tensor)
         losses_dict["l2"] = l2_total
+
+        sim_errors = cascade_out.sim_errors
+        sim_error_total = 0.
+        for i, sim in enumerate(sim_errors):
+            weight = 1
+            if i > 0 and sim > sim_errors[i-1]:
+                weight = 10
+            sim_error_total+= weight * sim
+
+        assert isinstance(sim_error_total, torch.Tensor)
+        losses_dict["sim_error_total"] = sim_error_total
 
         if use_labels:
 

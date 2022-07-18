@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import List, Tuple, Union
 import numpy as np
 import torch
@@ -612,6 +613,11 @@ class FeatureExtractorVxm(nn.Module):
 
         return x
 
+@dataclass
+class CascadeOut:
+    flow: torch.Tensor
+    l2s: List[torch.Tensor]
+    sims: List[torch.Tensor]
 
 class Cascade(nn.Module):
     def __init__(self, N: int = 2, similarity_function: str = "mi"):
@@ -627,6 +633,7 @@ class Cascade(nn.Module):
         transformer: SpatialTransformer,
     ):
         l2s = []
+        sims = []
         for network in self.cascades:
             moved = transformer(moving, flow)
             similarity = self.similarity_function(moved, fixed)
@@ -634,5 +641,10 @@ class Cascade(nn.Module):
             net_out = network(net_in)
             flow = flow + net_out
             l2s.append(torch.norm(net_out))
+            sims.append(torch.norm(similarity))
 
-        return flow, l2s
+        return CascadeOut(
+            flow=flow,
+            l2s=l2s,
+            sims=sims
+        )
