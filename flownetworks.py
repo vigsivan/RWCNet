@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 import logging
 import sys
-from typing import Dict, Optional
+from typing import Callable, Dict, Optional
 from contextlib import nullcontext
 
 import einops
@@ -20,6 +20,7 @@ import torch
 import torch.nn.functional as F
 from torch.utils.tensorboard.writer import SummaryWriter
 import typer
+import torchio as tio
 
 from common import (
     DisplacementFormat,
@@ -186,17 +187,27 @@ def run_flownetcascade(
     vector_integration_steps: int=7,
     device: str = "cuda",
     with_instance_opt: bool=False,
+    aug_fn: Optional[Callable]=None
     ) -> RunModelOut:
 
     context = nullcontext() if with_grad else torch.no_grad()
+    aug_fn = None
 
     with context:
 
         fixed_nib = nib.load(data.fixed_image)
         moving_nib = nib.load(data.moving_image)
 
-        fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata()))
-        moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata()))
+        if with_grad and aug_fn is not None:
+            fixed_tio = tio.ScalarImage(data.fixed_image)
+            moving_tio = tio.ScalarImage(data.moving_image)
+            fixed_tio, moving_tio = aug_fn(fixed_tio), aug_fn(moving_tio)
+            fixed = fixed_tio.data.unsqueeze(0)
+            moving = moving_tio.data.unsqueeze(0)
+
+        else:
+            fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata()))
+            moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata()))
 
         fixed, moving = fixed.to(device), moving.to(device)
 
@@ -481,6 +492,7 @@ def train_cascade(
     checkpoint_dir: Path,
     cascade_checkpoint: Optional[Path]=None,
     skip_normalize: bool = False,
+    init_casc: bool=False,
     steps: int = 1000,
     lr: float = 3e-4,
     n_cascades: int = 6,
@@ -546,7 +558,7 @@ def train_cascade(
         flownetc.requires_grad = False
     cascade = Cascade(N=n_cascades).to(device)
 
-    if cascade_checkpoint is None:
+    if cascade_checkpoint is None and init_casc:
         cascade_statedict = cascade.state_dict()
         # first conv layer size not going to be the same due to different number of channels
         skip_keys = ["encoder.0.0.main.weight", "encoder.0.0.main.bias"]
@@ -559,15 +571,16 @@ def train_cascade(
             for k in cascade_statedict.keys():
                 if key in k:
                     cascade_statedict[k] = weight
+        cascade.load_state_dict(cascade_statedict)
 
-    else:
+    elif cascade_checkpoint is not None:
         cascade_statedict = torch.load(cascade_checkpoint)
-        
-    cascade.load_state_dict(cascade_statedict)
+        cascade.load_state_dict(cascade_statedict)
 
     opt_cascade = torch.optim.Adam(cascade.parameters(), lr=lr)
     opt_flownet = torch.optim.Adam(flownetc.parameters(), lr=lr) if freeze_corr_weights else None
 
+    aug = tio.RandomAffine()
     for step in trange(steps):
         data = next(train_gen)
 
@@ -590,6 +603,7 @@ def train_cascade(
             kp_loss_weight,
             train_use_labels,
             train_use_keypoints,
+            aug_fn=aug
         )
 
         opt_cascade.zero_grad()
