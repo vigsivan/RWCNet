@@ -517,6 +517,7 @@ def train_cascade(
     log_freq: int = 5,
     save_freq: int = 100,
     val_freq: int = 0,
+    steps_per_backprop: int=2,
 ):
     """
     Trains a FlowNetC Model.
@@ -609,9 +610,10 @@ def train_cascade(
             train_use_keypoints,
         )
 
-        opt.zero_grad()
-        model_out.total_loss.backward()
-        opt.step()
+        if step % steps_per_backprop == 0:
+            opt.zero_grad()
+            model_out.total_loss.backward()
+            opt.step()
 
         if step % log_freq == 0:
             tb_log(
