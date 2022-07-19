@@ -120,7 +120,7 @@ def run_flownetc(
         moved = transformer(moving, flow)
 
         losses_dict: Dict[str, torch.Tensor] = {}
-        losses_dict["image_loss"] = image_loss_weight * MINDLoss()(
+        losses_dict["image_loss"] = image_loss_weight * MSE()( # FIXME: pass image loss in as param
             moved, fixed
         )
         losses_dict["grad"] = reg_loss_weight * Grad()(flow)
@@ -171,7 +171,6 @@ def run_flownetc(
             losses_dict=losses_dict_log
         )
 
-import torchio as tio
 def run_flownetcascade(
     data,
     flownet,
@@ -190,24 +189,14 @@ def run_flownetcascade(
     ) -> RunModelOut:
 
     context = nullcontext() if with_grad else torch.no_grad()
-    aug = tio.OneOf([
-            tio.RandomAffine(scales=(0.8,1.2), degrees=30, translation=0, center="image"),
-            tio.RandomAffine(scales=(0.8,1.2), degrees=30, translation=0, center="origin"),
-        ])
+
     with context:
 
         fixed_nib = nib.load(data.fixed_image)
         moving_nib = nib.load(data.moving_image)
 
-        if with_grad:
-            fixed_tio, moving_tio = [aug(tio.ScalarImage(i)) for i in (data.fixed_image, data.moving_image)]
-
-            fixed = fixed_tio.data.unsqueeze(0)
-            moving = moving_tio.data.unsqueeze(0)
-
-        else:
-            fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata()))
-            moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata()))
+        fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata()))
+        moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata()))
 
         fixed, moving = fixed.to(device), moving.to(device)
 
@@ -245,26 +234,10 @@ def run_flownetcascade(
         moved = warp_image(flow, moving)
 
         losses_dict: Dict[str, torch.Tensor] = {}
-        losses_dict["image_loss"] = image_loss_weight * MINDLoss()(
+        losses_dict["image_loss"] = image_loss_weight * MSE()( # FIXME: make this a parameter
             moved.squeeze(), fixed.squeeze()
         )
         losses_dict["grad"] = reg_loss_weight * Grad()(flow)
-        l2s = cascade_out.l2s
-        weights = torch.linspace(reg_loss_weight, .1, steps=len(l2s))
-        l2_total = 0.
-        for weight, l2 in zip(weights, l2s):
-            l2_total+= l2 * weight
-
-        assert isinstance(l2_total, torch.Tensor)
-        losses_dict["l2"] = l2_total
-
-        sim_errors = cascade_out.sim_errors
-        sim_error_total = 0.
-        for _, sim_err in zip(weights, sim_errors):
-            sim_error_total+= .1 * sim_err
-
-        assert isinstance(sim_error_total, torch.Tensor)
-        losses_dict["sim_error_total"] = sim_error_total
 
         if use_labels:
 
@@ -592,7 +565,7 @@ def train_cascade(
         
     cascade.load_state_dict(cascade_statedict)
 
-    opt = torch.optim.Adam(flownetc.parameters(), lr=lr)
+    opt = torch.optim.Adam(cascade.parameters(), lr=lr)
 
     for step in trange(steps):
         data = next(train_gen)
