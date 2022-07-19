@@ -191,7 +191,6 @@ def run_flownetcascade(
     ) -> RunModelOut:
 
     context = nullcontext() if with_grad else torch.no_grad()
-    aug_fn = None
 
     with context:
 
