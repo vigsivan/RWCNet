@@ -565,7 +565,8 @@ def train_cascade(
         
     cascade.load_state_dict(cascade_statedict)
 
-    opt = torch.optim.Adam(cascade.parameters(), lr=lr)
+    opt_cascade = torch.optim.Adam(cascade.parameters(), lr=lr)
+    opt_flownet = torch.optim.Adam(flownetc.parameters(), lr=lr) if freeze_corr_weights else None
 
     for step in trange(steps):
         data = next(train_gen)
@@ -591,9 +592,13 @@ def train_cascade(
             train_use_keypoints,
         )
 
-        opt.zero_grad()
+        opt_cascade.zero_grad()
+        if opt_flownet is not None:
+            opt_flownet.zero_grad()
         model_out.total_loss.backward()
-        opt.step()
+        opt_cascade.step()
+        if opt_flownet is not None:
+            opt_flownet.step()
 
         if step % log_freq == 0:
             tb_log(
