@@ -54,7 +54,7 @@ from metrics import (
     compute_log_jacobian_determinant_standard_deviation,
     compute_total_registration_error,
 )
-from networks import SpatialTransformer, FlowNetCorr, VecInt, Cascade, CascadeOut
+from networks import SpatialTransformer, FlowNetCorr, VecInt, Cascade
 
 app = typer.Typer()
 logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
@@ -121,7 +121,7 @@ def run_flownetc(
         moved = transformer(moving, flow)
 
         losses_dict: Dict[str, torch.Tensor] = {}
-        losses_dict["image_loss"] = image_loss_weight * MSE()( # FIXME: pass image loss in as param
+        losses_dict["image_loss"] = image_loss_weight * MINDLoss()( # FIXME: pass image loss in as param
             moved, fixed
         )
         losses_dict["grad"] = reg_loss_weight * Grad()(flow)
@@ -174,7 +174,6 @@ def run_flownetc(
 
 def run_flownetcascade(
     data,
-    flownet,
     cascade,
     skip_normalize: bool,
     image_loss_weight: float,
@@ -214,15 +213,11 @@ def run_flownetcascade(
             fixed = (fixed - fixed.min()) / (fixed.max() - fixed.min())
             moving = (moving - moving.min()) / (moving.max() - moving.min())
 
-        flow = flownet(moving, fixed, resize=False)
-
-        moving_ = F.interpolate(moving, flow.shape[-3:])
-        fixed_ = F.interpolate(fixed, flow.shape[-3:])
-
+        moving_ = F.interpolate(moving, [i//2 for i in moving.shape[-3:]])
+        fixed_ = F.interpolate(fixed, [i//2 for i in fixed.shape[-3:]])
         transformer_half = SpatialTransformer(fixed_.shape[2:]).to(device)
+        flow = cascade(moving_, fixed_, transformer_half)
 
-        cascade_out: CascadeOut = cascade(moving_, fixed_, flow, transformer_half)
-        flow = cascade_out.flow
         if with_instance_opt and with_grad:
             net = adam_optimization(
                 disp=flow,
@@ -240,11 +235,11 @@ def run_flownetcascade(
 
         flow = VecInt(nsteps=vector_integration_steps, transformer=transformer_half)(flow)
 
-        flow = flownet.refine(flownet.flow_resize(flow))
+        flow = F.interpolate(flow, fixed.shape[-3:])
         moved = warp_image(flow, moving)
 
         losses_dict: Dict[str, torch.Tensor] = {}
-        losses_dict["image_loss"] = image_loss_weight * MSE()( # FIXME: make this a parameter
+        losses_dict["image_loss"] = image_loss_weight * MINDLoss()( # FIXME: make this a parameter
             moved.squeeze(), fixed.squeeze()
         )
         losses_dict["grad"] = reg_loss_weight * Grad()(flow)
@@ -486,30 +481,22 @@ def train(
 
 @app.command()
 def train_cascade(
-    flownetc_checkpoint: Path,
     data_json: Path,
     checkpoint_dir: Path,
     cascade_checkpoint: Optional[Path]=None,
     skip_normalize: bool = False,
-    init_casc: bool=False,
     steps: int = 1000,
     lr: float = 3e-4,
-    n_cascades: int = 6,
-    freeze_corr_weights: bool=False,
-    correlation_patch_size: int = 3,
-    flownet_redir_feats: int = 32,
-    feature_extractor_strides: str = "2,1,1",
-    feature_extractor_feature_sizes: str = "8,32,64",
-    feature_extractor_kernel_sizes: str = "7,5,5",
+    n_cascades: int = 12,
     train_type: TrainType = TrainType.Paired,
     device: str = "cuda",
-    image_loss_weight: float = 100,
-    dice_loss_weight: float = 0.01,
+    image_loss_weight: float = 1,
+    dice_loss_weight: float = 1,
     reg_loss_weight: float = 0.01,
     kp_loss_weight: float = .1,
     log_freq: int = 5,
     save_freq: int = 100,
-    val_freq: int = 0,
+    val_freq: int = 100,
 ):
     """
     Trains a FlowNetC Model.
@@ -529,55 +516,13 @@ def train_cascade(
     checkpoint_dir.mkdir(exist_ok=True)
     writer = SummaryWriter(log_dir=checkpoint_dir)
 
-    flownet_kwargs = {
-        "feature_extractor_strides": [
-            int(i.strip()) for i in feature_extractor_strides.split(",")
-        ],
-        "feature_extractor_feature_sizes": [
-            int(i.strip()) for i in feature_extractor_feature_sizes.split(",")
-        ],
-        "feature_extractor_kernel_sizes": [
-            int(i.strip()) for i in feature_extractor_kernel_sizes.split(",")
-        ],
-    }
-
-    assert (
-        len(set(len(v) for v in flownet_kwargs.values())) == 1
-    ), "Feature extractor list params must all have the same size"
-
-    flownetc = FlowNetCorr(
-        correlation_patch_size=correlation_patch_size,
-        redir_feats=flownet_redir_feats,
-        **flownet_kwargs,
-    ).to(device)
-
-    checkpoint = torch.load(flownetc_checkpoint)
-    flownetc.load_state_dict(checkpoint)
-    if freeze_corr_weights:
-        flownetc.requires_grad = False
     cascade = Cascade(N=n_cascades).to(device)
 
-    if cascade_checkpoint is None and init_casc:
-        cascade_statedict = cascade.state_dict()
-        # first conv layer size not going to be the same due to different number of channels
-        skip_keys = ["encoder.0.0.main.weight", "encoder.0.0.main.bias"]
-        for param, weight in checkpoint.items():
-            if not param.startswith("unet"):
-                continue
-            key = param[5:]  # skip unet.
-            if key in skip_keys:
-                continue
-            for k in cascade_statedict.keys():
-                if key in k:
-                    cascade_statedict[k] = weight
-        cascade.load_state_dict(cascade_statedict)
-
-    elif cascade_checkpoint is not None:
+    if cascade_checkpoint is not None:
         cascade_statedict = torch.load(cascade_checkpoint)
         cascade.load_state_dict(cascade_statedict)
 
     opt_cascade = torch.optim.Adam(cascade.parameters(), lr=lr)
-    opt_flownet = torch.optim.Adam(flownetc.parameters(), lr=lr) if freeze_corr_weights else None
 
     aug = tio.RandomAffine()
     for step in trange(steps):
@@ -593,7 +538,6 @@ def train_cascade(
 
         model_out = run_flownetcascade(
             data,
-            flownetc,
             cascade,
             skip_normalize,
             image_loss_weight,
@@ -606,12 +550,8 @@ def train_cascade(
         )
 
         opt_cascade.zero_grad()
-        if opt_flownet is not None:
-            opt_flownet.zero_grad()
         model_out.total_loss.backward()
         opt_cascade.step()
-        if opt_flownet is not None:
-            opt_flownet.step()
 
         if step % log_freq == 0:
             tb_log(
@@ -623,14 +563,10 @@ def train_cascade(
 
         if step % save_freq == 0:
             torch.save(
-                flownetc.state_dict(), checkpoint_dir / f"flownetc_pre_step{step}.pth"
-            )
-            torch.save(
                 cascade.state_dict(), checkpoint_dir / f"cascade_step{step}.pth",
             )
 
         if val_freq > 0 and step % val_freq == 0:
-            flownetc.eval()
             val_gen = data_generator(data_json, split="val")
             losses_cum_dict = defaultdict(list)
             for data in val_gen:
@@ -644,7 +580,6 @@ def train_cascade(
 
                 model_out = run_flownetcascade(
                     data,
-                    flownetc,
                     cascade,
                     skip_normalize,
                     image_loss_weight,
@@ -661,25 +596,16 @@ def train_cascade(
             for k, v in losses_cum_dict.items():
                 writer.add_scalar(f"val_{k}", np.mean(v).item(), global_step=step)
 
-            flownetc = flownetc.train()
-
-    torch.save(flownetc.state_dict(), checkpoint_dir / f"flownetc_pre_step{steps}.pth")
     torch.save(cascade.state_dict(), checkpoint_dir / f"cascade_step{steps}.pth")
 
 
 @app.command()
 def eval_cascade(
-    flownetc_checkpoint: Path,
     cascades_checkpoint: Path,
     data_json: Path,
     savedir: Path,
     skip_normalize: bool = False,
-    n_cascades: int = 6,
-    correlation_patch_size: int = 3,
-    flownet_redir_feats: int = 32,
-    feature_extractor_strides: str = "2,1,1",
-    feature_extractor_feature_sizes: str = "8,32,64",
-    feature_extractor_kernel_sizes: str = "7,5,5",
+    n_cascades: int = 12,
     use_l2r_naming: bool = True,
     disp_format: DisplacementFormat = DisplacementFormat.Nifti,
     device: str = "cuda",
@@ -702,36 +628,12 @@ def eval_cascade(
         Default=False.
     """
     savedir.mkdir(exist_ok=True)
-    flownet_kwargs = {
-        "feature_extractor_strides": [
-            int(i.strip()) for i in feature_extractor_strides.split(",")
-        ],
-        "feature_extractor_feature_sizes": [
-            int(i.strip()) for i in feature_extractor_feature_sizes.split(",")
-        ],
-        "feature_extractor_kernel_sizes": [
-            int(i.strip()) for i in feature_extractor_kernel_sizes.split(",")
-        ],
-    }
-
-    assert (
-        len(set(len(v) for v in flownet_kwargs.values())) == 1
-    ), "Feature extractor params must all have the same size"
-
-    flownetc = FlowNetCorr(
-        correlation_patch_size=correlation_patch_size,
-        redir_feats=flownet_redir_feats,
-        **flownet_kwargs,
-    )
-    flownetc.load_state_dict(torch.load(flownetc_checkpoint))
-    flownetc = flownetc.to(device).eval()
 
     cascade = Cascade(N=n_cascades)
     cascade.load_state_dict(torch.load(cascades_checkpoint))
     cascade = cascade.to(device).eval()
 
     gen = data_generator(data_json, split="val")
-    labels = load_labels(data_json)
 
     measurements = defaultdict(dict)
     (savedir / "disps").mkdir(exist_ok=True)
@@ -746,7 +648,6 @@ def eval_cascade(
 
         model_out = run_flownetcascade(
             data,
-            flownetc,
             cascade,
             skip_normalize,
             image_loss_weight=1,
@@ -807,10 +708,10 @@ def eval_cascade(
             )
 
             measurements[disp_name]["dice"] = compute_dice(
-                fixed_seg, moving_seg, moved_seg, labels=labels
+                fixed_seg, moving_seg, moved_seg, labels=[1]
             )
             measurements[disp_name]["hd95"] = compute_hd95(
-                fixed_seg, moving_seg, moved_seg, labels
+                fixed_seg, moving_seg, moved_seg, [1]
             )
 
         if use_keypoints:

@@ -613,38 +613,27 @@ class FeatureExtractorVxm(nn.Module):
 
         return x
 
-@dataclass
-class CascadeOut:
-    flow: torch.Tensor
-    l2s: List[torch.Tensor]
-    sim_errors: List[torch.Tensor]
-
 class Cascade(nn.Module):
     def __init__(self, N: int = 2, similarity_function: str = "mi"):
         super().__init__()
-        self.cascades = nn.ModuleList([Unet3D(7, 3) for _ in range(N)])
+        unets = [Unet3D(7, 3) for _ in range(N-1)]
+        self.cascades = nn.ModuleList([Unet3D(2,3), *unets])
         self.similarity_function = mind_mse
 
     def forward(
         self,
         moving: torch.Tensor,
         fixed: torch.Tensor,
-        flow: torch.Tensor,
         transformer: SpatialTransformer,
     ):
-        l2s = []
-        sims = []
-        for network in self.cascades:
+        inp1 = torch.concat((fixed, moving), dim=1)
+
+        flow = self.cascades[0](inp1)
+        for network in self.cascades[1:]:
             moved = transformer(moving, flow)
             similarity = self.similarity_function(moved, fixed)
             net_in = torch.concat((fixed, moving, flow, moved, similarity), dim=1)
             net_out = network(net_in)
-            flow = flow + net_out
-            l2s.append(torch.norm(net_out))
-            sims.append(torch.mean(similarity))
+            flow = net_out
 
-        return CascadeOut(
-            flow=flow,
-            l2s=l2s,
-            sim_errors=sims
-        )
+        return flow
