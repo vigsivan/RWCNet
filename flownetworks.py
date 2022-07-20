@@ -20,7 +20,6 @@ import torch
 import torch.nn.functional as F
 from torch.utils.tensorboard.writer import SummaryWriter
 import typer
-import torchio as tio
 
 from common import (
     DisplacementFormat,
@@ -196,16 +195,8 @@ def run_flownetcascade(
         fixed_nib = nib.load(data.fixed_image)
         moving_nib = nib.load(data.moving_image)
 
-        if with_grad and aug_fn is not None:
-            fixed_tio = tio.ScalarImage(data.fixed_image)
-            moving_tio = tio.ScalarImage(data.moving_image)
-            fixed_tio, moving_tio = aug_fn(fixed_tio), aug_fn(moving_tio)
-            fixed = fixed_tio.data.unsqueeze(0)
-            moving = moving_tio.data.unsqueeze(0)
-
-        else:
-            fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata()))
-            moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata()))
+        fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata()))
+        moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata()))
 
         fixed, moving = fixed.to(device), moving.to(device)
 
@@ -524,7 +515,6 @@ def train_cascade(
 
     opt_cascade = torch.optim.Adam(cascade.parameters(), lr=lr)
 
-    aug = tio.RandomAffine()
     for step in trange(steps):
         data = next(train_gen)
 
@@ -546,7 +536,7 @@ def train_cascade(
             kp_loss_weight,
             train_use_labels,
             train_use_keypoints,
-            aug_fn=aug
+            aug_fn=None
         )
 
         opt_cascade.zero_grad()
