@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Optional
 import numpy as np
 import torch
 from torch import nn
@@ -624,8 +624,12 @@ class Cascade(nn.Module):
         moving: torch.Tensor,
         fixed: torch.Tensor,
         transformer: SpatialTransformer,
+        starting_flow: Optional[torch.Tensor]=None
     ):
-        flow = torch.zeros((1,3,*moving.shape[-3:])).to(moving.device)
+        if starting_flow is not None:
+            flow = starting_flow
+        else:
+            flow = torch.zeros((1,3,*moving.shape[-3:])).to(moving.device)
         for network in self.cascades:
             similarity = self.similarity_function(moving, fixed)
             net_in = torch.concat((fixed, moving, flow, similarity), dim=1)
