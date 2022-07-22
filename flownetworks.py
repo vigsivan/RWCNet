@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 import logging
 import sys
-from typing import Callable, Dict, Optional
+from typing import Dict, Optional
 from contextlib import nullcontext
 
 import einops
@@ -17,15 +17,15 @@ import numpy as np
 import nibabel as nib
 from tqdm import tqdm, trange
 import torch
+from torch import nn
 import torch.nn.functional as F
 from torch.utils.tensorboard.writer import SummaryWriter
 import typer
 
 from common import (
     DisplacementFormat,
-    MINDSSC,
+    Data,
     TrainType,
-    adam_optimization,
     data_generator,
     random_never_ending_generator,
     randomized_pair_never_ending_generator,
@@ -88,8 +88,8 @@ class RunModelOut:
 
 
 def run_flownetc(
-    data,
-    model,
+    data: Data,
+    model: nn.Module,
     skip_normalize: bool,
     image_loss_weight: float,
     reg_loss_weight: float,
@@ -172,9 +172,9 @@ def run_flownetc(
         )
 
 def run_flownetcascade(
-    data,
-    flownet,
-    cascade,
+    data: Data,
+    flownet: nn.Module,
+    cascade: nn.Module,
     skip_normalize: bool,
     image_loss_weight: float,
     reg_loss_weight: float,
@@ -273,8 +273,8 @@ def run_flownetcascade(
 
 
 def run_cascade(
-    data,
-    cascade,
+    data: Data,
+    cascade: nn.Module,
     skip_normalize: bool,
     image_loss_weight: float,
     reg_loss_weight: float,
