@@ -648,7 +648,7 @@ class Cascade(nn.Module):
             moving, flow = moved, net_out
             flows.append(net_out)
             flow_agg = torch.concat(
-                [transformer(flow_agg[:, i, ...].unsqueeze(1), flow) for i in range(3)],
+                [transformer(flow, flow_agg[:, i, ...].unsqueeze(1)) for i in range(3)],
                 dim=1,
             )
 
