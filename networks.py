@@ -613,10 +613,18 @@ class FeatureExtractorVxm(nn.Module):
 
         return x
 
+
+@dataclass
+class CascadeOut:
+    flows: List[torch.Tensor]
+    flow_agg: torch.Tensor
+
 class Cascade(nn.Module):
-    def __init__(self, N: int = 2, similarity_function: str = "mi"):
+    def __init__(self, N: int = 2, similarity_function: str = "mind"):
         super().__init__()
         self.cascades = nn.ModuleList([Unet3D(6, 3) for _ in range(N)])
+        if similarity_function != "mind":
+            raise ValueError("Only MIND similarity supported!")  # TODO
         self.similarity_function = mind_mse
 
     def forward(
@@ -624,18 +632,24 @@ class Cascade(nn.Module):
         moving: torch.Tensor,
         fixed: torch.Tensor,
         transformer: SpatialTransformer,
-        starting_flow: Optional[torch.Tensor]=None
-    ):
+        starting_flow: Optional[torch.Tensor] = None,
+    ) -> CascadeOut:
         if starting_flow is not None:
             flow = starting_flow
         else:
-            flow = torch.zeros((1,3,*moving.shape[-3:])).to(moving.device)
+            flow = torch.zeros((1, 3, *moving.shape[-3:])).to(moving.device)
+        flows = []
+        flow_agg = flow
         for network in self.cascades:
             similarity = self.similarity_function(moving, fixed)
             net_in = torch.concat((fixed, moving, flow, similarity), dim=1)
             net_out = network(net_in)
             moved = transformer(moving, net_out)
-            moving=moved
-            flow = flow+net_out
+            moving, flow = moved, net_out
+            flows.append(net_out)
+            flow_agg = torch.concat(
+                [transformer(flow_agg[:, i, ...].unsqueeze(1), flow) for i in range(3)],
+                dim=1,
+            )
 
-        return flow
+        return CascadeOut(flows=flows, flow_agg=flow_agg)

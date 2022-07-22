@@ -53,7 +53,7 @@ from metrics import (
     compute_log_jacobian_determinant_standard_deviation,
     compute_total_registration_error,
 )
-from networks import SpatialTransformer, FlowNetCorr, VecInt, Cascade
+from networks import SpatialTransformer, FlowNetCorr, VecInt, Cascade, CascadeOut
 
 app = typer.Typer()
 logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
@@ -184,9 +184,8 @@ def run_flownetcascade(
     use_keypoints: bool,
     with_grad: bool = True,
     vector_integration_steps: int=7,
+    downsample: int=2,
     device: str = "cuda",
-    with_instance_opt: bool=False,
-    aug_fn: Optional[Callable]=None
     ) -> RunModelOut:
 
     context = nullcontext() if with_grad else torch.no_grad()
@@ -205,28 +204,14 @@ def run_flownetcascade(
             fixed = (fixed - fixed.min()) / (fixed.max() - fixed.min())
             moving = (moving - moving.min()) / (moving.max() - moving.min())
 
-        moving_ = F.interpolate(moving, [i//2 for i in moving.shape[-3:]])
-        fixed_ = F.interpolate(fixed, [i//2 for i in fixed.shape[-3:]])
-        transformer_half = SpatialTransformer(fixed_.shape[2:]).to(device)
+        moving_ = F.interpolate(moving, [i//downsample for i in moving.shape[-3:]])
+        fixed_ = F.interpolate(fixed, [i//downsample for i in fixed.shape[-3:]])
+        transformer = SpatialTransformer(fixed_.shape[2:]).to(device)
         flow = flownet(moving, fixed, resize=False)
-        flow = cascade(moving_, fixed_, transformer_half)
+        cascade_out: CascadeOut = cascade(moving_, fixed_, transformer)
+        flow = cascade_out.flow_agg
 
-        if with_instance_opt and with_grad:
-            net = adam_optimization(
-                disp=flow,
-                mind_fixed=MINDSSC(fixed_),
-                mind_moving=MINDSSC(moving_),
-                lambda_weight=1.25,
-                image_shape=fixed_.shape[-3:],
-                iterations=100
-            )
-
-            disp_sample = F.avg_pool3d(
-                F.avg_pool3d(net[0].weight, 3, stride=1, padding=1), 3, stride=1, padding=1
-            ).permute(0, 2, 3, 4, 1)
-            flow = disp_sample.permute(0, 4, 1, 2, 3)
-
-        flow = VecInt(nsteps=vector_integration_steps, transformer=transformer_half)(flow)
+        flow = VecInt(nsteps=vector_integration_steps, transformer=transformer)(flow)
 
         flow = flownet.refine(F.interpolate(flow, fixed.shape[-3:]))
         moved = warp_image(flow, moving)
@@ -300,8 +285,7 @@ def run_cascade(
     with_grad: bool = True,
     vector_integration_steps: int=7,
     device: str = "cuda",
-    with_instance_opt: bool=False,
-    aug_fn: Optional[Callable]=None
+    downsample: int=2,
     ) -> RunModelOut:
 
     context = nullcontext() if with_grad else torch.no_grad()
@@ -320,27 +304,13 @@ def run_cascade(
             fixed = (fixed - fixed.min()) / (fixed.max() - fixed.min())
             moving = (moving - moving.min()) / (moving.max() - moving.min())
 
-        moving_ = F.interpolate(moving, [i//2 for i in moving.shape[-3:]])
-        fixed_ = F.interpolate(fixed, [i//2 for i in fixed.shape[-3:]])
-        transformer_half = SpatialTransformer(fixed_.shape[2:]).to(device)
-        flow = cascade(moving_, fixed_, transformer_half)
+        moving_ = F.interpolate(moving, [i//downsample for i in moving.shape[-3:]])
+        fixed_ = F.interpolate(fixed, [i//downsample for i in fixed.shape[-3:]])
+        transformer = SpatialTransformer(fixed_.shape[2:]).to(device)
+        casc_out: CascadeOut = cascade(moving_, fixed_, transformer)
+        flow = casc_out.flow_agg
 
-        if with_instance_opt and with_grad:
-            net = adam_optimization(
-                disp=flow,
-                mind_fixed=MINDSSC(fixed_),
-                mind_moving=MINDSSC(moving_),
-                lambda_weight=1.25,
-                image_shape=fixed_.shape[-3:],
-                iterations=100
-            )
-
-            disp_sample = F.avg_pool3d(
-                F.avg_pool3d(net[0].weight, 3, stride=1, padding=1), 3, stride=1, padding=1
-            ).permute(0, 2, 3, 4, 1)
-            flow = disp_sample.permute(0, 4, 1, 2, 3)
-
-        flow = VecInt(nsteps=vector_integration_steps, transformer=transformer_half)(flow)
+        flow = VecInt(nsteps=vector_integration_steps, transformer=transformer)(flow)
 
         flow = F.interpolate(flow, fixed.shape[-3:])
         moved = warp_image(flow, moving)
