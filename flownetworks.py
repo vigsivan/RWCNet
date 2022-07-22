@@ -622,7 +622,6 @@ def train_cascade(
             kp_loss_weight,
             train_use_labels,
             train_use_keypoints,
-            aug_fn=None
         )
 
         opt_cascade.zero_grad()
