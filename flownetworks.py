@@ -376,7 +376,7 @@ def train(
     checkpoint_dir: Path,
     start: Optional[Path] = None,
     steps: int = 1000,
-    lr: float = 3e-4,
+    lr: float = 1e-4,
     correlation_patch_size: int = 3,
     flownet_redir_feats: int = 32,
     feature_extractor_strides: str = "2,1,1",
@@ -563,7 +563,7 @@ def train_cascade(
     cascade_checkpoint: Optional[Path]=None,
     skip_normalize: bool = False,
     steps: int = 1000,
-    lr: float = 3e-4,
+    lr: float = 1e-4,
     n_cascades: int = 12,
     train_type: TrainType = TrainType.Paired,
     device: str = "cuda",
@@ -773,7 +773,6 @@ def train_flownet_cascade(
             kp_loss_weight,
             train_use_labels,
             train_use_keypoints,
-            aug_fn=None
         )
 
         opt_cascade.zero_grad()
