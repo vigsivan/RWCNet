@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 import random
 from typing import Dict, Generator, List, Optional, Tuple
+from torch.optim.swa_utils import AveragedModel, SWALR
+from torch.optim.lr_scheduler import CosineAnnealingLR
 
 import einops
 import numpy as np
@@ -14,6 +16,9 @@ from torch import nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 from torch.utils.tensorboard.writer import SummaryWriter
+
+
+from knn import knn_faiss_raw
 
 class DisplacementFormat(str, Enum):
     Nifti ="nifti"
@@ -205,6 +210,49 @@ def correlate_grad(
 
     return ssd
 
+def unravel_indices(
+    indices: torch.LongTensor,
+    shape: Tuple[int, ...],
+) -> torch.LongTensor:
+    r"""Converts flat indices into unraveled coordinates in a target shape.
+
+    Args:
+        indices: A tensor of (flat) indices, (*, N).
+        shape: The targeted shape, (D,).
+
+    Returns:
+        The unraveled coordinates, (*, N, D).
+    """
+
+    coord = []
+
+    for dim in reversed(shape):
+        coord.append(indices % dim)
+        indices = indices // dim
+
+    coord = torch.stack(coord[::-1], dim=-1)
+
+    return coord
+
+def correlate_K(
+    mind_fix: torch.Tensor,
+    mind_mov: torch.Tensor,
+    K: int=32,
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    dist, index = knn_faiss_raw(mind_fix.view(1,2,-1).float(), mind_mov.view(1,2,-1).float(), K)
+    # dist = dist.view(1, K,*mind_fix.shape[-3:]).squeeze()
+    # index = index.view(1, K, *mind_fix.shape[-3:]).squeeze()
+    indices = unravel_indices(
+            einops.rearrange(index, 'b K i -> b (K i)').squeeze().long(),  #type: ignore
+            mind_fix.shape[-3:])
+
+    indices = einops.rearrange(indices, '(K i) d -> K i d', K=K)
+    ogs = unravel_indices(torch.Tensor([i for i in range(np.prod(mind_mov.shape[-3:]))]).long(), mind_mov.shape[-3:]).to(mind_mov.device)
+    disps = (indices-ogs)
+    dist = dist.view(1, K, *mind_fix.shape[-3:])
+    disps = disps.view(1, K, *mind_fix.shape[-3:], 3)
+ 
+    return dist, disps
 
 def correlate(
     mind_fix: torch.Tensor,
@@ -372,6 +420,59 @@ def coupled_convex_grad(
 
     return disp_soft
 
+def coupled_convex2(
+    corr: torch.Tensor,
+    disps: torch.Tensor,
+    grid_sp: int,
+    image_shape: Tuple[int, int, int],
+) -> torch.Tensor:
+    """
+    Solve two coupled convex optimisation problems for efficient global regularisation
+
+    Parameters
+    ----------
+    ssd: torch.Tensor
+    ssd_argmin: torch.Tensor
+    disp_mesh_t: torch.Tensor
+        All possible permutations
+    grid_sp: int
+    image_shape: Tuple[int, int, int]
+
+    Returns
+    -------
+    disp_soft: torch.Tensor
+    """
+    H, W, D = image_shape
+
+    disps_rarr = einops.rearrange(disps, 'b k h w d n -> (n b) k h (w d)')
+    disp_soft = F.avg_pool3d( 
+        disps_rarr[:,0,...].float().reshape(1, 3, H // grid_sp, W // grid_sp, D // grid_sp),
+        3, padding=1, stride=1,
+    ) # TODO: think about this more
+
+    corr = corr.squeeze()
+
+    reg_coeffs = torch.tensor([0.003, 0.01, 0.03, 0.1, 0.3, 1])
+    for coeff in reg_coeffs:
+        ssd_coupled_argmin = torch.zeros(tuple(i // grid_sp for i in image_shape))
+        with torch.no_grad():
+            for i in range(H // grid_sp):
+                energy = (disps_rarr[...,i,:] - disp_soft[:, :, i].view(3, 1, -1)).pow(2).sum(0).view(-1, W // grid_sp, D // grid_sp)
+                coupled = corr[:, i, :, :] + coeff * energy
+                ssd_coupled_argmin[i] = torch.argmin(coupled, 0)
+
+        disp_soft = F.avg_pool3d(
+            disps_rarr.view(3, -1)[:, ssd_coupled_argmin.view(-1).long()].float().reshape(
+                1, 3, H // grid_sp, W // grid_sp, D // grid_sp
+            ),
+            3,
+            padding=1,
+            stride=1,
+        )
+
+    return disp_soft
+
+
 
 def coupled_convex(
     ssd: torch.Tensor,
@@ -388,6 +489,7 @@ def coupled_convex(
     ssd: torch.Tensor
     ssd_argmin: torch.Tensor
     disp_mesh_t: torch.Tensor
+        All possible permutations
     grid_sp: int
     image_shape: Tuple[int, int, int]
 
@@ -405,12 +507,12 @@ def coupled_convex(
         stride=1,
     )
 
-    coeffs = torch.tensor([0.003, 0.01, 0.03, 0.1, 0.3, 1])
-    for j in range(6):
+    reg_coeffs = torch.tensor([0.003, 0.01, 0.03, 0.1, 0.3, 1])
+    for coeff in reg_coeffs:
         ssd_coupled_argmin = torch.zeros_like(ssd_argmin)
         with torch.no_grad():
             for i in range(H // grid_sp):
-                coupled = ssd[:, i, :, :] + coeffs[j] * (
+                coupled = ssd[:, i, :, :] + coeff * (
                     disp_mesh_t - disp_soft[:, :, i].view(3, 1, -1)
                 ).pow(2).sum(0).view(-1, W // grid_sp, D // grid_sp)
                 ssd_coupled_argmin[i] = torch.argmin(coupled, 0)
@@ -641,6 +743,99 @@ class UnrolledConv(nn.Module):
             )
 
         return disp_sample, feat_mov
+
+def swa_optimization(
+    disp: torch.Tensor,
+    mind_fixed: torch.Tensor,
+    mind_moving: torch.Tensor,
+    lambda_weight: float,
+    image_shape: Tuple[int, int, int],
+    iterations: int,
+    norm: int=1,
+) -> nn.Module:
+    """
+    Instance-based optimization
+
+    Parameters
+    ----------
+    disp_lr: torch.Tensor,
+    mind_fixed: torch.Tensor,
+    mind_moving: torch.Tensor,
+    lambda_weight: float,
+    image_shape: Tuple[int, int, int],
+    iterations: int,
+
+    Returns
+    -------
+    nn.Module
+    """
+
+    H, W, D = image_shape
+    # create optimisable displacement grid
+    net = nn.Sequential(
+        nn.Conv3d(3, 1, (H, W, D), bias=False)
+    )
+    net[0].weight.data[:] = disp / norm
+    net.cuda()
+    optimizer = torch.optim.SGD(net.parameters(), lr=.05)
+
+    swa_net = AveragedModel(net)
+    scheduler = CosineAnnealingLR(optimizer, T_max=100)
+    swa_start = iterations//2
+    swa_scheduler = SWALR(optimizer, swa_lr=5)
+    
+    grid0 = get_identity_affine_grid(image_shape)
+
+    for i in range(iterations):
+        optimizer.zero_grad()
+
+        disp_sample = F.avg_pool3d(
+            F.avg_pool3d(net[0].weight, 3, stride=1, padding=1), 3, stride=1, padding=1,
+        ).permute(0, 2, 3, 4, 1)
+        reg_loss = (
+            lambda_weight
+            * ((disp_sample[0, :, 1:, :] - disp_sample[0, :, :-1, :]) ** 2).mean()
+            + lambda_weight
+            * ((disp_sample[0, 1:, :, :] - disp_sample[0, :-1, :, :]) ** 2).mean()
+            + lambda_weight
+            * ((disp_sample[0, :, :, 1:] - disp_sample[0, :, :, :-1]) ** 2).mean()
+        )
+
+        scale = (
+            torch.tensor(
+                [
+                    (H - 1) / 2,
+                    (W - 1) / 2,
+                    (D - 1) / 2,
+                ]
+            )
+            .cuda()
+            .unsqueeze(0)
+        )
+        grid_disp = (
+            grid0.view(-1, 3).cuda().float()
+            + ((disp_sample.view(-1, 3)) / scale).flip(1).float()
+        )
+
+        patch_mov_sampled = F.grid_sample(
+            mind_moving.float(),
+            grid_disp.view(1, H, W, D, 3).cuda(),
+            align_corners=False,
+            mode="bilinear",
+        )  # ,padding_mode='border')
+        sampled_cost = (patch_mov_sampled - mind_fixed).pow(2).mean(1) * 12
+        loss = sampled_cost.mean()
+        (loss + reg_loss).backward(retain_graph=True)
+        optimizer.step()
+
+        if i > swa_start:
+            swa_net.update_parameters(net)
+            swa_scheduler.step()
+        else:
+            scheduler.step()
+
+    return net
+
 
 def adam_optimization(
     disp: torch.Tensor,
