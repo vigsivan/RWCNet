@@ -148,6 +148,9 @@ def main(
                     moving.unsqueeze(0).unsqueeze(0).cuda(), 1, 2
                 ).half()
 
+            breakpoint()
+            mindssc_fix_ = mindssc_fix_[:,2:4,...]
+            mindssc_mov_ = mindssc_mov_[:,2:4,...]
             mind_fix_ = F.avg_pool3d(mindssc_fix_, grid_sp, stride=grid_sp)
             mind_mov_ = F.avg_pool3d(mindssc_mov_, grid_sp, stride=grid_sp)
             ssd, ssd_argmin = correlate(

@@ -150,7 +150,6 @@ def apply_displacement_field(disp_field: np.ndarray, image: np.ndarray, order: i
         moved_image = moved_image[None, ...]
     return moved_image
 
-
 def correlate_grad(
     feat_fix: torch.Tensor,
     feat_mov: torch.Tensor,
