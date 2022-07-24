@@ -48,6 +48,54 @@ def _compute_pad(
     return tuple(padding[::-1])
 
 
+class ConvGRU(nn.Module):
+    def __init__(self, hidden_dim: int, input_dim: int):
+        super().__init__()
+        self.convz = nn.Conv3d(hidden_dim+input_dim, hidden_dim, 3, padding='same')
+        self.convr = nn.Conv3d(hidden_dim+input_dim, hidden_dim, 3, padding='same')
+        self.convq = nn.Conv3d(hidden_dim+input_dim, hidden_dim, 3, padding='same')
+
+    def forward(self, h, x):
+        hx = torch.cat([h, x], dim=1)
+        z = torch.sigmoid(self.convz(hx))
+        r = torch.sigmoid(self.convz(hx))
+        q = torch.tanh(self.convq(torch.cat([r*h, x] dim=1)))
+
+        h = (1-z)*h + z*q
+        return h
+
+class BasicMotionEncoder(nn.Module):
+    def __init__(self, corr_levels: int, corr_radius: int):
+        super(BasicMotionEncoder, self).__init__()
+        # FIXME: I don't like these hard-coded feature dimensions
+        cor_planes = corr_levels * (2*corr_radius + 1)**2
+        self.convc1 = nn.Conv3d(cor_planes, 256, 1, padding=0)
+        self.convc2 = nn.Conv3d(256, 192, 3, padding=1)
+        self.convf1 = nn.Conv3d(2, 128, 7, padding=3)
+        self.convf2 = nn.Conv3d(128, 64, 3, padding=1)
+        self.conv = nn.Conv3d(64+192, 128-2, 3, padding=1)
+
+    def forward(self, flow, corr):
+        cor = F.relu(self.convc1(corr))
+        cor = F.relu(self.convc2(cor))
+        flo = F.relu(self.convf1(flow))
+        flo = F.relu(self.convf2(flo))
+
+        cor_flo = torch.cat([cor, flo], dim=1)
+        out = F.relu(self.conv(cor_flo))
+        return torch.cat([out, flow], dim=1)
+
+
+class UpdateBlock(nn.Module):
+    def __init__(self, args, corr_levels: int, corr_radius: int, hidden_dim=128, input_dim=128):
+        super().__init__()
+        self.args = args
+        self.encoder = BasicMotionEncoder(corr_levels=corr_levels, corr_radius=corr_radius)
+        self.gru = ConvGRU(hidden_dim=hidden_dim, input_dim=input_dim)
+        self.flow_head=F
+        raise NotImplementedError()
+
+
 class FeatureExtractor(nn.Module):
     """
     Feature Extractor for flownet model
