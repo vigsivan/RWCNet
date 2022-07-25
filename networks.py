@@ -664,43 +664,41 @@ class FeatureExtractorVxm(nn.Module):
         return x
 
 
-@dataclass
-class CascadeOut:
-    flows: List[torch.Tensor]
-    flow_agg: torch.Tensor
+class ConvGru(nn.Module):
+    def __init__(self, hidden_dim: int, input_dim: int):
+        super().__init__()
+        self.convz = nn.Conv3d(hidden_dim+input_dim, hidden_dim, 3, padding='same')
+        self.convr = nn.Conv3d(hidden_dim+input_dim, hidden_dim, 3, padding='same')
+        self.convq = nn.Conv3d(hidden_dim+input_dim, hidden_dim, 3, padding='same')
+
+    def forward(self, h, x):
+        hx = torch.cat([h, x], dim=1)
+        z = torch.sigmoid(self.convz(hx))
+        r = torch.sigmoid(self.convr(hx))
+        q = torch.tanh(self.convq(torch.cat([r*h, x], dim=1)))
+
+        h = (1-z)*h + z*q
+        return h
 
 class Cascade(nn.Module):
-    def __init__(self, N: int = 2, similarity_function: str = "mind"):
+    def __init__(self, correlation_features: int, N: int = 2):
         super().__init__()
-        self.cascades = nn.ModuleList([Unet3D(2, 3) for _ in range(N)])
-        if similarity_function != "mind":
-            raise ValueError("Only MIND similarity supported!")  # TODO
-        self.similarity_function = mind_mse
+        self.cascades = nn.ModuleList([Unet3D(2+correlation_features, 3) for _ in range(N)])
 
     def forward(
         self,
         moving: torch.Tensor,
         fixed: torch.Tensor,
-        transformer: SpatialTransformer,
-        starting_flow: Optional[torch.Tensor] = None,
-    ) -> CascadeOut:
-        if starting_flow is not None: assert starting_flow.max() > 0
-        flows = []
-        flow_agg = starting_flow
+        correlation: torch.Tensor,
+    ) -> torch.Tensor:
+        flow: Optional[torch.Tensor] = None
         for network in self.cascades:
-            similarity = self.similarity_function(moving, fixed)
-            net_in = torch.concat((fixed, moving), dim=1)
+            net_in = torch.concat((fixed, moving, correlation), dim=1)
             net_out = network(net_in)
-            moved = transformer(moving, net_out)
-            moving, flow = moved, net_out
-            flows.append(net_out)
-            if flow_agg is not None:
-                flow_agg = torch.concat(
-                    [transformer(flow_agg[:, i, ...].unsqueeze(1), flow) for i in range(3)],
-                    dim=1,
-                )
+            if flow is None:
+                flow = net_out
             else:
-                flow_agg = flow
+                flow = flow + net_out 
 
-        assert flow_agg is not None
-        return CascadeOut(flows=flows, flow_agg=flow_agg)
+        assert flow is not None
+        return flow

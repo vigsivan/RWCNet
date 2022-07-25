@@ -17,7 +17,7 @@ from common import (
     adam_optimization,
     apply_displacement_field,
     correlate,
-    correlate_K,
+    correlate_sparse,
     coupled_convex2,
     data_generator,
     get_labels,
@@ -35,9 +35,8 @@ def main(
     data_json: Path,
     save_directory: Path,
     grid_sp: int = 2,
-    disp_hw: int = 3,
     use_labels: bool = True,
-    split: str="train",
+    split: str="val",
     lambda_weight: float = 1.25,
     iterations: int = 100,
     skip_normalize: bool = False,
@@ -61,7 +60,6 @@ def main(
         Path where the outputs of this functin will be saved.
     grid_sp: int = 2,
         Grid spacing. Defualt=2
-    disp_hw: int = 3,
     lambda_weight: float = 1.25,
         Regularization weight.
     iterations: int = 100,
@@ -137,8 +135,16 @@ def main(
                 ).float().pow(0.3)
                 weight[torch.isinf(weight)]=0.
                 weight /= weight.mean()
-                mindssc_fix_ = MINDSEG(fixed_seg, data_shape, weight)
-                mindssc_mov_ = MINDSEG(moving_seg, data_shape, weight)
+                # mindssc_fix_ = MINDSEG(fixed_seg, data_shape, weight)
+                # mindssc_mov_ = MINDSEG(moving_seg, data_shape, weight)
+
+                mindssc_fix_ = MINDSSC(
+                    fixed.unsqueeze(0).unsqueeze(0).cuda(), 1, 2
+                ).half()
+                mindssc_mov_ = MINDSSC(
+                    moving.unsqueeze(0).unsqueeze(0).cuda(), 1, 2
+                ).half()
+
 
             else:
                 mindssc_fix_ = MINDSSC(
@@ -148,29 +154,14 @@ def main(
                     moving.unsqueeze(0).unsqueeze(0).cuda(), 1, 2
                 ).half()
 
-            breakpoint()
-            mindssc_fix_ = mindssc_fix_[:,2:4,...]
-            mindssc_mov_ = mindssc_mov_[:,2:4,...]
             mind_fix_ = F.avg_pool3d(mindssc_fix_, grid_sp, stride=grid_sp)
             mind_mov_ = F.avg_pool3d(mindssc_mov_, grid_sp, stride=grid_sp)
-            ssd, ssd_argmin = correlate(
-                mind_fix_, mind_mov_, disp_hw, grid_sp, data_shape
-            )
-            sims, disps = correlate_K(mind_fix_, mind_mov_, K=10)
-            disp_mesh_t = (
-                F.affine_grid(
-                    disp_hw * torch.eye(3, 4).cuda().half().unsqueeze(0),
-                    [1, 1, disp_hw * 2 + 1, disp_hw * 2 + 1, disp_hw * 2 + 1],
-                    align_corners=True,
-                )
-                .permute(0, 4, 1, 2, 3)
-                .reshape(3, -1, 1)
-            )
+            sims, disps = correlate_sparse(mind_fix_, mind_mov_, K=10)
             disp_soft = coupled_convex2(
                 sims, disps, grid_sp, data_shape
             )
 
-        del ssd, mind_fix_, mind_mov_
+        del mind_fix_, mind_mov_
 
         torch.cuda.empty_cache()
 

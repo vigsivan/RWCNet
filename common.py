@@ -20,9 +20,11 @@ from torch.utils.tensorboard.writer import SummaryWriter
 
 from knn import knn_faiss_raw
 
+
 class DisplacementFormat(str, Enum):
-    Nifti ="nifti"
+    Nifti = "nifti"
     Numpy = "numpy"
+
 
 def torch2skimage_disp(disp_field: torch.Tensor) -> np.ndarray:
     x1 = disp_field[0, 0, :, :, :].cpu().float().data.numpy()
@@ -51,6 +53,7 @@ def tb_log(
         global_step=step,
         dataformats="nchw",
     )
+
 
 @lru_cache(maxsize=None)
 def identity_grid(size: Tuple[int, ...]) -> np.ndarray:
@@ -108,14 +111,14 @@ def get_identity_affine_grid(size: Tuple[int, ...]) -> torch.Tensor:
     H, W, D = size
 
     grid0 = F.affine_grid(
-        torch.eye(3, 4).unsqueeze(0).cuda(),
-        [1, 1, H, W, D],
-        align_corners=False,
+        torch.eye(3, 4).unsqueeze(0).cuda(), [1, 1, H, W, D], align_corners=False,
     )
     return grid0
 
 
-def get_labels(fixed_seg: torch.Tensor, moving_seg: torch.Tensor, include_zero: bool=False) -> list:
+def get_labels(
+    fixed_seg: torch.Tensor, moving_seg: torch.Tensor, include_zero: bool = False
+) -> list:
     fixed_labels = (torch.unique(fixed_seg.long())).tolist()
     moving_labels = (torch.unique(moving_seg.long())).tolist()
     label_list = list((np.unique(set(fixed_labels + moving_labels)))[0])
@@ -124,7 +127,9 @@ def get_labels(fixed_seg: torch.Tensor, moving_seg: torch.Tensor, include_zero: 
     return label_list
 
 
-def apply_displacement_field(disp_field: np.ndarray, image: np.ndarray, order: int=1) -> np.ndarray:
+def apply_displacement_field(
+    disp_field: np.ndarray, image: np.ndarray, order: int = 1
+) -> np.ndarray:
     """
     Applies displacement field to the image
 
@@ -149,6 +154,7 @@ def apply_displacement_field(disp_field: np.ndarray, image: np.ndarray, order: i
     if has_channel:
         moved_image = moved_image[None, ...]
     return moved_image
+
 
 def correlate_grad(
     feat_fix: torch.Tensor,
@@ -209,9 +215,9 @@ def correlate_grad(
 
     return ssd
 
+
 def unravel_indices(
-    indices: torch.LongTensor,
-    shape: Tuple[int, ...],
+    indices: torch.LongTensor, shape: Tuple[int, ...],
 ) -> torch.LongTensor:
     r"""Converts flat indices into unraveled coordinates in a target shape.
 
@@ -231,27 +237,151 @@ def unravel_indices(
 
     coord = torch.stack(coord[::-1], dim=-1)
 
-    return coord
+    return coord  # type: ignore
 
-def correlate_K(
-    mind_fix: torch.Tensor,
-    mind_mov: torch.Tensor,
-    K: int=32,
+
+@dataclass
+class Patch:
+    data: torch.Tensor
+    offset: Tuple[int, int, int]
+
+
+def correlate_sparse(
+    feat_fix: torch.Tensor, feat_mov: torch.Tensor, K: int = 10, patch_size: int = 8
 ) -> Tuple[torch.Tensor, torch.Tensor]:
-    dist, index = knn_faiss_raw(mind_fix.view(1,2,-1).float(), mind_mov.view(1,2,-1).float(), K)
-    # dist = dist.view(1, K,*mind_fix.shape[-3:]).squeeze()
-    # index = index.view(1, K, *mind_fix.shape[-3:]).squeeze()
-    indices = unravel_indices(
-            einops.rearrange(index, 'b K i -> b (K i)').squeeze().long(),  #type: ignore
-            mind_fix.shape[-3:])
+    assert feat_fix.shape == feat_mov.shape, "Input features must be the same size"
+    assert (
+        feat_fix.shape[0] == 1 and len(feat_fix.shape) == 5
+    ), "Input features must be 5d bcdhw"
 
-    indices = einops.rearrange(indices, '(K i) d -> K i d', K=K)
-    ogs = unravel_indices(torch.Tensor([i for i in range(np.prod(mind_mov.shape[-3:]))]).long(), mind_mov.shape[-3:]).to(mind_mov.device)
-    disps = (indices-ogs)
-    dist = dist.view(1, K, *mind_fix.shape[-3:])
-    disps = disps.view(1, K, *mind_fix.shape[-3:], 3)
- 
+    patches_fix = einops.rearrange(
+        feat_fix.unfold(dimension=-3, size=patch_size, step=patch_size)
+        .unfold(dimension=-3, size=patch_size, step=patch_size)
+        .unfold(dimension=-3, size=patch_size, step=patch_size),
+        "b f nx ny nz px py pz -> b (nx ny nz) f (px py pz)",
+    )
+    patches_mov = einops.rearrange(
+        feat_mov.unfold(dimension=-3, size=patch_size, step=patch_size)
+        .unfold(dimension=-3, size=patch_size, step=patch_size)
+        .unfold(dimension=-3, size=patch_size, step=patch_size),
+        "b f nx ny nz px py pz -> b (nx ny nz) f (px py pz)",
+    )
+
+    npatches = patches_fix.shape[1]
+    dist = torch.zeros((1, npatches, K, patches_fix.shape[-1])).to(patches_fix.device)
+    patch_position = torch.zeros((1, npatches, K, patches_fix.shape[-1])).to(
+        patches_fix.device
+    )
+    for i in range(npatches):
+        di, pi = knn_faiss_raw(
+            patches_fix[:, i, ...].float(), patches_mov[:, i, ...].float(), K
+        )
+        dist[:, i, ...] = di
+        patch_position[:, i, ...] = pi
+
+    size = feat_fix.shape[-3:]
+    vectors = [torch.arange(0, s) for s in size]
+    grids = torch.meshgrid(vectors, indexing="ij")
+    grid = torch.stack(grids)
+    grid = torch.unsqueeze(grid, 0)
+    grid = grid.float()
+
+    patch_indices = (
+        grid.unfold(dimension=-3, size=patch_size, step=patch_size)
+        .unfold(dimension=-3, size=patch_size, step=patch_size)
+        .unfold(dimension=-3, size=patch_size, step=patch_size)
+    )
+
+    patch_indices = einops.rearrange(
+        patch_indices, "b f nx ny nz px py pz -> b f (nx ny nz) (px py pz)"
+    ).to(feat_fix.device)
+    patch_position = einops.rearrange(patch_position, "b p K s -> b p (K s)")
+
+    global_positions = []
+    for i in range(patch_position.shape[-2]):
+        pos = torch.index_select(
+            patch_indices[..., i, :], dim=-1, index=patch_position[0, i, :].long()
+        )
+        global_positions.append(pos)
+
+    global_position = torch.stack(global_positions, dim=1)
+    global_position = einops.rearrange(
+        global_position,
+        "b p d (K s) -> b d p K s",
+        K=K,
+        # s1=feat_fix.shape[-3],
+        # s2=feat_fix.shape[-2],
+    )
+    disps = (global_position - patch_indices.unsqueeze(-2))
+    F.fold(disps[0,...,0,:], output_size=32, kernel_size=8)
+
+    breakpoint()
+    dist = einops.rearrange(dist, 'b p K s -> b (p K s)')
+    disps = einops.rearrange(disps, 'b d p K s -> (b d)(p K s)')
+
+
     return dist, disps
+
+
+def correlate_sparse_bs(
+    feat_fix: torch.Tensor, feat_mov: torch.Tensor, K: int = 10,
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    assert feat_fix.shape == feat_mov.shape, "Input features must be the same size"
+    assert (
+        feat_fix.shape[0] == 1 and len(feat_fix.shape) == 5
+    ), "Input features must be 5d bcdhw"
+    dists, indexes = [], []
+    for ax in range(-3, 0):
+        feat_fix = torch.swapaxes(feat_fix, -3, ax)
+        feat_mov = torch.swapaxes(feat_mov, -3, ax)
+        indices_agg = []
+        disps_agg = []
+        for i in range(feat_fix.shape[-3]):
+            fix = einops.rearrange(feat_fix[..., i, :, :], "b c x y -> b c (x y)")
+            mov = einops.rearrange(feat_mov[..., i, :, :], "b c x y -> b c (x y)")
+            disps, index = knn_faiss_raw(fix.float(), mov.float(), K)
+            disps_agg.append(disps)
+            indices_agg.append(index)
+
+        dist = torch.stack(disps_agg, dim=-2)
+        index = torch.stack(indices_agg, dim=-2)
+
+        dist = einops.rearrange(dist, "b K h (w d) -> b K h w d", d=feat_fix.shape[-1])
+        index = einops.rearrange(
+            index, "b K h (w d) -> b K h w d", d=feat_fix.shape[-1]
+        )
+
+        dist = torch.swapaxes(dist, -3, ax)
+        index = torch.swapaxes(index, -3, ax)
+
+        feat_fix = torch.swapaxes(feat_fix, -3, ax)
+        feat_mov = torch.swapaxes(feat_mov, -3, ax)
+
+        dist = einops.rearrange(dist, "b K h w d -> b K (h w d)")
+        index = einops.rearrange(index, "b K h w d -> b K (h w d)")
+        dists.append(dist)
+        indexes.append(index)
+
+    K = 3 * K
+    dist = torch.concat(dists, 1)
+    index = torch.concat(indexes, 1)
+    indices = unravel_indices(
+        einops.rearrange(index, "b K i -> b (K i)").squeeze().long(),  # type: ignore
+        feat_fix.shape[-3:],
+    )
+
+    indices = einops.rearrange(indices, "(b K i) d -> b K i d", b=1, K=K)
+
+    ogs = unravel_indices(
+        torch.LongTensor([i for i in range(np.prod(feat_mov.shape[-3:]))]),
+        feat_mov.shape[-3:],
+    ).to(feat_mov.device)
+    disps = indices - ogs
+    dist = dist.view(1, K, *feat_fix.shape[-3:])
+    disps = disps.view(1, K, *feat_fix.shape[-3:], 3).permute(0, -1, 1, 2, 3, 4)
+
+    return dist, disps
+
 
 def correlate(
     mind_fix: torch.Tensor,
@@ -419,6 +549,7 @@ def coupled_convex_grad(
 
     return disp_soft
 
+
 def coupled_convex2(
     corr: torch.Tensor,
     disps: torch.Tensor,
@@ -443,11 +574,16 @@ def coupled_convex2(
     """
     H, W, D = image_shape
 
-    disps_rarr = einops.rearrange(disps, 'b k h w d n -> (n b) k h (w d)')
-    disp_soft = F.avg_pool3d( 
-        disps_rarr[:,0,...].float().reshape(1, 3, H // grid_sp, W // grid_sp, D // grid_sp),
-        3, padding=1, stride=1,
-    ) # TODO: think about this more
+    breakpoint()
+    disps_rarr = einops.rearrange(disps, "k n h w d -> k n h (w d)")
+    disp_soft = F.avg_pool3d(
+        disps_rarr[0, ...]
+        .float()
+        .reshape(1, 3, H // grid_sp, W // grid_sp, D // grid_sp),
+        3,
+        padding=1,
+        stride=1,
+    )  # TODO: think about this more
 
     corr = corr.squeeze()
 
@@ -456,21 +592,25 @@ def coupled_convex2(
         ssd_coupled_argmin = torch.zeros(tuple(i // grid_sp for i in image_shape))
         with torch.no_grad():
             for i in range(H // grid_sp):
-                energy = (disps_rarr[...,i,:] - disp_soft[:, :, i].view(3, 1, -1)).pow(2).sum(0).view(-1, W // grid_sp, D // grid_sp)
+                energy = (
+                    (disps_rarr[..., i, :] - disp_soft[:, :, i].view(3, 1, -1))
+                    .pow(2)
+                    .sum(0)
+                    .view(-1, W // grid_sp, D // grid_sp)
+                )
                 coupled = corr[:, i, :, :] + coeff * energy
                 ssd_coupled_argmin[i] = torch.argmin(coupled, 0)
 
         disp_soft = F.avg_pool3d(
-            disps_rarr.view(3, -1)[:, ssd_coupled_argmin.view(-1).long()].float().reshape(
-                1, 3, H // grid_sp, W // grid_sp, D // grid_sp
-            ),
+            disps_rarr.view(3, -1)[:, ssd_coupled_argmin.view(-1).long()]
+            .float()
+            .reshape(1, 3, H // grid_sp, W // grid_sp, D // grid_sp),
             3,
             padding=1,
             stride=1,
         )
 
     return disp_soft
-
 
 
 def coupled_convex(
@@ -614,7 +754,9 @@ def MINDSEG(
     mindssc = (
         feature_weight
         * (
-            F.one_hot(imseg.cuda().view(1, *shape).long(), num_classes=norm_weight.shape[0])
+            F.one_hot(
+                imseg.cuda().view(1, *shape).long(), num_classes=norm_weight.shape[0]
+            )
             .float()
             .permute(0, 4, 1, 2, 3)
             .contiguous()
@@ -743,6 +885,7 @@ class UnrolledConv(nn.Module):
 
         return disp_sample, feat_mov
 
+
 def swa_optimization(
     disp: torch.Tensor,
     mind_fixed: torch.Tensor,
@@ -750,7 +893,7 @@ def swa_optimization(
     lambda_weight: float,
     image_shape: Tuple[int, int, int],
     iterations: int,
-    norm: int=1,
+    norm: int = 1,
 ) -> nn.Module:
     """
     Instance-based optimization
@@ -771,18 +914,16 @@ def swa_optimization(
 
     H, W, D = image_shape
     # create optimisable displacement grid
-    net = nn.Sequential(
-        nn.Conv3d(3, 1, (H, W, D), bias=False)
-    )
+    net = nn.Sequential(nn.Conv3d(3, 1, (H, W, D), bias=False))
     net[0].weight.data[:] = disp / norm
     net.cuda()
-    optimizer = torch.optim.SGD(net.parameters(), lr=.05)
+    optimizer = torch.optim.SGD(net.parameters(), lr=0.05)
 
     swa_net = AveragedModel(net)
     scheduler = CosineAnnealingLR(optimizer, T_max=100)
-    swa_start = iterations//2
+    swa_start = iterations // 2
     swa_scheduler = SWALR(optimizer, swa_lr=5)
-    
+
     grid0 = get_identity_affine_grid(image_shape)
 
     for i in range(iterations):
@@ -801,15 +942,7 @@ def swa_optimization(
         )
 
         scale = (
-            torch.tensor(
-                [
-                    (H - 1) / 2,
-                    (W - 1) / 2,
-                    (D - 1) / 2,
-                ]
-            )
-            .cuda()
-            .unsqueeze(0)
+            torch.tensor([(H - 1) / 2, (W - 1) / 2, (D - 1) / 2,]).cuda().unsqueeze(0)
         )
         grid_disp = (
             grid0.view(-1, 3).cuda().float()
@@ -843,7 +976,7 @@ def adam_optimization(
     lambda_weight: float,
     image_shape: Tuple[int, int, int],
     iterations: int,
-    norm: int=1,
+    norm: int = 1,
 ) -> nn.Module:
     """
     Instance-based optimization
@@ -864,9 +997,7 @@ def adam_optimization(
 
     H, W, D = image_shape
     # create optimisable displacement grid
-    net = nn.Sequential(
-        nn.Conv3d(3, 1, (H, W, D), bias=False)
-    )
+    net = nn.Sequential(nn.Conv3d(3, 1, (H, W, D), bias=False))
     net[0].weight.data[:] = disp / norm
     net.cuda()
     optimizer = torch.optim.Adam(net.parameters(), lr=1)
@@ -888,15 +1019,7 @@ def adam_optimization(
         )
 
         scale = (
-            torch.tensor(
-                [
-                    (H - 1) / 2,
-                    (W - 1) / 2,
-                    (D - 1) / 2,
-                ]
-            )
-            .cuda()
-            .unsqueeze(0)
+            torch.tensor([(H - 1) / 2, (W - 1) / 2, (D - 1) / 2,]).cuda().unsqueeze(0)
         )
         grid_disp = (
             grid0.view(-1, 3).cuda().float()
@@ -917,11 +1040,13 @@ def adam_optimization(
 
     return net
 
+
 class TrainType(str, Enum):
-    Paired="paired" 
-    Disregard="disregard"
-    Unpaired="unpaired"
-    UnpairedSet="unpairedset"
+    Paired = "paired"
+    Disregard = "disregard"
+    Unpaired = "unpaired"
+    UnpairedSet = "unpairedset"
+
 
 @dataclass
 class Data:
@@ -937,20 +1062,24 @@ class Data:
     moving_keypoints: Optional[Path]
 
 
-def load_keypoints(keypoints_path: Path) -> torch.Tensor: 
-    with open(keypoints_path, 'r') as f:
-        arr = np.array([[float(j) for j in i.strip().split(',')] 
-              for i in f.readlines()])
+def load_keypoints(keypoints_path: Path) -> torch.Tensor:
+    with open(keypoints_path, "r") as f:
+        arr = np.array(
+            [[float(j) for j in i.strip().split(",")] for i in f.readlines()]
+        )
     # if not (torch.floor(torch.from_numpy(arr)) == torch.ceil(torch.from_numpy(arr))).all():
     #     raise ValueError("Keypoints must be integers")
     return torch.from_numpy(arr)
 
+
 def load_keypoints_np(keypoints_path: Path) -> np.ndarray:
-    with open(keypoints_path, 'r') as f:
-        arr = np.array([[float(j) for j in i.strip().split(',')] 
-              for i in f.readlines()])
+    with open(keypoints_path, "r") as f:
+        arr = np.array(
+            [[float(j) for j in i.strip().split(",")] for i in f.readlines()]
+        )
 
     return arr
+
 
 def load_labels(data_json: Path) -> List[int]:
     with open(data_json, "r") as f:
@@ -959,7 +1088,10 @@ def load_labels(data_json: Path) -> List[int]:
     labels = [int(i) for i in labels]
     return labels
 
-def random_unpaired_split_never_ending_generator(data_json: Path, *, seed: Optional[int] = None) -> Generator[Data, None, None]:
+
+def random_unpaired_split_never_ending_generator(
+    data_json: Path, *, seed: Optional[int] = None
+) -> Generator[Data, None, None]:
     """
     This generator is used when you have a set of fixed images and a set of moving
     images and you want to randomly sample fixed and moving images from their respective sets.
@@ -975,7 +1107,7 @@ def random_unpaired_split_never_ending_generator(data_json: Path, *, seed: Optio
 
     """
     fixed_split = "train_fixed"
-    moving_split= "train_moving"
+    moving_split = "train_moving"
     if seed:
         random.seed(seed)
 
@@ -1002,7 +1134,8 @@ def random_unpaired_split_never_ending_generator(data_json: Path, *, seed: Optio
                 fixed_segmentation=fixed["label"] if segmentation else None,
                 moving_segmentation=moving["label"] if segmentation else None,
                 fixed_keypoints=fixed["keypoints"] if keypoints else None,
-                moving_keypoints=moving["keypoints"] if keypoints else None,)
+                moving_keypoints=moving["keypoints"] if keypoints else None,
+            )
 
 
 def random_unpaired_never_ending_generator(
@@ -1031,7 +1164,7 @@ def random_unpaired_never_ending_generator(
         random.shuffle(data)
         for i in range(0, len(data), 2):
             fixed = data[i]
-            moving = data[i+1]
+            moving = data[i + 1]
 
             fixed_image = fixed["image"]
             moving_image = moving["image"]
@@ -1047,8 +1180,6 @@ def random_unpaired_never_ending_generator(
                 fixed_keypoints=fixed["keypoints"] if keypoints else None,
                 moving_keypoints=moving["keypoints"] if keypoints else None,
             )
-
-
 
 
 def randomized_pair_never_ending_generator(
@@ -1104,7 +1235,11 @@ def randomized_pair_never_ending_generator(
 
 
 def random_never_ending_generator(
-    data_json: Path, *, split: str, random_switch: bool=False, seed: Optional[int] = None
+    data_json: Path,
+    *,
+    split: str,
+    random_switch: bool = False,
+    seed: Optional[int] = None,
 ) -> Generator[Data, None, None]:
     """
     Generator that 1) never ends and 2) yields samples from the dataset in random order
@@ -1128,7 +1263,7 @@ def random_never_ending_generator(
     kps = "fixed_keypoints" in data[0]
 
     f, m = "fixed", "moving"
-    if random_switch and random.randint(0,10)%2 == 0:
+    if random_switch and random.randint(0, 10) % 2 == 0:
         f, m = m, f
 
     while True:
@@ -1173,7 +1308,7 @@ def data_generator(data_json: Path, *, split: str) -> Generator[Data, None, None
 
 
 def warp_image(
-        displacement_field: torch.Tensor, image: torch.Tensor, mode: str="bilinear"
+    displacement_field: torch.Tensor, image: torch.Tensor, mode: str = "bilinear"
 ) -> torch.Tensor:
     grid = identity_grid_torch(image.shape[-3:]).to(image.device)
     new_locs = grid + displacement_field
@@ -1204,31 +1339,9 @@ if __name__ == "__main__":
     app = typer.Typer()
 
     @app.command()
-    def visualize_mind(data_json: Path, save_dir: Path):
-        gen = data_generator(data_json, split="train")
-        save_dir.mkdir(exist_ok=True)
-        for data in tqdm(gen):
-            moving = tio.ScalarImage(data.moving_image).data.cuda()
-            fixed = tio.ScalarImage(data.fixed_image).data.cuda()
-            mindssc_mov = MINDSSC(moving.unsqueeze(0))
-            mindssc_fix = MINDSSC(fixed.unsqueeze(0))
-
-            for mindf, fname in zip(
-                (mindssc_mov, mindssc_fix),
-                (data.moving_image.name, data.fixed_image.name),
-            ):
-                savename = save_dir / (fname.split(".")[0] + ".png")
-                central_slice = mindf.squeeze().shape[1] // 2
-                plt.imsave(
-                    savename,
-                    mindf.squeeze()[0, central_slice].detach().cpu().numpy(),
-                    cmap="gray",
-                )
-                savename = save_dir / (fname.split(".")[0] + "_img.png")
-                plt.imsave(
-                    savename,
-                    moving.squeeze()[0, central_slice].detach().cpu().numpy(),
-                    cmap="gray",
-                )
+    def main():
+        f1 = torch.randn((1, 10, 80, 80, 80)).cuda()
+        f2 = torch.randn((1, 10, 80, 80, 80)).cuda()
+        costs, displacements = correlate_sparse(f1, f2)
 
     app()
