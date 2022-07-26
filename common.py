@@ -71,14 +71,14 @@ def identity_grid(size: Tuple[int, ...]) -> np.ndarray:
 
 
 @lru_cache(maxsize=None)
-def identity_grid_torch(size: Tuple[int, ...]) -> torch.Tensor:
+def identity_grid_torch(size: Tuple[int, ...], device: str="cuda", stack_dim: int=0) -> torch.Tensor:
     """
     Computes an identity grid for torch
     """
     vectors = [torch.arange(0, s) for s in size]
     grids = torch.meshgrid(vectors, indexing="ij")
-    grid = torch.stack(grids)
-    grid = torch.unsqueeze(grid, 0).float()
+    grid = torch.stack(grids, dim=stack_dim)
+    grid = torch.unsqueeze(grid, 0).float().to(device)
 
     return grid
 
@@ -217,7 +217,7 @@ def correlate_grad(
 
 
 def unravel_indices(
-    indices: torch.LongTensor, shape: Tuple[int, ...],
+    indices: torch.LongTensor, shape: Tuple[int, ...]
 ) -> torch.LongTensor:
     r"""Converts flat indices into unraveled coordinates in a target shape.
 
@@ -230,25 +230,75 @@ def unravel_indices(
     """
 
     coord = []
+    ndim = len(shape)
 
-    for dim in reversed(shape):
+    for i, dim in enumerate(reversed(shape)):
         coord.append(indices % dim)
-        indices = indices // dim
+        indices = torch.floor(indices / dim)
 
     coord = torch.stack(coord[::-1], dim=-1)
 
     return coord  # type: ignore
 
 
-@dataclass
-class Patch:
-    data: torch.Tensor
-    offset: Tuple[int, int, int]
-
-
 def correlate_sparse(
-    feat_fix: torch.Tensor, feat_mov: torch.Tensor, K: int = 10, patch_size: int = 8
+    feat_fix: torch.Tensor, feat_mov: torch.Tensor, K: int = 10, num_splits=4
 ) -> Tuple[torch.Tensor, torch.Tensor]:
+
+    assert feat_fix.shape == feat_mov.shape, "Fixed and moving feature shapes must be the same!"
+    assert feat_fix.shape[-3]%num_splits == 0, \
+            f"Number of splits must be a factor of the first spatial dim {feat_fix.shape[-3]}"
+    arrs_fix = torch.tensor_split(feat_fix, num_splits, -3)
+    arrs_mov = torch.tensor_split(feat_mov, num_splits, -3)
+    split_size = feat_fix.shape[-3]//num_splits
+
+    size = (split_size, *feat_fix.shape[-2:])
+    grid = identity_grid_torch(size, feat_fix.device, stack_dim=-1)
+    grid = grid.unsqueeze(1).float()
+
+    distances, displacements = [], []
+    for arr_fix, arr_mov in zip(arrs_fix, arrs_mov):
+        arr_fix = einops.rearrange(arr_fix, 'b c h d w -> b c (h d w)') 
+        arr_mov = einops.rearrange(arr_mov, 'b c h d w -> b c (h d w)') 
+        dist, ind = knn_faiss_raw(arr_fix.float(), arr_mov.float(), K)
+        
+        dist = einops.rearrange(dist, 'b K (h d w) -> b K h d w', h=split_size, d=feat_fix.shape[-2])
+        ind3d = unravel_indices(ind, feat_fix.shape[-3:])
+        ind3d = einops.rearrange(ind3d, 'b K (h d w) D-> b K h d w D', h=split_size, d=feat_fix.shape[-2])
+        displacement = ind3d-grid
+        
+        distances.append(dist)
+        displacements.append(displacement)
+
+    dist = torch.concat(distances, dim=-3).squeeze()
+    displacement = torch.concat(displacements, dim=-4).squeeze()
+
+    displacement = einops.rearrange(displacement, 'K h d w N -> K N h d w')
+    return dist, displacement.long()
+
+def correlate_sparse_with_splitting(
+    feat_fix: torch.Tensor, feat_mov: torch.Tensor, K: int = 10, patch_size: int = 8, patches: int=4
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    assert feat_fix.shape[-2]%patches == 0, "Num patches must be a factor of the first spatial dimension"
+
+    arrs_fix = torch.tensor_split(feat_fix, patches, -2)
+    arrs_mov = torch.tensor_split(feat_mov, patches, -2)
+
+    dists, inds = [], []
+    for arr_fix, arr_mov in zip(arrs_fix, arrs_mov):
+        arr_fix = einops.rearrange(arr_fix, 'b c h D -> b c (h D)') 
+        arr_mov = einops.rearrange(arr_mov, 'b c h D -> b c (h D)') 
+        dist, ind = knn_faiss_raw(arr_fix.float(), arr_mov.float(), K)
+        dist = einops.rearrange(dist, 'b K (h D) -> b K h D', h=patches)
+        ind = einops.rearrange(ind, 'b K (h D) -> b K h D', h=patches)
+
+        dists.append(dist)
+        inds.append(ind)
+
+    # TODO: how do we get the right indexes here?
+
+    breakpoint()
+
     assert feat_fix.shape == feat_mov.shape, "Input features must be the same size"
     assert (
         feat_fix.shape[0] == 1 and len(feat_fix.shape) == 5
@@ -266,6 +316,8 @@ def correlate_sparse(
         .unfold(dimension=-3, size=patch_size, step=patch_size),
         "b f nx ny nz px py pz -> b (nx ny nz) f (px py pz)",
     )
+
+    breakpoint()
 
     npatches = patches_fix.shape[1]
     dist = torch.zeros((1, npatches, K, patches_fix.shape[-1])).to(patches_fix.device)
@@ -498,63 +550,12 @@ def gumbel_softmax(logits: torch.Tensor, temperature: float = 0.8) -> torch.Tens
     return (y_hard - y).detach() + y
 
 
-def coupled_convex_grad(
-    ssd: torch.Tensor,
-    disp_mesh_t: torch.Tensor,
-    grid_sp: int,
+
+def coupled_convex_sparse(
+    distances: torch.Tensor,
+    displacements: torch.Tensor,
     image_shape: Tuple[int, int, int],
-    coefficients: List[float] = [0.003, 0.01, 0.03, 0.1, 0.3, 1],
-    one_hot_temperature: float = 0.8,
-) -> torch.Tensor:
-    """
-    Solve two coupled convex optimisation problems for efficient global regularisation
-
-    Parameters
-    ----------
-    ssd: torch.Tensor
-    ssd_argmin: torch.Tensor
-    disp_mesh_t: torch.Tensor
-    grid_sp: int
-    image_shape: Tuple[int, int, int]
-
-    Returns
-    -------
-    disp_soft: torch.Tensor
-    """
-    ...
-    H, W, D = image_shape
-    n_perm = disp_mesh_t.view(3, -1).shape[-1]
-    logits = F.softmax(1 - ssd, dim=0).view(n_perm, -1)
-    gsoft = gumbel_softmax(logits, one_hot_temperature)
-    disp_soft = disp_soft = torch.matmul(disp_mesh_t.view(3, -1).float(), gsoft)
-    disp_soft = torch.clamp(disp_soft, disp_mesh_t.min(), disp_mesh_t.max())
-    disp_soft = disp_soft.reshape(1, 3, H // grid_sp, W // grid_sp, D // grid_sp)
-
-    coeffs = torch.tensor(coefficients)
-    for coeff in coeffs:
-        ssd_coupled = torch.zeros_like(ssd)
-        for i in range(H // grid_sp):
-
-            coupled = ssd[:, i, :, :] + coeff * (
-                disp_mesh_t - disp_soft[:, :, i].view(3, 1, -1)
-            ).pow(2).sum(0).view(-1, W // grid_sp, D // grid_sp)
-
-            ssd_coupled[:, i, ...] = coupled
-
-        logits = F.softmax(1 - ssd_coupled, dim=0).view(n_perm, -1)
-        gsoft = gumbel_softmax(logits, one_hot_temperature)
-        disp_soft = disp_soft = torch.matmul(disp_mesh_t.view(3, -1).float(), gsoft)
-        disp_soft = torch.clamp(disp_soft, disp_mesh_t.min(), disp_mesh_t.max())
-        disp_soft = disp_soft.reshape(1, 3, H // grid_sp, W // grid_sp, D // grid_sp)
-
-    return disp_soft
-
-
-def coupled_convex2(
-    corr: torch.Tensor,
-    disps: torch.Tensor,
-    grid_sp: int,
-    image_shape: Tuple[int, int, int],
+    K=10,
 ) -> torch.Tensor:
     """
     Solve two coupled convex optimisation problems for efficient global regularisation
@@ -574,43 +575,24 @@ def coupled_convex2(
     """
     H, W, D = image_shape
 
-    breakpoint()
-    disps_rarr = einops.rearrange(disps, "k n h w d -> k n h (w d)")
-    disp_soft = F.avg_pool3d(
-        disps_rarr[0, ...]
-        .float()
-        .reshape(1, 3, H // grid_sp, W // grid_sp, D // grid_sp),
-        3,
-        padding=1,
-        stride=1,
-    )  # TODO: think about this more
+    disp_soft = F.avg_pool3d(displacements[0,...].float(), 3, padding=1, stride=1,)
 
-    corr = corr.squeeze()
-
-    reg_coeffs = torch.tensor([0.003, 0.01, 0.03, 0.1, 0.3, 1])
+    # reg_coeffs = torch.tensor([0.003, 0.01, 0.03, 0.1, 0.3, 1])
+    reg_coeffs = torch.arange(0,10,20)
     for coeff in reg_coeffs:
-        ssd_coupled_argmin = torch.zeros(tuple(i // grid_sp for i in image_shape))
-        with torch.no_grad():
-            for i in range(H // grid_sp):
-                energy = (
-                    (disps_rarr[..., i, :] - disp_soft[:, :, i].view(3, 1, -1))
-                    .pow(2)
-                    .sum(0)
-                    .view(-1, W // grid_sp, D // grid_sp)
-                )
-                coupled = corr[:, i, :, :] + coeff * energy
+        ssd_coupled_argmin = torch.zeros(image_shape).to(displacements.device)
+        for i in range(H):
+            with torch.no_grad():
+                coupled = distances[:,i,:,:] + coeff*(displacements[:,:,i,...]-disp_soft[:,i,...].unsqueeze(0)).pow(2).sum(1).view(-1, W, D)
                 ssd_coupled_argmin[i] = torch.argmin(coupled, 0)
 
-        disp_soft = F.avg_pool3d(
-            disps_rarr.view(3, -1)[:, ssd_coupled_argmin.view(-1).long()]
-            .float()
-            .reshape(1, 3, H // grid_sp, W // grid_sp, D // grid_sp),
-            3,
-            padding=1,
-            stride=1,
-        )
+        disp_hard = (
+                F.one_hot(ssd_coupled_argmin.view(-1).long(), num_classes=K)
+                .permute(1,0).unsqueeze(1)*displacements.view(K,3,-1)).sum(0).reshape(3, *image_shape).float()
+        disp_soft = F.avg_pool3d(disp_hard, 3, padding=1, stride=1)
 
     return disp_soft
+
 
 
 def coupled_convex(
@@ -636,6 +618,7 @@ def coupled_convex(
     -------
     disp_soft: torch.Tensor
     """
+    breakpoint()
     H, W, D = image_shape
     disp_soft = F.avg_pool3d(
         disp_mesh_t.view(3, -1)[:, ssd_argmin.view(-1)].reshape(
@@ -1331,17 +1314,14 @@ def warp_image(
 
 
 if __name__ == "__main__":
-    import matplotlib.pyplot as plt
-    import torchio as tio
-    from tqdm import tqdm
     import typer
 
     app = typer.Typer()
 
     @app.command()
     def main():
-        f1 = torch.randn((1, 10, 80, 80, 80)).cuda()
-        f2 = torch.randn((1, 10, 80, 80, 80)).cuda()
-        costs, displacements = correlate_sparse(f1, f2)
+        f1 = torch.randn((1, 10, 100, 80, 280)).cuda()
+        f2 = torch.randn((1, 10, 100, 80, 280)).cuda()
+        costs, displacements = correlate_sparse(f1, f2, K=10, num_splits=50)
 
     app()

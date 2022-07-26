@@ -18,7 +18,7 @@ from common import (
     apply_displacement_field,
     correlate,
     correlate_sparse,
-    coupled_convex2,
+    coupled_convex_sparse,
     data_generator,
     get_labels,
 )
@@ -157,10 +157,9 @@ def main(
             mind_fix_ = F.avg_pool3d(mindssc_fix_, grid_sp, stride=grid_sp)
             mind_mov_ = F.avg_pool3d(mindssc_mov_, grid_sp, stride=grid_sp)
             sims, disps = correlate_sparse(mind_fix_, mind_mov_, K=10)
-            disp_soft = coupled_convex2(
-                sims, disps, grid_sp, data_shape
-            )
+            disp_soft = coupled_convex_sparse(sims, disps, tuple([s//2 for s in data_shape]))
 
+        disp_soft = disp_soft.unsqueeze(0) # should be fully compatible with convexAdam here-on
         del mind_fix_, mind_mov_
 
         torch.cuda.empty_cache()

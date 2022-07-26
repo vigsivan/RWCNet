@@ -1,3 +1,4 @@
+from typing import Tuple
 import faiss
 import torch
 
@@ -78,7 +79,7 @@ def search_raw_array_pytorch(res, xb, xq, k, D=None, I=None,
     return D, I
 
 
-def knn_faiss_raw(fmap1, fmap2, k):
+def knn_faiss_raw(fmap1, fmap2, k) -> Tuple[torch.Tensor, torch.Tensor]:
 
     b, ch, _ = fmap1.shape
 
