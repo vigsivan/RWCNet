@@ -241,8 +241,55 @@ def unravel_indices(
     return coord  # type: ignore
 
 
+def correlate_sparse_unrolled(
+        feat_fix: torch.Tensor, feat_mov: torch.Tensor, K: int = 10, radius: int=16
+) -> Tuple[torch.Tensor, torch.Tensor]:
+
+    assert feat_fix.shape == feat_mov.shape, "Fixed and moving feature shapes must be the same!"
+
+    kc, kh, kw = [radius]*3
+    dc, dh, dw = [radius]*3
+
+    patches_fix = feat_fix.unfold(2, kc, dc).unfold(3, kh, dh).unfold(4, kw, dw)
+    patches_mov = feat_mov.unfold(2, kc, dc).unfold(3, kh, dh).unfold(4, kw, dw)
+    nchan = feat_fix.shape[1]
+
+    pfix = patches_fix.contiguous().view(1, nchan,-1, kc * kh * kw)
+    pmov = patches_mov.contiguous().view(1, nchan,-1, kc * kh * kw)
+    npatches = pfix.shape[-2]
+
+    patch_shape = (kc, kh, kw)
+
+    grid = identity_grid_torch(patch_shape, feat_fix.device, stack_dim=-1)
+    grid = grid.unsqueeze(1).float()
+
+    dist_patched = torch.zeros((1, K, npatches, kc, kh, kw))
+    disp_patched = torch.zeros((1, K, npatches, kc, kh, kw, 3))
+    for i in range(npatches):
+        dist, ind = knn_faiss_raw(pfix[...,i,:].float(), pmov[...,i,:].float(), K)
+
+        dist = einops.rearrange(dist, 'b K (h w d) -> b K h w d', h=kh, w=kw)
+        ind3d = unravel_indices(ind, patch_shape)
+        ind3d = einops.rearrange(ind3d, 'b K (h w d) D -> b K h w d D', h=kh, w=kw)
+        displacement = ind3d-grid
+        dist_patched[:,:,i,...] = dist
+        disp_patched[:,:,i,...] = displacement
+
+    dist_patched_re = dist_patched.view(1, K, *patches_fix.shape[2:])
+    disp_patched_re = disp_patched.view(1, K, *patches_fix.shape[2:], 3)
+
+    dist_patched_re = dist_patched_re.permute(0, 1, 2, 5, 3, 6, 4, 7).contiguous()
+    disp_patched_re = disp_patched_re.permute(0, 1, 2, 5, 3, 6, 4, 7, 8).contiguous()
+
+    feature_distances = dist_patched_re.view(1, K, *feat_fix.shape[-3:])
+    displacements = disp_patched_re.view(1, K, *feat_fix.shape[-3:], 3)
+
+    displacements = einops.rearrange(displacements, 'b K h d w N -> (b K) N h d w')
+    return feature_distances.squeeze(), displacements.long()
+
+
 def correlate_sparse(
-    feat_fix: torch.Tensor, feat_mov: torch.Tensor, K: int = 10, num_splits=4
+        feat_fix: torch.Tensor, feat_mov: torch.Tensor, K: int = 10, num_splits=4, radius: int=10
 ) -> Tuple[torch.Tensor, torch.Tensor]:
 
     assert feat_fix.shape == feat_mov.shape, "Fixed and moving feature shapes must be the same!"
@@ -263,7 +310,7 @@ def correlate_sparse(
         dist, ind = knn_faiss_raw(arr_fix.float(), arr_mov.float(), K)
         
         dist = einops.rearrange(dist, 'b K (h d w) -> b K h d w', h=split_size, d=feat_fix.shape[-2])
-        ind3d = unravel_indices(ind, feat_fix.shape[-3:])
+        ind3d = unravel_indices(ind, size)
         ind3d = einops.rearrange(ind3d, 'b K (h d w) D-> b K h d w D', h=split_size, d=feat_fix.shape[-2])
         displacement = ind3d-grid
         
@@ -281,7 +328,6 @@ def correlate_sparse_with_splitting(
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     assert feat_fix.shape[-2]%patches == 0, "Num patches must be a factor of the first spatial dimension"
 
-    arrs_fix = torch.tensor_split(feat_fix, patches, -2)
     arrs_mov = torch.tensor_split(feat_mov, patches, -2)
 
     dists, inds = [], []
@@ -578,7 +624,7 @@ def coupled_convex_sparse(
     disp_soft = F.avg_pool3d(displacements[0,...].float(), 3, padding=1, stride=1,)
 
     # reg_coeffs = torch.tensor([0.003, 0.01, 0.03, 0.1, 0.3, 1])
-    reg_coeffs = torch.arange(0,10,20)
+    reg_coeffs = torch.tensor([0.003, 0.01, 0.03, 0.1, 0.3, 1])
     for coeff in reg_coeffs:
         ssd_coupled_argmin = torch.zeros(image_shape).to(displacements.device)
         for i in range(H):
@@ -1315,13 +1361,46 @@ def warp_image(
 
 if __name__ == "__main__":
     import typer
+    import nibabel as nib
+    from metrics import compute_total_registration_error
 
     app = typer.Typer()
+    add_bc_dim = lambda x: einops.repeat(x, "d h w -> b c d h w", b=1, c=1).float()
+    get_spacing = lambda x: np.sqrt(np.sum(x.affine[:3, :3] * x.affine[:3, :3], axis=0))
 
     @app.command()
-    def main():
-        f1 = torch.randn((1, 10, 100, 80, 280)).cuda()
-        f2 = torch.randn((1, 10, 100, 80, 280)).cuda()
-        costs, displacements = correlate_sparse(f1, f2, K=10, num_splits=50)
+    def visualize_correlate_sparse(data_json):
+        data = next(data_generator(data_json, split="train"))
+        fixed_nib = nib.load(data.fixed_image)
+        moving_nib = nib.load(data.moving_image)
+
+        fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata())).cuda().squeeze()
+        moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata())).cuda().squeeze()
+
+        fixed = (fixed - fixed.min())/(fixed.max() - fixed.min())
+        moving = (moving - moving.min())/(moving.max() - moving.min())
+
+        mind_fix = MINDSSC(
+            fixed.unsqueeze(0).unsqueeze(0).cuda(), 1, 2
+        ).half()
+        mind_mov = MINDSSC(
+            moving.unsqueeze(0).unsqueeze(0).cuda(), 1, 2
+        ).half()
+
+        mind_fix.requires_grad = True
+        mind_mov.requires_grad = True
+
+        costs, displacements = correlate_sparse_unrolled(mind_fix, mind_mov, K=10, num_splits=16)
+
+        fixed_keypoints = np.loadtxt(data.fixed_keypoints, delimiter=",")
+        moving_keypoints = np.loadtxt(data.moving_keypoints, delimiter=",")
+
+        fixed_spacing = get_spacing(fixed_nib)
+        moving_spacing = get_spacing(moving_nib)
+
+        d0 = displacements[0].detach().cpu().numpy()
+        d0 = einops.rearrange(d0, 'n h w d -> h w d n')
+        print(compute_total_registration_error(fixed_keypoints, moving_keypoints, d0, fixed_spacing, moving_spacing))
+
 
     app()

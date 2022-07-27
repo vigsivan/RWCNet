@@ -18,6 +18,7 @@ from common import (
     apply_displacement_field,
     correlate,
     correlate_sparse,
+    correlate_sparse_unrolled,
     coupled_convex_sparse,
     data_generator,
     get_labels,
@@ -154,53 +155,74 @@ def main(
                     moving.unsqueeze(0).unsqueeze(0).cuda(), 1, 2
                 ).half()
 
-            mind_fix_ = F.avg_pool3d(mindssc_fix_, grid_sp, stride=grid_sp)
-            mind_mov_ = F.avg_pool3d(mindssc_mov_, grid_sp, stride=grid_sp)
-            sims, disps = correlate_sparse(mind_fix_, mind_mov_, K=10)
-            disp_soft = coupled_convex_sparse(sims, disps, tuple([s//2 for s in data_shape]))
 
-        disp_soft = disp_soft.unsqueeze(0) # should be fully compatible with convexAdam here-on
+            # mind_fix_ = F.avg_pool3d(mindssc_fix_, grid_sp, stride=grid_sp)
+            # mind_mov_ = F.avg_pool3d(mindssc_mov_, grid_sp, stride=grid_sp)
+
+            mind_fix_ = MINDSSC(
+                fixed.unsqueeze(0).unsqueeze(0).cuda(), 1, 2
+            ).half()
+            mind_mov_ = MINDSSC(
+                moving.unsqueeze(0).unsqueeze(0).cuda(), 1, 2
+            ).half()
+
+
+            sims, disps = correlate_sparse_unrolled(mind_fix_, mind_mov_, K=5)
+            disp_opt = coupled_convex_sparse(sims, disps, data_shape, K=5)
+
+
+        disp_opt = disp_opt.unsqueeze(0) # should be fully compatible with convexAdam here-on
         del mind_fix_, mind_mov_
 
         torch.cuda.empty_cache()
 
-        disp_lr = F.interpolate(
-            disp_soft * grid_sp,
-            size=tuple(s // grid_sp for s in data_shape),
-            mode="trilinear",
-            align_corners=False,
-        )
-
-        # extract one-hot patches
-        torch.cuda.synchronize()
-
-        with torch.no_grad():
-            mind_fix_ = F.avg_pool3d(mindssc_fix_, grid_sp, stride=grid_sp)
-            mind_mov_ = F.avg_pool3d(mindssc_mov_, grid_sp, stride=grid_sp)
+        # disp_lr = F.interpolate(
+        #     disp_opt * grid_sp,
+        #     size=tuple(s // grid_sp for s in data_shape),
+        #     mode="trilinear",
+        #     align_corners=False,
+        # )
+        #
+        # # extract one-hot patches
+        # torch.cuda.synchronize()
+        #
+        # with torch.no_grad():
+        #     mind_fix_ = F.avg_pool3d(mindssc_fix_, grid_sp, stride=grid_sp)
+        #     mind_mov_ = F.avg_pool3d(mindssc_mov_, grid_sp, stride=grid_sp)
         del mindssc_fix_, mindssc_mov_
 
+        mind_fix_ = MINDSSC(
+            fixed.unsqueeze(0).unsqueeze(0).cuda(), 1, 2
+        ).half()
+        mind_mov_ = MINDSSC(
+            moving.unsqueeze(0).unsqueeze(0).cuda(), 1, 2
+        ).half()
+
+
         net = adam_optimization(
-            disp=disp_lr,
+            disp=disp_opt,
             mind_fixed=mind_fix_,
             mind_moving=mind_mov_,
             lambda_weight=lambda_weight,
-            image_shape=tuple(s//grid_sp for s in data_shape),
+            image_shape=data_shape,
             iterations=iterations,
             norm=grid_sp
         )
 
         torch.cuda.synchronize()
 
-        disp_sample = F.avg_pool3d(
-            F.avg_pool3d(net[0].weight, 3, stride=1, padding=1), 3, stride=1, padding=1
-        ).permute(0, 2, 3, 4, 1)
-        fitted_grid = disp_sample.permute(0, 4, 1, 2, 3).detach()
-        disp_hr = F.interpolate(
-            fitted_grid * grid_sp,
-            size=data_shape,
-            mode="trilinear",
-            align_corners=False,
-        )
+        # disp_sample = F.avg_pool3d(
+        #     F.avg_pool3d(net[0].weight, 3, stride=1, padding=1), 3, stride=1, padding=1
+        # ).permute(0, 2, 3, 4, 1)
+        # fitted_grid = disp_sample.permute(0, 4, 1, 2, 3).detach()
+        # disp_hr = F.interpolate(
+        #     fitted_grid * grid_sp,
+        #     size=data_shape,
+        #     mode="trilinear",
+        #     align_corners=False,
+        # )
+
+        disp_hr = net[0].weight
 
         trl = TotalRegistrationLoss()
 
