@@ -1119,6 +1119,32 @@ def data_generator(data_json: Path, *, split: str) -> Generator[Data, None, None
         )
 
 
+def concat_flow(
+    flow1: torch.Tensor, flow2: torch.Tensor, mode: str="bilinear"
+):
+    grid = identity_grid_torch(flow1.shape[-3:]).to(flow1.device)
+    locs1 = grid + flow1
+    new_locs = grid + flow2
+
+    shape = flow2.shape[2:]
+
+    # need to normalize grid values to [-1, 1] for resampler
+    for i in range(len(shape)):
+        new_locs[:, i, ...] = 2 * (new_locs[:, i, ...] / (shape[i] - 1) - 0.5)
+
+    if len(shape) == 2:
+        new_locs = new_locs.permute(0, 2, 3, 1)
+        new_locs = new_locs[..., [1, 0]]
+    elif len(shape) == 3:
+        new_locs = new_locs.permute(0, 2, 3, 4, 1)
+        new_locs = new_locs[..., [2, 1, 0]]
+
+    new_grid = torch.stack([
+        F.grid_sample(locs1[:,i,...].unsqueeze(1), new_locs,mode="bilinear").squeeze(1)
+        for i in range(3)], dim=1)
+    new_flow = new_grid - grid
+    return new_flow
+
 def warp_image(
     displacement_field: torch.Tensor, image: torch.Tensor, mode: str = "bilinear"
 ) -> torch.Tensor:

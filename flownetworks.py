@@ -55,7 +55,7 @@ from metrics import (
     compute_log_jacobian_determinant_standard_deviation,
     compute_total_registration_error,
 )
-from networks import SpatialTransformer, FlowNetCorr, VecInt, Cascade, SparseNet3D, SomeNet
+from networks import SpatialTransformer, FlowNetCorr, VecInt, Cascade, SomeNet
 
 app = typer.Typer()
 logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
@@ -205,10 +205,7 @@ def run_somenet(
             fixed = (fixed - fixed.min()) / (fixed.max() - fixed.min())
             moving = (moving - moving.min()) / (moving.max() - moving.min())
 
-        mindssc_fix_ = MINDSSC(fixed, 1, 2).half()
-        mindssc_mov_ = MINDSSC(moving, 1, 2).half()
-
-        flow = model(mindssc_fix_, mindssc_mov_,)
+        flow = model(fixed, moving)
         moved = warp_image(flow, moving)
 
         losses_dict: Dict[str, torch.Tensor] = {}

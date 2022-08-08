@@ -4,7 +4,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from torch.distributions.normal import Normal
-from common import correlate, correlate_sparse, compute_interpolation_weights, identity_grid_torch
+from common import correlate, correlate_sparse, compute_interpolation_weights, identity_grid_torch, MINDSSC, warp_image, concat_flow
 
 from image_similarity_matrices import mind_mse
 
@@ -63,6 +63,7 @@ class ConvGRU(nn.Module):
         h = (1 - z) * h + z * q
         return h
 
+# FIXME: I don't like all of the hard-coded feature values
 
 class BasicMotionEncoder(nn.Module):
     def __init__(self, correlation_features: int):
@@ -88,7 +89,7 @@ class BasicMotionEncoder(nn.Module):
 
 class UpdateBlock(nn.Module):
     def __init__(
-        self, correlation_features: int=8, hidden_dim: int=64, input_dim=32
+        self, correlation_features, hidden_dim: int=64, input_dim=32
     ):
         super().__init__()
         self.encoder = BasicMotionEncoder(correlation_features=correlation_features)
@@ -108,15 +109,19 @@ class UpdateBlock(nn.Module):
         return next_hidden, delta_flow
 
 class SomeNet(nn.Module):
-    def __init__(self, iters: int=12, num_levels: int = 2, downsample: int = 2, K: int=5, search_range: int=3):
+    def __init__(self, iters: int=12, downsample: int = 4, search_range: int=3):
         super().__init__()
-        self.num_levels = num_levels
-        self.K = K
         self.iters = iters
         self.downsample = downsample
         self.search_range = search_range
-        self.context= Unet3D(infeats=12, outfeats=80)
-        self.update = UpdateBlock()
+        # self.context= Unet3D(infeats=1, outfeats=80)
+        self.context= FeatureExtractor(
+                infeats=1, 
+                feature_sizes=[8,16,32,80],
+                strides=[1,1,1,1],
+                kernel_sizes=[3,3,3,3])
+
+        self.update = UpdateBlock(((self.search_range * 2) + 1)**3)
         self.mesh = (
             F.affine_grid(
                 self.search_range * torch.eye(3, 4).cuda().half().unsqueeze(0),
@@ -131,121 +136,54 @@ class SomeNet(nn.Module):
             nn.ReLU(),
             nn.Conv3d(3,3,3,1,padding='same'),
         )
+        self.count = 0
 
+    def compute_correlation(self, moving_image: torch.Tensor, fixed_image: torch.Tensor):
+        feat_fix = MINDSSC(fixed_image)
+        feat_mov = MINDSSC(moving_image)
 
-    def index_correlation(self, correlation, flow):
         with torch.no_grad():
-            flowshape = flow.shape
-            flow = flow.view(3, -1)
-            correlation = correlation.view(self.mesh.shape[1], -1)
-            cv = torch.zeros(8, *flow.shape[-1:]).to(flow.device)
-            x, y, z = flow[0,:], flow[1,:], flow[2,:]
-            xf, yf, zf = [torch.clamp(torch.floor(i), min=-self.search_range) for i in (x, y, z)]
-            xc, yc, zc = [torch.clamp(torch.ceil(i), max=self.search_range) for i in (x, y, z)]
-            
-            dots = torch.stack([
-                torch.stack([xf, yf, zf]),
-                torch.stack([xf, yf, zc]),
-                torch.stack([xf, yc, zf]),
-                torch.stack([xf, yc, zc]),
-                torch.stack([xc, yf, zf]),
-                torch.stack([xc, yf, zc]),
-                torch.stack([xc, yc, zf]),
-                torch.stack([xc, yc, zc]),
-            ])
-            mesh = self.mesh.unsqueeze(0).repeat(8,1,1,1)
-            indices = torch.where((mesh==dots[...,0].unsqueeze(-1).unsqueeze(-1)).all(dim=1))[1].long()
-            for jindex in range(8):
-                cv[jindex] = correlation[indices[jindex],:]
+            correlation, _ = correlate(feat_fix, feat_mov, search_radius=self.search_range)
+            correlation = correlation.squeeze().unsqueeze(0)
 
-            return cv.reshape((1, 8,*flowshape[-3:]))
+        return correlation
 
     def forward(
         self,
-        feat_fix: torch.Tensor,
-        feat_mov: torch.Tensor,
+        fixed_image: torch.Tensor,
+        moving_image: torch.Tensor,
     ):
-        feat_fix_ = F.avg_pool3d(feat_fix, self.downsample, stride=self.downsample).float()
-        feat_mov_ = F.avg_pool3d(feat_mov, self.downsample, stride=self.downsample).float()
-
-        context = self.context(feat_mov_)
+        moving_ = F.interpolate(moving_image, [i // self.downsample for i in moving_image.shape[-3:]])
+        fixed_ = F.interpolate(fixed_image, [i // self.downsample for i in moving_image.shape[-3:]])
+        
+        context = self.context(moving_)
         inp, hidden = torch.split(context, [16, 64], dim=1)
         hidden = torch.tanh(hidden)
         inp = torch.relu(inp)
+        moving_0 = moving_
 
-        with torch.no_grad():
-            correlation, _ = correlate(feat_fix_, feat_mov_, search_radius=self.search_range)
-        correlation = correlation.detach()
-
-        flow_ind = torch.argmin(correlation, dim=0)
-        flow = F.avg_pool3d(
-            self.mesh.view(3, -1)[:, flow_ind.view(-1)].reshape(3, *correlation.shape[-3:]),
-            3, padding=1, stride=1,
-        ).float().squeeze().unsqueeze(0)
-
-        flow_predictions = [flow]
+        flow_predictions = []
         for _ in range(self.iters):
-            cost_volume = self.index_correlation(correlation, flow).float()
-            hidden, delta_flow = self.update(cost_volume, flow, hidden, inp)
-            flow = flow + delta_flow
-            flow_predictions.append(flow)
+            if len(flow_predictions) > 0:
+                flow = flow_predictions[-1]
+                cost_volume = self.compute_correlation(moving_, fixed_)
+                hidden, delta_flow = self.update(cost_volume, flow, hidden, inp)
+                flow = flow + delta_flow
+                moving_ = warp_image(flow, moving_0)
+                flow_predictions.append(flow)
+                del cost_volume
+            else:
+                correlation = self.compute_correlation(moving_, fixed_,)
+                argmin = torch.argmin(correlation, 1)
+                flow_hard = self.mesh.view(3, -1)[:, argmin.view(-1)].reshape(1, 3, *moving_.shape[-3:])
+                flow_soft = F.avg_pool3d(flow_hard, 3, padding=1, stride=1).float()
+                flow_predictions.append(flow_soft)
+                del correlation
 
-        flow_final = self.flow_upsample(F.interpolate(flow, feat_mov.shape[-3:]))
+
+        flow = flow_predictions[-1]
+        flow_final = F.interpolate(flow, fixed_image.shape[-3:])
         return flow_final
-
-
-
-class SparseNet3D(nn.Module):
-    def __init__(self, iters: int=12, num_levels: int = 2, downsample: int = 2, K: int=5, search_range: int=3):
-        super().__init__()
-        self.num_levels = num_levels
-        self.K = K
-        self.iters = iters
-        self.downsample = downsample
-        self.search_range = search_range
-
-    def forward(
-        self,
-        feat_fix: torch.Tensor,
-        feat_mov: torch.Tensor,
-    ):
-        feat_fix_ = F.avg_pool3d(feat_fix, self.downsample, stride=self.downsample)
-        feat_mov_ = F.avg_pool3d(feat_mov, self.downsample, stride=self.downsample)
-
-        correlation, displacements = correlate_sparse(feat_fix_, feat_mov_, K=self.K)
-        delta_flow = torch.zeros_like(displacements).to(displacements.device)
-        for _ in range(self.iters):
-            displacements = displacements - delta_flow
-            with torch.no_grad():
-                dense_corrs = []
-                for level in range(self.num_levels):
-                    displacements = displacements * (0.5**level)
-                    interp_weights, interp_disps = compute_interpolation_weights(displacements)
-                    breakpoint()
-                    mask = ((displacements[...,0].abs() <= self.search_range).to(torch.bool)
-                          & (displacements[...,1].abs() <= self.search_range).to(torch.bool)
-                          & (displacements[...,2].abs() <= self.search_range).to(torch.bool))
-                    interp_weights_masked = interp_weights * mask.view(1,-1)
-                    corrs = correlation.view(1,-1) * interp_weights_masked
-
-                    interp_indices = identity_grid_torch(feat_fix_.shape[-3:]).squeeze().unsqueeze(1).view(3,1,-1) + interp_disps.view(3, 8*self.K, -1)
-                    interp_indices[0,...] = torch.clamp(interp_indices[0,...], 0, max=feat_fix_.shape[-3]-1)
-                    interp_indices[1,...] = torch.clamp(interp_indices[1,...], 0, max=feat_fix_.shape[-2]-1)
-                    interp_indices[2,...] = torch.clamp(interp_indices[2,...], 0, max=feat_fix_.shape[-1]-1)
-                    interp_indices = interp_indices.view(3, 8, -1)
-                    breakpoint()
-
-                    sparse_corr = torch.sparse_coo_tensor( interp_indices.view(3,-1), corrs.view(-1))
-                    dense_corr = sparse_corr.coalesce().to_dense()
-                    dense_corrs.append(dense_corr)
-
-                breakpoint()
-
-                corr_val_pyramid = []
-                for mask, weights in zip(mask_pyramid, weights_pyramid):
-                  corr_masked = (weights * correlation)[mask].unsqueeze(1)
-                  corr_val_pyramid.append(corr_masked) 
-                ...
 
 
 class FeatureExtractor(nn.Module):
