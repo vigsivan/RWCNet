@@ -1,11 +1,10 @@
-from dataclasses import dataclass
 from typing import List, Tuple, Union, Optional
 import numpy as np
 import torch
 from torch import nn
 import torch.nn.functional as F
 from torch.distributions.normal import Normal
-from common import correlate_grad
+from common import correlate, correlate_sparse, compute_interpolation_weights, identity_grid_torch
 
 from image_similarity_matrices import mind_mse
 
@@ -51,29 +50,30 @@ def _compute_pad(
 class ConvGRU(nn.Module):
     def __init__(self, hidden_dim: int, input_dim: int):
         super().__init__()
-        self.convz = nn.Conv3d(hidden_dim+input_dim, hidden_dim, 3, padding='same')
-        self.convr = nn.Conv3d(hidden_dim+input_dim, hidden_dim, 3, padding='same')
-        self.convq = nn.Conv3d(hidden_dim+input_dim, hidden_dim, 3, padding='same')
+        self.convz = nn.Conv3d(hidden_dim + input_dim, hidden_dim, 3, padding="same")
+        self.convr = nn.Conv3d(hidden_dim + input_dim, hidden_dim, 3, padding="same")
+        self.convq = nn.Conv3d(hidden_dim + input_dim, hidden_dim, 3, padding="same")
 
     def forward(self, h, x):
         hx = torch.cat([h, x], dim=1)
         z = torch.sigmoid(self.convz(hx))
         r = torch.sigmoid(self.convz(hx))
-        q = torch.tanh(self.convq(torch.cat([r*h, x] dim=1)))
+        q = torch.tanh(self.convq(torch.cat([r * h, x], dim=1)))
 
-        h = (1-z)*h + z*q
+        h = (1 - z) * h + z * q
         return h
 
+
 class BasicMotionEncoder(nn.Module):
-    def __init__(self, corr_levels: int, corr_radius: int):
+    def __init__(self, correlation_features: int):
         super(BasicMotionEncoder, self).__init__()
         # FIXME: I don't like these hard-coded feature dimensions
-        cor_planes = corr_levels * (2*corr_radius + 1)**2
-        self.convc1 = nn.Conv3d(cor_planes, 256, 1, padding=0)
-        self.convc2 = nn.Conv3d(256, 192, 3, padding=1)
-        self.convf1 = nn.Conv3d(2, 128, 7, padding=3)
-        self.convf2 = nn.Conv3d(128, 64, 3, padding=1)
-        self.conv = nn.Conv3d(64+192, 128-2, 3, padding=1)
+        self.convc1 = nn.Conv3d(correlation_features, 8, 1, padding='same')
+        self.convc2 = nn.Conv3d(8, 8, 3, padding='same')
+
+        self.convf1 = nn.Conv3d(3, 4, 7, padding='same')
+        self.convf2 = nn.Conv3d(4, 8, 3, padding='same')
+        self.conv = nn.Conv3d(16, 16-3, 3, padding='same')
 
     def forward(self, flow, corr):
         cor = F.relu(self.convc1(corr))
@@ -87,13 +87,165 @@ class BasicMotionEncoder(nn.Module):
 
 
 class UpdateBlock(nn.Module):
-    def __init__(self, args, corr_levels: int, corr_radius: int, hidden_dim=128, input_dim=128):
+    def __init__(
+        self, correlation_features: int=8, hidden_dim: int=64, input_dim=32
+    ):
         super().__init__()
-        self.args = args
-        self.encoder = BasicMotionEncoder(corr_levels=corr_levels, corr_radius=corr_radius)
+        self.encoder = BasicMotionEncoder(correlation_features=correlation_features)
         self.gru = ConvGRU(hidden_dim=hidden_dim, input_dim=input_dim)
-        self.flow_head=F
-        raise NotImplementedError()
+        self.flowhead = nn.Sequential(
+            nn.Conv3d(hidden_dim, hidden_dim*2, 3, padding='same'),
+            nn.LeakyReLU(),
+            nn.Conv3d(hidden_dim*2, 3, 3, padding='same'),
+        )
+
+
+    def forward(self, correlation: torch.Tensor, flow: torch.Tensor, hidden: torch.Tensor, inp: torch.Tensor):
+        mf = self.encoder(flow, correlation)
+        in_gru = torch.cat([mf, inp], dim=1)
+        next_hidden = self.gru(hidden, in_gru)
+        delta_flow = self.flowhead(next_hidden)
+        return next_hidden, delta_flow
+
+class SomeNet(nn.Module):
+    def __init__(self, iters: int=12, num_levels: int = 2, downsample: int = 2, K: int=5, search_range: int=3):
+        super().__init__()
+        self.num_levels = num_levels
+        self.K = K
+        self.iters = iters
+        self.downsample = downsample
+        self.search_range = search_range
+        self.context= Unet3D(infeats=12, outfeats=80)
+        self.update = UpdateBlock()
+        self.mesh = (
+            F.affine_grid(
+                self.search_range * torch.eye(3, 4).cuda().half().unsqueeze(0),
+                [1, 1, self.search_range * 2 + 1, self.search_range * 2 + 1, self.search_range * 2 + 1],
+                align_corners=True,
+            )
+            .permute(0, 4, 1, 2, 3)
+            .reshape(3, -1, 1)
+        )
+        self.flow_upsample = nn.Sequential(
+            nn.Conv3d(3,3,3,1,padding='same'),
+            nn.ReLU(),
+            nn.Conv3d(3,3,3,1,padding='same'),
+        )
+
+
+    def index_correlation(self, correlation, flow):
+        with torch.no_grad():
+            flowshape = flow.shape
+            flow = flow.view(3, -1)
+            correlation = correlation.view(self.mesh.shape[1], -1)
+            cv = torch.zeros(8, *flow.shape[-1:]).to(flow.device)
+            x, y, z = flow[0,:], flow[1,:], flow[2,:]
+            xf, yf, zf = [torch.clamp(torch.floor(i), min=-self.search_range) for i in (x, y, z)]
+            xc, yc, zc = [torch.clamp(torch.ceil(i), max=self.search_range) for i in (x, y, z)]
+            
+            dots = torch.stack([
+                torch.stack([xf, yf, zf]),
+                torch.stack([xf, yf, zc]),
+                torch.stack([xf, yc, zf]),
+                torch.stack([xf, yc, zc]),
+                torch.stack([xc, yf, zf]),
+                torch.stack([xc, yf, zc]),
+                torch.stack([xc, yc, zf]),
+                torch.stack([xc, yc, zc]),
+            ])
+            mesh = self.mesh.unsqueeze(0).repeat(8,1,1,1)
+            indices = torch.where((mesh==dots[...,0].unsqueeze(-1).unsqueeze(-1)).all(dim=1))[1].long()
+            for jindex in range(8):
+                cv[jindex] = correlation[indices[jindex],:]
+
+            return cv.reshape((1, 8,*flowshape[-3:]))
+
+    def forward(
+        self,
+        feat_fix: torch.Tensor,
+        feat_mov: torch.Tensor,
+    ):
+        feat_fix_ = F.avg_pool3d(feat_fix, self.downsample, stride=self.downsample).float()
+        feat_mov_ = F.avg_pool3d(feat_mov, self.downsample, stride=self.downsample).float()
+
+        context = self.context(feat_mov_)
+        inp, hidden = torch.split(context, [16, 64], dim=1)
+        hidden = torch.tanh(hidden)
+        inp = torch.relu(inp)
+
+        with torch.no_grad():
+            correlation, _ = correlate(feat_fix_, feat_mov_, search_radius=self.search_range)
+        correlation = correlation.detach()
+
+        flow_ind = torch.argmin(correlation, dim=0)
+        flow = F.avg_pool3d(
+            self.mesh.view(3, -1)[:, flow_ind.view(-1)].reshape(3, *correlation.shape[-3:]),
+            3, padding=1, stride=1,
+        ).float().squeeze().unsqueeze(0)
+
+        flow_predictions = [flow]
+        for _ in range(self.iters):
+            cost_volume = self.index_correlation(correlation, flow).float()
+            hidden, delta_flow = self.update(cost_volume, flow, hidden, inp)
+            flow = flow + delta_flow
+            flow_predictions.append(flow)
+
+        flow_final = self.flow_upsample(F.interpolate(flow, feat_mov.shape[-3:]))
+        return flow_final
+
+
+
+class SparseNet3D(nn.Module):
+    def __init__(self, iters: int=12, num_levels: int = 2, downsample: int = 2, K: int=5, search_range: int=3):
+        super().__init__()
+        self.num_levels = num_levels
+        self.K = K
+        self.iters = iters
+        self.downsample = downsample
+        self.search_range = search_range
+
+    def forward(
+        self,
+        feat_fix: torch.Tensor,
+        feat_mov: torch.Tensor,
+    ):
+        feat_fix_ = F.avg_pool3d(feat_fix, self.downsample, stride=self.downsample)
+        feat_mov_ = F.avg_pool3d(feat_mov, self.downsample, stride=self.downsample)
+
+        correlation, displacements = correlate_sparse(feat_fix_, feat_mov_, K=self.K)
+        delta_flow = torch.zeros_like(displacements).to(displacements.device)
+        for _ in range(self.iters):
+            displacements = displacements - delta_flow
+            with torch.no_grad():
+                dense_corrs = []
+                for level in range(self.num_levels):
+                    displacements = displacements * (0.5**level)
+                    interp_weights, interp_disps = compute_interpolation_weights(displacements)
+                    breakpoint()
+                    mask = ((displacements[...,0].abs() <= self.search_range).to(torch.bool)
+                          & (displacements[...,1].abs() <= self.search_range).to(torch.bool)
+                          & (displacements[...,2].abs() <= self.search_range).to(torch.bool))
+                    interp_weights_masked = interp_weights * mask.view(1,-1)
+                    corrs = correlation.view(1,-1) * interp_weights_masked
+
+                    interp_indices = identity_grid_torch(feat_fix_.shape[-3:]).squeeze().unsqueeze(1).view(3,1,-1) + interp_disps.view(3, 8*self.K, -1)
+                    interp_indices[0,...] = torch.clamp(interp_indices[0,...], 0, max=feat_fix_.shape[-3]-1)
+                    interp_indices[1,...] = torch.clamp(interp_indices[1,...], 0, max=feat_fix_.shape[-2]-1)
+                    interp_indices[2,...] = torch.clamp(interp_indices[2,...], 0, max=feat_fix_.shape[-1]-1)
+                    interp_indices = interp_indices.view(3, 8, -1)
+                    breakpoint()
+
+                    sparse_corr = torch.sparse_coo_tensor( interp_indices.view(3,-1), corrs.view(-1))
+                    dense_corr = sparse_corr.coalesce().to_dense()
+                    dense_corrs.append(dense_corr)
+
+                breakpoint()
+
+                corr_val_pyramid = []
+                for mask, weights in zip(mask_pyramid, weights_pyramid):
+                  corr_masked = (weights * correlation)[mask].unsqueeze(1)
+                  corr_val_pyramid.append(corr_masked) 
+                ...
 
 
 class FeatureExtractor(nn.Module):
@@ -667,29 +819,29 @@ class FeatureExtractorVxm(nn.Module):
 class ConvGru(nn.Module):
     def __init__(self, hidden_dim: int, input_dim: int):
         super().__init__()
-        self.convz = nn.Conv3d(hidden_dim+input_dim, hidden_dim, 3, padding='same')
-        self.convr = nn.Conv3d(hidden_dim+input_dim, hidden_dim, 3, padding='same')
-        self.convq = nn.Conv3d(hidden_dim+input_dim, hidden_dim, 3, padding='same')
+        self.convz = nn.Conv3d(hidden_dim + input_dim, hidden_dim, 3, padding="same")
+        self.convr = nn.Conv3d(hidden_dim + input_dim, hidden_dim, 3, padding="same")
+        self.convq = nn.Conv3d(hidden_dim + input_dim, hidden_dim, 3, padding="same")
 
     def forward(self, h, x):
         hx = torch.cat([h, x], dim=1)
         z = torch.sigmoid(self.convz(hx))
         r = torch.sigmoid(self.convr(hx))
-        q = torch.tanh(self.convq(torch.cat([r*h, x], dim=1)))
+        q = torch.tanh(self.convq(torch.cat([r * h, x], dim=1)))
 
-        h = (1-z)*h + z*q
+        h = (1 - z) * h + z * q
         return h
+
 
 class Cascade(nn.Module):
     def __init__(self, correlation_features: int, N: int = 2):
         super().__init__()
-        self.cascades = nn.ModuleList([Unet3D(2+correlation_features, 3) for _ in range(N)])
+        self.cascades = nn.ModuleList(
+            [Unet3D(2 + correlation_features, 3) for _ in range(N)]
+        )
 
     def forward(
-        self,
-        moving: torch.Tensor,
-        fixed: torch.Tensor,
-        correlation: torch.Tensor,
+        self, moving: torch.Tensor, fixed: torch.Tensor, correlation: torch.Tensor,
     ) -> torch.Tensor:
         flow: Optional[torch.Tensor] = None
         for network in self.cascades:
@@ -698,7 +850,7 @@ class Cascade(nn.Module):
             if flow is None:
                 flow = net_out
             else:
-                flow = flow + net_out 
+                flow = flow + net_out
 
         assert flow is not None
         return flow

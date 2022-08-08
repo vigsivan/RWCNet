@@ -155,67 +155,6 @@ def apply_displacement_field(
         moved_image = moved_image[None, ...]
     return moved_image
 
-
-def correlate_grad(
-    feat_fix: torch.Tensor,
-    feat_mov: torch.Tensor,
-    disp_hw: int,
-    grid_sp: int,
-    image_shape: Tuple[int, int, int],
-) -> torch.Tensor:
-    """
-    A differentiable version of the correlation function that computes the sum of
-    square distances between patches in the moving image and the fixed image.
-    """
-    H, W, D = image_shape
-    torch.cuda.synchronize()
-    C_feat = feat_fix.shape[1]
-    with torch.no_grad():
-        feat_unfold = F.unfold(
-            F.pad(
-                feat_mov, (disp_hw, disp_hw, disp_hw, disp_hw, disp_hw, disp_hw)
-            ).squeeze(0),
-            disp_hw * 2 + 1,
-        )
-        feat_unfold = feat_unfold.view(
-            C_feat, -1, (disp_hw * 2 + 1) ** 2, W // grid_sp, D // grid_sp
-        )
-
-    ssd_list = []
-    for i in range(disp_hw * 2 + 1):
-        feat_sum = (
-            (feat_fix.permute(1, 2, 0, 3, 4) - feat_unfold[:, i : i + H // grid_sp])
-            .abs()
-            .sum(0, keepdim=True)
-        )
-
-        ssd_list.append(
-            F.avg_pool3d(feat_sum.transpose(2, 1), 3, stride=1, padding=1).squeeze()
-        )
-
-    ssd_list2 = []
-    for item_num in range(ssd_list[0].shape[0]):
-        for bucket_num in range(len(ssd_list)):
-            ssd_list2.append(ssd_list[bucket_num][item_num, ...])
-
-    ssd = torch.stack(ssd_list2)
-
-    ssd = (
-        ssd.view(
-            disp_hw * 2 + 1,
-            disp_hw * 2 + 1,
-            disp_hw * 2 + 1,
-            H // grid_sp,
-            W // grid_sp,
-            D // grid_sp,
-        )
-        .transpose(1, 0)
-        .reshape((disp_hw * 2 + 1) ** 3, H // grid_sp, W // grid_sp, D // grid_sp)
-    )
-
-    return ssd
-
-
 def unravel_indices(
     indices: torch.LongTensor, shape: Tuple[int, ...]
 ) -> torch.LongTensor:
@@ -241,8 +180,8 @@ def unravel_indices(
     return coord  # type: ignore
 
 
-def correlate_sparse_unrolled(
-        feat_fix: torch.Tensor, feat_mov: torch.Tensor, K: int = 10, radius: int=16
+def correlate_sparse(
+    feat_fix: torch.Tensor, feat_mov: torch.Tensor, K: int = 10, radius: int=16
 ) -> Tuple[torch.Tensor, torch.Tensor]:
 
     assert feat_fix.shape == feat_mov.shape, "Fixed and moving feature shapes must be the same!"
@@ -284,209 +223,60 @@ def correlate_sparse_unrolled(
     feature_distances = dist_patched_re.view(1, K, *feat_fix.shape[-3:])
     displacements = disp_patched_re.view(1, K, *feat_fix.shape[-3:], 3)
 
-    displacements = einops.rearrange(displacements, 'b K h d w N -> (b K) N h d w')
-    return feature_distances.squeeze(), displacements.long()
+    device = feat_fix.device
+    # displacements = einops.rearrange(displacements, 'b K h d w N -> (b K) N h d w')
+    return feature_distances.squeeze().to(device), displacements.long().to(device)
 
 
-def correlate_sparse(
-        feat_fix: torch.Tensor, feat_mov: torch.Tensor, K: int = 10, num_splits=4, radius: int=10
-) -> Tuple[torch.Tensor, torch.Tensor]:
+def compute_interpolation_weights(zyx_warped):
+    zyx_warped = zyx_warped.view(-1,3)
+    z_warped = zyx_warped[:,0]
+    y_warped = zyx_warped[:,1]
+    x_warped = zyx_warped[:,2]
 
-    assert feat_fix.shape == feat_mov.shape, "Fixed and moving feature shapes must be the same!"
-    assert feat_fix.shape[-3]%num_splits == 0, \
-            f"Number of splits must be a factor of the first spatial dim {feat_fix.shape[-3]}"
-    arrs_fix = torch.tensor_split(feat_fix, num_splits, -3)
-    arrs_mov = torch.tensor_split(feat_mov, num_splits, -3)
-    split_size = feat_fix.shape[-3]//num_splits
+    z_f = torch.floor(z_warped)
+    z_c = z_f + 1
 
-    size = (split_size, *feat_fix.shape[-2:])
-    grid = identity_grid_torch(size, feat_fix.device, stack_dim=-1)
-    grid = grid.unsqueeze(1).float()
+    y_f = torch.floor(y_warped)
+    y_c = y_f + 1
 
-    distances, displacements = [], []
-    for arr_fix, arr_mov in zip(arrs_fix, arrs_mov):
-        arr_fix = einops.rearrange(arr_fix, 'b c h d w -> b c (h d w)') 
-        arr_mov = einops.rearrange(arr_mov, 'b c h d w -> b c (h d w)') 
-        dist, ind = knn_faiss_raw(arr_fix.float(), arr_mov.float(), K)
-        
-        dist = einops.rearrange(dist, 'b K (h d w) -> b K h d w', h=split_size, d=feat_fix.shape[-2])
-        ind3d = unravel_indices(ind, size)
-        ind3d = einops.rearrange(ind3d, 'b K (h d w) D-> b K h d w D', h=split_size, d=feat_fix.shape[-2])
-        displacement = ind3d-grid
-        
-        distances.append(dist)
-        displacements.append(displacement)
+    x_f = torch.floor(x_warped)
+    x_c = x_f + 1
 
-    dist = torch.concat(distances, dim=-3).squeeze()
-    displacement = torch.concat(displacements, dim=-4).squeeze()
+    w00 = (y_c - y_warped) * (x_c - x_warped)
+    w01 = (y_warped - y_f) * (x_c - x_warped)
+    w02 = (y_c - y_warped) * (x_warped - x_f)
+    w03 = (y_warped - y_f) * (x_warped - x_f)
 
-    displacement = einops.rearrange(displacement, 'K h d w N -> K N h d w')
-    return dist, displacement.long()
+    w0 = (z_c - z_warped) * w00
+    w1 = (z_warped-z_f) * w00
+    w2 = (z_c - z_warped) * w01
+    w3 = (z_warped-z_f) * w01
+    w4 = (z_c - z_warped) * w02
+    w5 = (z_warped-z_f) * w02
+    w6 = (z_c - z_warped) * w03
+    w7 = (z_warped-z_f) * w03
 
-def correlate_sparse_with_splitting(
-    feat_fix: torch.Tensor, feat_mov: torch.Tensor, K: int = 10, patch_size: int = 8, patches: int=4
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    assert feat_fix.shape[-2]%patches == 0, "Num patches must be a factor of the first spatial dimension"
+    weights = [ w0, w1, w2, w3, w4, w5, w6, w7, ]
+    indices = [
+        torch.stack([z_f, y_f, x_f]),
+        torch.stack([z_c, y_f, x_f]),
+        torch.stack([z_f, y_c, x_f]),
+        torch.stack([z_c, y_c, x_f]),
+        torch.stack([z_f, y_f, x_c]),
+        torch.stack([z_c, y_f, x_c]),
+        torch.stack([z_f, y_c, x_c]),
+        torch.stack([z_c, y_c, x_c]),
+    ]
+    weights = torch.stack(weights, dim=0)
+    indices = torch.stack(indices, dim=1)
 
-    arrs_mov = torch.tensor_split(feat_mov, patches, -2)
-
-    dists, inds = [], []
-    for arr_fix, arr_mov in zip(arrs_fix, arrs_mov):
-        arr_fix = einops.rearrange(arr_fix, 'b c h D -> b c (h D)') 
-        arr_mov = einops.rearrange(arr_mov, 'b c h D -> b c (h D)') 
-        dist, ind = knn_faiss_raw(arr_fix.float(), arr_mov.float(), K)
-        dist = einops.rearrange(dist, 'b K (h D) -> b K h D', h=patches)
-        ind = einops.rearrange(ind, 'b K (h D) -> b K h D', h=patches)
-
-        dists.append(dist)
-        inds.append(ind)
-
-    # TODO: how do we get the right indexes here?
-
-    breakpoint()
-
-    assert feat_fix.shape == feat_mov.shape, "Input features must be the same size"
-    assert (
-        feat_fix.shape[0] == 1 and len(feat_fix.shape) == 5
-    ), "Input features must be 5d bcdhw"
-
-    patches_fix = einops.rearrange(
-        feat_fix.unfold(dimension=-3, size=patch_size, step=patch_size)
-        .unfold(dimension=-3, size=patch_size, step=patch_size)
-        .unfold(dimension=-3, size=patch_size, step=patch_size),
-        "b f nx ny nz px py pz -> b (nx ny nz) f (px py pz)",
-    )
-    patches_mov = einops.rearrange(
-        feat_mov.unfold(dimension=-3, size=patch_size, step=patch_size)
-        .unfold(dimension=-3, size=patch_size, step=patch_size)
-        .unfold(dimension=-3, size=patch_size, step=patch_size),
-        "b f nx ny nz px py pz -> b (nx ny nz) f (px py pz)",
-    )
-
-    breakpoint()
-
-    npatches = patches_fix.shape[1]
-    dist = torch.zeros((1, npatches, K, patches_fix.shape[-1])).to(patches_fix.device)
-    patch_position = torch.zeros((1, npatches, K, patches_fix.shape[-1])).to(
-        patches_fix.device
-    )
-    for i in range(npatches):
-        di, pi = knn_faiss_raw(
-            patches_fix[:, i, ...].float(), patches_mov[:, i, ...].float(), K
-        )
-        dist[:, i, ...] = di
-        patch_position[:, i, ...] = pi
-
-    size = feat_fix.shape[-3:]
-    vectors = [torch.arange(0, s) for s in size]
-    grids = torch.meshgrid(vectors, indexing="ij")
-    grid = torch.stack(grids)
-    grid = torch.unsqueeze(grid, 0)
-    grid = grid.float()
-
-    patch_indices = (
-        grid.unfold(dimension=-3, size=patch_size, step=patch_size)
-        .unfold(dimension=-3, size=patch_size, step=patch_size)
-        .unfold(dimension=-3, size=patch_size, step=patch_size)
-    )
-
-    patch_indices = einops.rearrange(
-        patch_indices, "b f nx ny nz px py pz -> b f (nx ny nz) (px py pz)"
-    ).to(feat_fix.device)
-    patch_position = einops.rearrange(patch_position, "b p K s -> b p (K s)")
-
-    global_positions = []
-    for i in range(patch_position.shape[-2]):
-        pos = torch.index_select(
-            patch_indices[..., i, :], dim=-1, index=patch_position[0, i, :].long()
-        )
-        global_positions.append(pos)
-
-    global_position = torch.stack(global_positions, dim=1)
-    global_position = einops.rearrange(
-        global_position,
-        "b p d (K s) -> b d p K s",
-        K=K,
-        # s1=feat_fix.shape[-3],
-        # s2=feat_fix.shape[-2],
-    )
-    disps = (global_position - patch_indices.unsqueeze(-2))
-    F.fold(disps[0,...,0,:], output_size=32, kernel_size=8)
-
-    breakpoint()
-    dist = einops.rearrange(dist, 'b p K s -> b (p K s)')
-    disps = einops.rearrange(disps, 'b d p K s -> (b d)(p K s)')
-
-
-    return dist, disps
-
-
-def correlate_sparse_bs(
-    feat_fix: torch.Tensor, feat_mov: torch.Tensor, K: int = 10,
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    assert feat_fix.shape == feat_mov.shape, "Input features must be the same size"
-    assert (
-        feat_fix.shape[0] == 1 and len(feat_fix.shape) == 5
-    ), "Input features must be 5d bcdhw"
-    dists, indexes = [], []
-    for ax in range(-3, 0):
-        feat_fix = torch.swapaxes(feat_fix, -3, ax)
-        feat_mov = torch.swapaxes(feat_mov, -3, ax)
-        indices_agg = []
-        disps_agg = []
-        for i in range(feat_fix.shape[-3]):
-            fix = einops.rearrange(feat_fix[..., i, :, :], "b c x y -> b c (x y)")
-            mov = einops.rearrange(feat_mov[..., i, :, :], "b c x y -> b c (x y)")
-            disps, index = knn_faiss_raw(fix.float(), mov.float(), K)
-            disps_agg.append(disps)
-            indices_agg.append(index)
-
-        dist = torch.stack(disps_agg, dim=-2)
-        index = torch.stack(indices_agg, dim=-2)
-
-        dist = einops.rearrange(dist, "b K h (w d) -> b K h w d", d=feat_fix.shape[-1])
-        index = einops.rearrange(
-            index, "b K h (w d) -> b K h w d", d=feat_fix.shape[-1]
-        )
-
-        dist = torch.swapaxes(dist, -3, ax)
-        index = torch.swapaxes(index, -3, ax)
-
-        feat_fix = torch.swapaxes(feat_fix, -3, ax)
-        feat_mov = torch.swapaxes(feat_mov, -3, ax)
-
-        dist = einops.rearrange(dist, "b K h w d -> b K (h w d)")
-        index = einops.rearrange(index, "b K h w d -> b K (h w d)")
-        dists.append(dist)
-        indexes.append(index)
-
-    K = 3 * K
-    dist = torch.concat(dists, 1)
-    index = torch.concat(indexes, 1)
-    indices = unravel_indices(
-        einops.rearrange(index, "b K i -> b (K i)").squeeze().long(),  # type: ignore
-        feat_fix.shape[-3:],
-    )
-
-    indices = einops.rearrange(indices, "(b K i) d -> b K i d", b=1, K=K)
-
-    ogs = unravel_indices(
-        torch.LongTensor([i for i in range(np.prod(feat_mov.shape[-3:]))]),
-        feat_mov.shape[-3:],
-    ).to(feat_mov.device)
-    disps = indices - ogs
-    dist = dist.view(1, K, *feat_fix.shape[-3:])
-    disps = disps.view(1, K, *feat_fix.shape[-3:], 3).permute(0, -1, 1, 2, 3, 4)
-
-    return dist, disps
-
+    return weights, indices
 
 def correlate(
     mind_fix: torch.Tensor,
     mind_mov: torch.Tensor,
-    disp_hw: int,
-    grid_sp: int,
-    image_shape: Tuple[int, int, int],
+    search_radius: int,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Computes dense discretised displacements to compute SSD cost volume with box-filter
@@ -506,51 +296,45 @@ def correlate(
     ssd_argmin: torch.Tensor
         Sum of square displacements min
     """
-    H, W, D = image_shape
+    H, W, D = mind_fix.shape[-3:]
     torch.cuda.synchronize()
     C_mind = mind_fix.shape[1]
     with torch.no_grad():
         mind_unfold = F.unfold(
             F.pad(
-                mind_mov, (disp_hw, disp_hw, disp_hw, disp_hw, disp_hw, disp_hw)
+                mind_mov, (search_radius, search_radius, search_radius, search_radius, search_radius, search_radius)
             ).squeeze(0),
-            disp_hw * 2 + 1,
+            search_radius * 2 + 1,
         )
         mind_unfold = mind_unfold.view(
-            C_mind, -1, (disp_hw * 2 + 1) ** 2, W // grid_sp, D // grid_sp
+            C_mind, -1, (search_radius * 2 + 1) ** 2, W, D
         )
 
-    ssd = torch.zeros(
-        (disp_hw * 2 + 1) ** 3,
-        H // grid_sp,
-        W // grid_sp,
-        D // grid_sp,
-        dtype=mind_fix.dtype,
-        device=mind_fix.device,
-    )  # .cuda().half()
-    ssd_argmin = torch.zeros(H // grid_sp, W // grid_sp, D // grid_sp).long()
+    ssd = torch.zeros( 
+            (search_radius * 2 + 1) ** 3,
+            H, W, D,
+            dtype=mind_fix.dtype, device=mind_fix.device,)  # .cuda().half()
+    ssd_argmin = torch.zeros(H , W , D).long()
     with torch.no_grad():
-        for i in range(disp_hw * 2 + 1):
+        for i in range(search_radius * 2 + 1):
             mind_sum = (
-                (mind_fix.permute(1, 2, 0, 3, 4) - mind_unfold[:, i : i + H // grid_sp])
+                (mind_fix.permute(1, 2, 0, 3, 4) - mind_unfold[:, i : i + H])
                 .abs()
                 .sum(0, keepdim=True)
             )
 
-            ssd[i :: (disp_hw * 2 + 1)] = F.avg_pool3d(
+            ssd[i :: (search_radius * 2 + 1)] = F.avg_pool3d(
                 mind_sum.transpose(2, 1), 3, stride=1, padding=1
             ).squeeze(1)
         ssd = (
             ssd.view(
-                disp_hw * 2 + 1,
-                disp_hw * 2 + 1,
-                disp_hw * 2 + 1,
-                H // grid_sp,
-                W // grid_sp,
-                D // grid_sp,
+                search_radius * 2 + 1,
+                search_radius * 2 + 1,
+                search_radius * 2 + 1,
+                H, W, D,
             )
             .transpose(1, 0)
-            .reshape((disp_hw * 2 + 1) ** 3, H // grid_sp, W // grid_sp, D // grid_sp)
+            .reshape((search_radius * 2 + 1) ** 3, H , W , D )
         )
         ssd_argmin = torch.argmin(ssd, 0)  #
         # ssd = F.softmax(-ssd*1000,0)
@@ -664,7 +448,6 @@ def coupled_convex(
     -------
     disp_soft: torch.Tensor
     """
-    breakpoint()
     H, W, D = image_shape
     disp_soft = F.avg_pool3d(
         disp_mesh_t.view(3, -1)[:, ssd_argmin.view(-1)].reshape(

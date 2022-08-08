@@ -25,6 +25,7 @@ import typer
 from common import (
     DisplacementFormat,
     Data,
+    MINDSSC,
     TrainType,
     correlate,
     data_generator,
@@ -54,7 +55,7 @@ from metrics import (
     compute_log_jacobian_determinant_standard_deviation,
     compute_total_registration_error,
 )
-from networks import SpatialTransformer, FlowNetCorr, VecInt, Cascade
+from networks import SpatialTransformer, FlowNetCorr, VecInt, Cascade, SparseNet3D, SomeNet
 
 app = typer.Typer()
 logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
@@ -172,6 +173,100 @@ def run_flownetc(
             losses_dict=losses_dict_log
         )
 
+def run_somenet(
+    data: Data,
+    model: nn.Module,
+    skip_normalize: bool,
+    image_loss_weight: float,
+    reg_loss_weight: float,
+    dice_loss_weight: float,
+    kp_loss_weight: float,
+    use_labels: bool,
+    use_keypoints: bool,
+    with_grad: bool = True,
+    vector_integration_steps: int=7,
+    device: str = "cuda",
+    downsample: int=2,
+    ) -> RunModelOut:
+
+    context = nullcontext() if with_grad else torch.no_grad()
+
+    with context:
+
+        fixed_nib = nib.load(data.fixed_image)
+        moving_nib = nib.load(data.moving_image)
+
+        fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata()))
+        moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata()))
+
+        fixed, moving = fixed.to(device), moving.to(device)
+
+        if not skip_normalize:
+            fixed = (fixed - fixed.min()) / (fixed.max() - fixed.min())
+            moving = (moving - moving.min()) / (moving.max() - moving.min())
+
+        mindssc_fix_ = MINDSSC(fixed, 1, 2).half()
+        mindssc_mov_ = MINDSSC(moving, 1, 2).half()
+
+        flow = model(mindssc_fix_, mindssc_mov_,)
+        moved = warp_image(flow, moving)
+
+        losses_dict: Dict[str, torch.Tensor] = {}
+        losses_dict["image_loss"] = image_loss_weight * MINDLoss()( # FIXME: make this a parameter
+            moved.squeeze(), fixed.squeeze()
+        )
+        losses_dict["grad"] = reg_loss_weight * Grad()(flow)
+
+        if use_labels:
+
+            fixed_seg = add_bc_dim(
+                torch.from_numpy(
+                    np.round(nib.load(data.fixed_segmentation).get_fdata())
+                )
+            ).to(device)
+            moving_seg = add_bc_dim(
+                torch.from_numpy(
+                    np.round(nib.load(data.moving_segmentation).get_fdata())
+                )
+            ).to(device)
+
+            moved_seg = torch.round(
+                warp_image(flow, moving_seg.float(), mode="nearest")
+            )
+            losses_dict["dice"] = dice_loss_weight * DiceLoss()(
+                fixed_seg.squeeze(), moving_seg.squeeze(), moved_seg.squeeze()
+            )
+
+        if use_keypoints:
+            assert (
+                data.fixed_keypoints is not None and data.moving_keypoints is not None
+            )
+
+            fixed_kps = load_keypoints(data.fixed_keypoints)
+            moving_kps = load_keypoints(data.moving_keypoints)
+            losses_dict["keypoints"] = kp_loss_weight * TotalRegistrationLoss()(
+                fixed_landmarks=fixed_kps,
+                moving_landmarks=moving_kps,
+                displacement_field=flow,
+                fixed_spacing=torch.Tensor(get_spacing(fixed_nib)),
+                moving_spacing=torch.Tensor(get_spacing(moving_nib)),
+            )
+
+
+        loss = sum(losses_dict.values())
+        assert isinstance(loss, torch.Tensor)
+        losses_dict_log = {k: v.item() for k, v in losses_dict.items()}
+
+        return RunModelOut(
+            flow=flow,
+            fixed=fixed,
+            moving=moving,
+            moved=moved,
+            total_loss = loss,
+            losses_dict=losses_dict_log
+        )
+
+
 def run_cascade(
     data: Data,
     cascade: nn.Module,
@@ -275,24 +370,19 @@ def train(
     data_json: Path,
     checkpoint_dir: Path,
     start: Optional[Path] = None,
-    steps: int = 1000,
+    steps: int = 10000,
     lr: float = 1e-4,
-    correlation_patch_size: int = 3,
-    flownet_redir_feats: int = 32,
-    feature_extractor_strides: str = "2,1,1",
-    feature_extractor_feature_sizes: str = "8,32,64",
-    feature_extractor_kernel_sizes: str = "7,5,5",
     skip_normalize: bool = False,
     train_paired: bool = True,
     val_paired: bool = True,
     device: str = "cuda",
     image_loss_weight: float = 1,
-    dice_loss_weight: float = 1.0,
-    reg_loss_weight: float = 0.01,
+    dice_loss_weight: float = 10.0,
+    reg_loss_weight: float = 0.1,
     kp_loss_weight: float = 1,
     log_freq: int = 5,
     save_freq: int = 100,
-    val_freq: int = 0,
+    val_freq: int = 50,
 ):
     """
     Trains a FlowNetC Model.
@@ -348,35 +438,15 @@ def train(
     checkpoint_dir.mkdir(exist_ok=True)
     writer = SummaryWriter(log_dir=checkpoint_dir)
 
-    flownet_kwargs = {
-        "feature_extractor_strides": [
-            int(i.strip()) for i in feature_extractor_strides.split(",")
-        ],
-        "feature_extractor_feature_sizes": [
-            int(i.strip()) for i in feature_extractor_feature_sizes.split(",")
-        ],
-        "feature_extractor_kernel_sizes": [
-            int(i.strip()) for i in feature_extractor_kernel_sizes.split(",")
-        ],
-    }
-
-    assert (
-        len(set(len(v) for v in flownet_kwargs.values())) == 1
-    ), "Feature extractor list params must all have the same size"
-
-    flownetc = FlowNetCorr(
-        correlation_patch_size=correlation_patch_size,
-        redir_feats=flownet_redir_feats,
-        **flownet_kwargs,
-    ).to(device)
+    model = SomeNet().to(device)
 
     starting_step = 0
     if start is not None:
-        flownetc.load_state_dict(torch.load(start))
+        model.load_state_dict(torch.load(start))
         if "step" in start.name:
             starting_step = int(start.name.split("_step")[-1].split(".")[0])
 
-    opt = torch.optim.Adam(flownetc.parameters(), lr=lr)
+    opt = torch.optim.Adam(model.parameters(), lr=lr)
 
     data_sample = next(train_gen)
     use_labels = data_sample.fixed_segmentation is not None
@@ -392,9 +462,9 @@ def train(
     for step in trange(starting_step, steps + starting_step):
         data = next(train_gen)
 
-        model_out = run_flownetc(
+        model_out = run_somenet(
             data,
-            flownetc,
+            model,
             skip_normalize,
             image_loss_weight,
             reg_loss_weight,
@@ -418,11 +488,11 @@ def train(
 
         if step % save_freq == 0:
             torch.save(
-                flownetc.state_dict(), checkpoint_dir / f"flownet_step{step}.pth",
+                model.state_dict(), checkpoint_dir / f"flownet_step{step}.pth",
             )
 
         if val_freq > 0 and step % val_freq == 0:
-            flownetc.eval()
+            model.eval()
 
             if val_paired:
                 val_gen = data_generator(data_json, split="val")
@@ -431,9 +501,9 @@ def train(
 
             losses_cum_dict = defaultdict(list)
             for data in val_gen:
-                model_out = run_flownetc(
+                model_out = run_somenet(
                     data,
-                    flownetc,
+                    model,
                     skip_normalize,
                     image_loss_weight,
                     reg_loss_weight,
@@ -449,10 +519,10 @@ def train(
             for k, v in losses_cum_dict.items():
                 writer.add_scalar(f"val_{k}", np.mean(v).item(), global_step=step)
 
-            flownetc = flownetc.train()
+            model = model.train()
 
     torch.save(
-        flownetc.state_dict(), checkpoint_dir / f"flownet_step{starting_step+steps}.pth"
+        model.state_dict(), checkpoint_dir / f"flownet_step{starting_step+steps}.pth"
     )
 
 

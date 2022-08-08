@@ -12,13 +12,10 @@ import typer
 
 from common import (
     DisplacementFormat,
-    MINDSEG,
     MINDSSC,
     adam_optimization,
     apply_displacement_field,
-    correlate,
     correlate_sparse,
-    correlate_sparse_unrolled,
     coupled_convex_sparse,
     data_generator,
     get_labels,
@@ -156,18 +153,18 @@ def main(
                 ).half()
 
 
-            # mind_fix_ = F.avg_pool3d(mindssc_fix_, grid_sp, stride=grid_sp)
-            # mind_mov_ = F.avg_pool3d(mindssc_mov_, grid_sp, stride=grid_sp)
+            mind_fix_ = F.avg_pool3d(mindssc_fix_, grid_sp, stride=grid_sp)
+            mind_mov_ = F.avg_pool3d(mindssc_mov_, grid_sp, stride=grid_sp)
 
-            mind_fix_ = MINDSSC(
-                fixed.unsqueeze(0).unsqueeze(0).cuda(), 1, 2
-            ).half()
-            mind_mov_ = MINDSSC(
-                moving.unsqueeze(0).unsqueeze(0).cuda(), 1, 2
-            ).half()
+            # mind_fix_ = MINDSSC(
+            #     fixed.unsqueeze(0).unsqueeze(0).cuda(), 1, 2
+            # ).half()
+            # mind_mov_ = MINDSSC(
+            #     moving.unsqueeze(0).unsqueeze(0).cuda(), 1, 2
+            # ).half()
+            #
 
-
-            sims, disps = correlate_sparse_unrolled(mind_fix_, mind_mov_, K=5)
+            sims, disps = correlate_sparse(mind_fix_, mind_mov_, K=5)
             disp_opt = coupled_convex_sparse(sims, disps, data_shape, K=5)
 
 

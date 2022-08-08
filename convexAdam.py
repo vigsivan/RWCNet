@@ -153,9 +153,7 @@ def main(
 
             mind_fix_ = F.avg_pool3d(mindssc_fix_, grid_sp, stride=grid_sp)
             mind_mov_ = F.avg_pool3d(mindssc_mov_, grid_sp, stride=grid_sp)
-            ssd, ssd_argmin = correlate(
-                mind_fix_, mind_mov_, disp_hw, grid_sp, data_shape
-            )
+            ssd, ssd_argmin = correlate( mind_fix_, mind_mov_, disp_hw)
             disp_mesh_t = (
                 F.affine_grid(
                     disp_hw * torch.eye(3, 4).cuda().half().unsqueeze(0),
