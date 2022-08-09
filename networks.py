@@ -160,7 +160,6 @@ class SomeNet(nn.Module):
         inp, hidden = torch.split(context, [16, 64], dim=1)
         hidden = torch.tanh(hidden)
         inp = torch.relu(inp)
-        moving_0 = moving_
 
         flow_predictions = []
         for _ in range(self.iters):
@@ -168,8 +167,8 @@ class SomeNet(nn.Module):
                 flow = flow_predictions[-1]
                 cost_volume = self.compute_correlation(moving_, fixed_)
                 hidden, delta_flow = self.update(cost_volume, flow, hidden, inp)
-                flow = flow + delta_flow
-                moving_ = warp_image(flow, moving_0)
+                flow = concat_flow(flow , delta_flow)
+                moving_ = warp_image(flow, moving_)
                 flow_predictions.append(flow)
                 del cost_volume
             else:
@@ -182,7 +181,7 @@ class SomeNet(nn.Module):
 
 
         flow = flow_predictions[-1]
-        flow_final = F.interpolate(flow, fixed_image.shape[-3:])
+        flow_final = self.flow_upsample(F.interpolate(flow, fixed_image.shape[-3:]))
         return flow_final
 
 
