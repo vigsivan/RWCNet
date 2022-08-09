@@ -1,12 +1,10 @@
-from typing import List, Tuple, Union, Optional
+from typing import List, Tuple, Union
 import numpy as np
 import torch
 from torch import nn
 import torch.nn.functional as F
 from torch.distributions.normal import Normal
-from common import correlate, correlate_sparse, compute_interpolation_weights, identity_grid_torch, MINDSSC, warp_image, concat_flow
-
-from image_similarity_matrices import mind_mse
+from common import correlate, MINDSSC, warp_image, concat_flow
 
 
 def default_unet_features() -> List[List[int]]:
@@ -220,82 +218,6 @@ class FeatureExtractor(nn.Module):
             padding = _compute_pad(og_shape, x.shape[2:], stride)
             x = F.pad(x, padding)
         return x
-
-
-class FlowNetCorr(nn.Module):
-    """
-    Implements FlowNetCorr
-    """
-
-    def __init__(
-        self,
-        correlation_patch_size: int = 3,
-        infeats: int = 1,
-        feature_extractor_feature_sizes: List[int] = [8, 32, 64],
-        feature_extractor_kernel_sizes: List[int] = [7, 5, 5],
-        feature_extractor_strides: List[int] = [2, 1, 1],
-        redir_feats: int = 32,
-    ):
-        super().__init__()
-        self.correlation_patch_size = correlation_patch_size
-        self.feature_extractor = FeatureExtractor(  # (*fex_args, **fex_kwargs)
-            infeats=infeats,
-            feature_sizes=feature_extractor_feature_sizes,
-            kernel_sizes=feature_extractor_kernel_sizes,
-            strides=feature_extractor_strides,
-        )
-        self.conv_redir = _conv_bn_lrelu(
-            infeats=feature_extractor_feature_sizes[-1],
-            outfeats=redir_feats,
-            kernel_size=1,
-            stride=1,
-        )
-        # NOTE: this is not strictly like flownet because we just pop in a unet
-        corr_out_feat = (1 + (correlation_patch_size * 2)) ** 3 + redir_feats
-        self.unet = Unet3D(infeats=corr_out_feat)
-        self.flow = nn.Conv3d(
-            default_unet_features()[-1][-1], 3, kernel_size=3, padding=1
-        )
-
-        self.flow.weight = nn.Parameter(Normal(0, 1e-5).sample(self.flow.weight.shape))
-        self.flow.bias = nn.Parameter(torch.zeros(self.flow.bias.shape))
-        resize_factor = 1 / np.prod(feature_extractor_strides).item()
-        self.flow_resize = ResizeTransform(resize_factor, ndims=3)
-        self.refine = FlownetRefinementModule()
-
-    def forward(
-        self, moving_image: torch.Tensor, fixed_image: torch.Tensor, resize: bool = True
-    ):
-        feat_mov = self.feature_extractor(moving_image)
-        feat_fix = self.feature_extractor(fixed_image)
-        corr = correlate_grad(
-            feat_fix,
-            feat_mov,
-            self.correlation_patch_size,
-            grid_sp=1,
-            image_shape=feat_mov.shape[2:],
-        ).unsqueeze(0)
-        redir = self.conv_redir(feat_mov)
-        unet_in = torch.cat([corr, redir], dim=1)
-        unet_out = self.unet(unet_in)
-        flow = self.flow(unet_out)
-        if resize:
-            flow = self.flow_resize(flow)
-            flow = self.refine(flow)
-
-        return flow
-
-
-class FlownetRefinementModule(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.conv = nn.Conv3d(
-            in_channels=3, out_channels=3, kernel_size=3, padding="same"
-        )
-
-    def forward(self, x: torch.Tensor):
-        return self.conv(x)
-
 
 class VecInt(nn.Module):
     """
@@ -768,26 +690,3 @@ class ConvGru(nn.Module):
 
         h = (1 - z) * h + z * q
         return h
-
-
-class Cascade(nn.Module):
-    def __init__(self, correlation_features: int, N: int = 2):
-        super().__init__()
-        self.cascades = nn.ModuleList(
-            [Unet3D(2 + correlation_features, 3) for _ in range(N)]
-        )
-
-    def forward(
-        self, moving: torch.Tensor, fixed: torch.Tensor, correlation: torch.Tensor,
-    ) -> torch.Tensor:
-        flow: Optional[torch.Tensor] = None
-        for network in self.cascades:
-            net_in = torch.concat((fixed, moving, correlation), dim=1)
-            net_out = network(net_in)
-            if flow is None:
-                flow = net_out
-            else:
-                flow = flow + net_out
-
-        assert flow is not None
-        return flow

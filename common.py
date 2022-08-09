@@ -8,7 +8,6 @@ from typing import Dict, Generator, List, Optional, Tuple
 from torch.optim.swa_utils import AveragedModel, SWALR
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
-import einops
 import numpy as np
 from scipy.ndimage import map_coordinates
 import torch
@@ -16,9 +15,6 @@ from torch import nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 from torch.utils.tensorboard.writer import SummaryWriter
-
-
-from knn import knn_faiss_raw
 
 
 class DisplacementFormat(str, Enum):
@@ -178,54 +174,6 @@ def unravel_indices(
     coord = torch.stack(coord[::-1], dim=-1)
 
     return coord  # type: ignore
-
-
-def correlate_sparse(
-    feat_fix: torch.Tensor, feat_mov: torch.Tensor, K: int = 10, radius: int=16
-) -> Tuple[torch.Tensor, torch.Tensor]:
-
-    assert feat_fix.shape == feat_mov.shape, "Fixed and moving feature shapes must be the same!"
-
-    kc, kh, kw = [radius]*3
-    dc, dh, dw = [radius]*3
-
-    patches_fix = feat_fix.unfold(2, kc, dc).unfold(3, kh, dh).unfold(4, kw, dw)
-    patches_mov = feat_mov.unfold(2, kc, dc).unfold(3, kh, dh).unfold(4, kw, dw)
-    nchan = feat_fix.shape[1]
-
-    pfix = patches_fix.contiguous().view(1, nchan,-1, kc * kh * kw)
-    pmov = patches_mov.contiguous().view(1, nchan,-1, kc * kh * kw)
-    npatches = pfix.shape[-2]
-
-    patch_shape = (kc, kh, kw)
-
-    grid = identity_grid_torch(patch_shape, feat_fix.device, stack_dim=-1)
-    grid = grid.unsqueeze(1).float()
-
-    dist_patched = torch.zeros((1, K, npatches, kc, kh, kw))
-    disp_patched = torch.zeros((1, K, npatches, kc, kh, kw, 3))
-    for i in range(npatches):
-        dist, ind = knn_faiss_raw(pfix[...,i,:].float(), pmov[...,i,:].float(), K)
-
-        dist = einops.rearrange(dist, 'b K (h w d) -> b K h w d', h=kh, w=kw)
-        ind3d = unravel_indices(ind, patch_shape)
-        ind3d = einops.rearrange(ind3d, 'b K (h w d) D -> b K h w d D', h=kh, w=kw)
-        displacement = ind3d-grid
-        dist_patched[:,:,i,...] = dist
-        disp_patched[:,:,i,...] = displacement
-
-    dist_patched_re = dist_patched.view(1, K, *patches_fix.shape[2:])
-    disp_patched_re = disp_patched.view(1, K, *patches_fix.shape[2:], 3)
-
-    dist_patched_re = dist_patched_re.permute(0, 1, 2, 5, 3, 6, 4, 7).contiguous()
-    disp_patched_re = disp_patched_re.permute(0, 1, 2, 5, 3, 6, 4, 7, 8).contiguous()
-
-    feature_distances = dist_patched_re.view(1, K, *feat_fix.shape[-3:])
-    displacements = disp_patched_re.view(1, K, *feat_fix.shape[-3:], 3)
-
-    device = feat_fix.device
-    # displacements = einops.rearrange(displacements, 'b K h d w N -> (b K) N h d w')
-    return feature_distances.squeeze().to(device), displacements.long().to(device)
 
 
 def compute_interpolation_weights(zyx_warped):
@@ -1167,49 +1115,3 @@ def warp_image(
     resampled = F.grid_sample(image, new_locs, align_corners=True, mode=mode)
     return resampled
 
-
-if __name__ == "__main__":
-    import typer
-    import nibabel as nib
-    from metrics import compute_total_registration_error
-
-    app = typer.Typer()
-    add_bc_dim = lambda x: einops.repeat(x, "d h w -> b c d h w", b=1, c=1).float()
-    get_spacing = lambda x: np.sqrt(np.sum(x.affine[:3, :3] * x.affine[:3, :3], axis=0))
-
-    @app.command()
-    def visualize_correlate_sparse(data_json):
-        data = next(data_generator(data_json, split="train"))
-        fixed_nib = nib.load(data.fixed_image)
-        moving_nib = nib.load(data.moving_image)
-
-        fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata())).cuda().squeeze()
-        moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata())).cuda().squeeze()
-
-        fixed = (fixed - fixed.min())/(fixed.max() - fixed.min())
-        moving = (moving - moving.min())/(moving.max() - moving.min())
-
-        mind_fix = MINDSSC(
-            fixed.unsqueeze(0).unsqueeze(0).cuda(), 1, 2
-        ).half()
-        mind_mov = MINDSSC(
-            moving.unsqueeze(0).unsqueeze(0).cuda(), 1, 2
-        ).half()
-
-        mind_fix.requires_grad = True
-        mind_mov.requires_grad = True
-
-        costs, displacements = correlate_sparse_unrolled(mind_fix, mind_mov, K=10, num_splits=16)
-
-        fixed_keypoints = np.loadtxt(data.fixed_keypoints, delimiter=",")
-        moving_keypoints = np.loadtxt(data.moving_keypoints, delimiter=",")
-
-        fixed_spacing = get_spacing(fixed_nib)
-        moving_spacing = get_spacing(moving_nib)
-
-        d0 = displacements[0].detach().cpu().numpy()
-        d0 = einops.rearrange(d0, 'n h w d -> h w d n')
-        print(compute_total_registration_error(fixed_keypoints, moving_keypoints, d0, fixed_spacing, moving_spacing))
-
-
-    app()
