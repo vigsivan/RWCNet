@@ -36,6 +36,7 @@ from common import (
     torch2skimage_disp,
     tb_log,
     warp_image,
+    concat_flow
 )
 from differentiable_metrics import (
     MSE,
@@ -202,8 +203,11 @@ def run_somenet(
             fixed = (fixed - fixed.min()) / (fixed.max() - fixed.min())
             moving = (moving - moving.min()) / (moving.max() - moving.min())
 
-        flow = model(fixed, moving)
-        moved = warp_image(flow, moving)
+        flow4 = model(fixed, moving, downsample=4)
+        moved = warp_image(flow4, moving)
+        flow2 = model(fixed, moved, downsample=2)
+        moved = warp_image(flow2, moved)
+        flow = concat_flow(flow4, flow2)
 
         losses_dict: Dict[str, torch.Tensor] = {}
         losses_dict["image_loss"] = image_loss_weight * MINDLoss()( # FIXME: make this a parameter

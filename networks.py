@@ -107,10 +107,8 @@ class UpdateBlock(nn.Module):
         return next_hidden, delta_flow
 
 class SomeNet(nn.Module):
-    def __init__(self, iters: int=12, downsample: int = 4, search_range: int=3):
+    def __init__(self, search_range: int=3):
         super().__init__()
-        self.iters = iters
-        self.downsample = downsample
         self.search_range = search_range
         # self.context= Unet3D(infeats=1, outfeats=80)
         self.context= FeatureExtractor(
@@ -150,9 +148,11 @@ class SomeNet(nn.Module):
         self,
         fixed_image: torch.Tensor,
         moving_image: torch.Tensor,
+        iters: int=4,
+        downsample: int=2,
     ):
-        moving_ = F.interpolate(moving_image, [i // self.downsample for i in moving_image.shape[-3:]])
-        fixed_ = F.interpolate(fixed_image, [i // self.downsample for i in moving_image.shape[-3:]])
+        moving_ = F.interpolate(moving_image, [i // downsample for i in moving_image.shape[-3:]])
+        fixed_ = F.interpolate(fixed_image, [i // downsample for i in moving_image.shape[-3:]])
         
         context = self.context(moving_)
         inp, hidden = torch.split(context, [16, 64], dim=1)
@@ -160,7 +160,7 @@ class SomeNet(nn.Module):
         inp = torch.relu(inp)
 
         flow_predictions = []
-        for _ in range(self.iters):
+        for _ in range(iters):
             if len(flow_predictions) > 0:
                 flow = flow_predictions[-1]
                 cost_volume = self.compute_correlation(moving_, fixed_)
