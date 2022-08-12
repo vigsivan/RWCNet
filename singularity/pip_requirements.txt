@@ -1,54 +1,21 @@
-absl-py @ file:///opt/conda/conda-bld/absl-py_1639803114343/work
 blinker==1.4
 brotlipy==0.7.0
-cachetools @ file:///tmp/build/80754af9/cachetools_1619597386817/work
 certifi==2022.5.18.1
-cffi @ file:///opt/conda/conda-bld/cffi_1642701102775/work
-charset-normalizer @ file:///tmp/build/80754af9/charset-normalizer_1630003229654/work
 click==8.0.4
-colorama @ file:///home/conda/feedstock_root/build_artifacts/colorama_1602866480661/work
-cryptography @ file:///tmp/build/80754af9/cryptography_1633520369886/work
 Deprecated==1.2.13
-einops @ file:///home/conda/feedstock_root/build_artifacts/einops_1642544991369/work
-google-auth @ file:///tmp/build/80754af9/google-auth_1600960338579/work
 google-auth-oauthlib==0.4.1
-grpcio @ file:///tmp/build/80754af9/grpcio_1637590821884/work
 humanize==4.1.0
-idna @ file:///tmp/build/80754af9/idna_1637925883363/work
-importlib-metadata @ file:///tmp/build/80754af9/importlib-metadata_1648544546694/work
-Markdown @ file:///tmp/build/80754af9/markdown_1614363852612/work
 monai==0.9.0
 nibabel==3.2.2
-numpy @ file:///home/conda/feedstock_root/build_artifacts/numpy_1612116912722/work
-oauthlib @ file:///opt/conda/conda-bld/oauthlib_1644332107998/work
 packaging==21.3
-Pillow @ file:///home/conda/feedstock_root/build_artifacts/pillow_1653922716870/work
 protobuf==3.20.1
-pyasn1 @ file:///Users/ktietz/demo/mc3/conda-bld/pyasn1_1629708007385/work
 pyasn1-modules==0.2.8
-pycparser @ file:///tmp/build/80754af9/pycparser_1636541352034/work
-PyJWT @ file:///tmp/build/80754af9/pyjwt_1619682484438/work
-pyOpenSSL @ file:///tmp/build/80754af9/pyopenssl_1635333100036/work
 pyparsing==3.0.9
-PySocks @ file:///tmp/build/80754af9/pysocks_1605305812635/work
-requests @ file:///opt/conda/conda-bld/requests_1641824580448/work
 requests-oauthlib==1.3.0
-rsa @ file:///tmp/build/80754af9/rsa_1614366226499/work
-scipy @ file:///home/conda/feedstock_root/build_artifacts/scipy_1644357253444/work
-shellingham @ file:///home/conda/feedstock_root/build_artifacts/shellingham_1612179560728/work
 SimpleITK==2.1.1.2
-six @ file:///tmp/build/80754af9/six_1644875935023/work
-tensorboard @ file:///tmp/build/80754af9/tensorboard_1633093581375/work/tensorboard-2.6.0-py3-none-any.whl
-tensorboard-data-server @ file:///tmp/build/80754af9/tensorboard-data-server_1633034767313/work/tensorboard_data_server-0.6.0-py3-none-manylinux2010_x86_64.whl
 tensorboard-plugin-wit==1.6.0
 torch==1.10.1
 torchaudio==0.10.1
 torchio==0.18.71
 torchvision==0.11.2
-tqdm @ file:///home/conda/feedstock_root/build_artifacts/tqdm_1649051611147/work
-typer @ file:///home/conda/feedstock_root/build_artifacts/typer_1630326630489/work
-typing_extensions @ file:///home/conda/feedstock_root/build_artifacts/typing_extensions_1650370875435/work
-urllib3 @ file:///opt/conda/conda-bld/urllib3_1650639997961/work
-Werkzeug @ file:///opt/conda/conda-bld/werkzeug_1645628268370/work
 wrapt==1.14.1
-zipp @ file:///opt/conda/conda-bld/zipp_1652341764480/work
