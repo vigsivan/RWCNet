@@ -1,0 +1,18 @@
+Bootstrap: docker
+From: pytorch/pytorch:1.10.0-cuda11.3-cudnn8-devel
+
+%post
+    rm /etc/apt/sources.list.d/cuda.list
+    rm /etc/apt/sources.list.d/nvidia-ml.list
+    apt-get -y update
+    apt-get -y install git
+    git clone https://github.com/MDL-UzL/L2R.git
+    cd L2R/evaluation/surface-distance/
+    #python setup.py install
+
+#%environment
+#   export LC_ALL=C
+#    export PATH=/usr/games:$PATH
+#
+#%runscript
+#   fortune | cowsay | lolcat
