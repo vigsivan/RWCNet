@@ -34,6 +34,14 @@ python convexAdam.py ~/optimization-based-registration/oasis.json oasis_ca --spl
 
 ```
 
-### Flownet
+### RNN
 
-WIP
+```
+# for a full list of options
+python run_rnn.py --help
+
+# functionality for training and evaluating without labels
+python run_rnn.py train ~/optimization-based-registration/oasis.json oasis_checkpoints
+python run_rnn.py eval oasis_checkpoints/flownet_step40000.pth ~/optimization-based-registration/oasis.json oasis_checkpoints
+
+```
