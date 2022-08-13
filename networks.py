@@ -104,11 +104,11 @@ class BasicMotionEncoder(nn.Module):
 
 class UpdateBlock(nn.Module):
     def __init__(
-        self, correlation_features, hidden_dim: int=64, input_dim=32
+        self, correlation_features, hidden_dim: int=32, input_dim=32
     ):
         super().__init__()
         self.encoder = BasicMotionEncoder(correlation_features=correlation_features)
-        self.gru = CoordConvGRU(hidden_dim=hidden_dim, input_dim=input_dim)
+        self.gru = ConvGRU(hidden_dim=hidden_dim, input_dim=input_dim)
         self.flowhead = nn.Sequential(
             nn.Conv3d(hidden_dim, hidden_dim*2, 3, padding='same'),
             nn.LeakyReLU(),
@@ -124,13 +124,13 @@ class UpdateBlock(nn.Module):
         return next_hidden, delta_flow
 
 class SomeNet(nn.Module):
-    def __init__(self, search_range: int=3):
+    def __init__(self, search_range: int=3, hidden_dim: int=32, input_size: int=16):
         super().__init__()
         self.search_range = search_range
         # self.context= Unet3D(infeats=1, outfeats=80)
         self.context= FeatureExtractor(
                 infeats=4, 
-                feature_sizes=[8,16,32,80],
+                feature_sizes=[8,16,32,(hidden_dim+input_size)],
                 strides=[1,1,1,1],
                 kernel_sizes=[3,3,3,3])
 
@@ -140,7 +140,7 @@ class SomeNet(nn.Module):
                 strides=[1,1,1,1],
                 kernel_sizes=[3,3,3,3])
 
-        self.update = UpdateBlock(4)
+        self.update = UpdateBlock(4, hidden_dim=hidden_dim)
         self.mesh = (
             F.affine_grid(
                 self.search_range * torch.eye(3, 4).cuda().half().unsqueeze(0),
@@ -176,7 +176,7 @@ class SomeNet(nn.Module):
     ):
        
         context = self.context(torch.cat([identity_grid_torch(moving.shape[-3:]),  moving], dim=1))
-        inp, hidden = torch.split(context, [16, 64], dim=1)
+        inp, hidden = torch.split(context, [16, 32], dim=1)
         hidden = torch.tanh(hidden)
         if hidden_init is not None:
             hidden = hidden + hidden_init
@@ -208,8 +208,9 @@ class SomeNet(nn.Module):
 class SomeNetMultiRes(nn.Module):
     def __init__(self, 
             resolutions: List[int]=[4,2],
-            search_ranges: List[int]=[3,3],
-            iterations: List[int]=[12,4]):
+            search_ranges: List[int]=[1,1],
+            iterations: List[int]=[6,4],
+            hidden_dim: int=32):
         super().__init__()
         if len(resolutions) != len(search_ranges):
             raise ValueError
