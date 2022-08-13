@@ -134,7 +134,13 @@ class SomeNet(nn.Module):
                 strides=[1,1,1,1],
                 kernel_sizes=[3,3,3,3])
 
-        self.update = UpdateBlock(((self.search_range * 2) + 1)**3)
+        self.net2 = FeatureExtractor(
+                infeats=2, 
+                feature_sizes=[4,16,16,4],
+                strides=[1,1,1,1],
+                kernel_sizes=[3,3,3,3])
+
+        self.update = UpdateBlock(4)
         self.mesh = (
             F.affine_grid(
                 self.search_range * torch.eye(3, 4).cuda().half().unsqueeze(0),
@@ -163,16 +169,13 @@ class SomeNet(nn.Module):
 
     def forward(
         self,
-        fixed_image: torch.Tensor,
-        moving_image: torch.Tensor,
+        fixed: torch.Tensor,
+        moving: torch.Tensor,
         hidden_init: Optional[torch.Tensor]=None,
         iters: int=4,
-        downsample: int=2,
     ):
-        moving_ = F.interpolate(moving_image, [i // downsample for i in moving_image.shape[-3:]])
-        fixed_ = F.interpolate(fixed_image, [i // downsample for i in moving_image.shape[-3:]])
-        
-        context = self.context(torch.cat([identity_grid_torch(moving_.shape[-3:]),  moving_], dim=1))
+       
+        context = self.context(torch.cat([identity_grid_torch(moving.shape[-3:]),  moving], dim=1))
         inp, hidden = torch.split(context, [16, 64], dim=1)
         hidden = torch.tanh(hidden)
         if hidden_init is not None:
@@ -180,54 +183,58 @@ class SomeNet(nn.Module):
         inp = torch.relu(inp)
 
         flow_predictions = []
+        correlation = self.compute_correlation(moving, fixed,)
+        argmin = torch.argmin(correlation, 1)
+        flow_hard = self.mesh.view(3, -1)[:, argmin.view(-1)].reshape(1, 3, *moving.shape[-3:])
+        flow_soft = F.avg_pool3d(flow_hard, 3, padding=1, stride=1).float()
+        flow_predictions.append(flow_soft)
+        del correlation
+
+
         for _ in range(iters):
-            if len(flow_predictions) > 0:
-                flow = flow_predictions[-1]
-                cost_volume = self.compute_correlation(moving_, fixed_)
-                hidden, delta_flow = self.update(cost_volume, flow, hidden, inp)
-                flow = concat_flow(flow , delta_flow)
-                moving_ = warp_image(flow, moving_)
-                flow_predictions.append(flow)
-                del cost_volume
-            else:
-                correlation = self.compute_correlation(moving_, fixed_,)
-                argmin = torch.argmin(correlation, 1)
-                flow_hard = self.mesh.view(3, -1)[:, argmin.view(-1)].reshape(1, 3, *moving_.shape[-3:])
-                flow_soft = F.avg_pool3d(flow_hard, 3, padding=1, stride=1).float()
-                flow_predictions.append(flow_soft)
-                del correlation
+            flow = flow_predictions[-1]
+            cost_volume = self.net2(torch.cat((moving, fixed), dim=1))
+            hidden, delta_flow = self.update(cost_volume, flow, hidden, inp)
+            flow = concat_flow(flow , delta_flow)
+            moving = warp_image(flow, moving)
+            flow_predictions.append(flow)
+            del cost_volume
 
 
         flow = flow_predictions[-1]
-        flow_final = self.flow_upsample(F.interpolate(flow, fixed_image.shape[-3:]))
-        return flow_final, hidden
+        return flow, hidden
 
 
 class SomeNetMultiRes(nn.Module):
     def __init__(self, 
-            resolutions: List[int]=[4,2,1],
-            search_ranges: List[int]=[3,2,1],
-            iterations: List[int]=[4,4,4]):
+            resolutions: List[int]=[4,2],
+            search_ranges: List[int]=[3,3],
+            iterations: List[int]=[12,4]):
         super().__init__()
         if len(resolutions) != len(search_ranges):
             raise ValueError
-        self.nets = nn.ModuleList(
-            [SomeNet(sr) for sr in search_ranges]
-        )
+        self.nets = nn.ModuleList([SomeNet(sr) for sr in search_ranges])
         self.resolutions = resolutions
         self.iterations = iterations
 
     def forward(self, fixed: torch.Tensor, moving: torch.Tensor):
         hprev = None
+        flow_prev = None
         flow_ret = torch.zeros((1, 3, *fixed.shape[-3:]), device=fixed.device)
         gen = enumerate(zip(self.resolutions, self.nets, self.iterations))
         for i, (resolution, net, iters) in gen:
-            flow, h = net(fixed, moving, hidden_init=hprev, downsample=resolution, iters=iters) 
-            moving = warp_image(flow, moving)
+            fixed_ = F.interpolate(fixed, [i // resolution for i in moving.shape[-3:]])
+            moving_ = F.interpolate(moving, [i // resolution for i in moving.shape[-3:]])
+            if flow_prev is not None:
+                flow_ = F.interpolate(flow_prev, moving_.shape[-3:])
+                moving_ = warp_image(flow_, moving_)
+            flow, h = net(fixed_, moving_, hidden_init=hprev, iters=iters) 
             if i + 1 < len(self.resolutions):
                 res = self.resolutions[i+1]
                 hprev = F.interpolate(h, tuple(i//res for i in fixed.shape[-3:]))
-            flow_ret = concat_flow(flow_ret, flow)
+            flow_prev = flow
+            flow_ret = concat_flow(flow_ret, F.interpolate(flow, flow_ret.shape[-3:]))
+            
         return flow_ret
 
 
