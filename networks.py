@@ -1,10 +1,10 @@
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Optional
 import numpy as np
 import torch
 from torch import nn
 import torch.nn.functional as F
 from torch.distributions.normal import Normal
-from common import correlate, MINDSSC, warp_image, concat_flow
+from common import correlate, MINDSSC, concat_flow, identity_grid_torch, warp_image
 
 
 def default_unet_features() -> List[List[int]]:
@@ -43,6 +43,23 @@ def _compute_pad(
 
     # NOTE: pytorch accepts padding in reverse order
     return tuple(padding[::-1])
+
+class CoordConvGRU(nn.Module):
+    def __init__(self, hidden_dim: int, input_dim: int):
+        super().__init__()
+        self.convz = nn.Conv3d(hidden_dim + input_dim + 3, hidden_dim, 3, padding="same")
+        self.convr = nn.Conv3d(hidden_dim + input_dim + 3, hidden_dim, 3, padding="same")
+        self.convq = nn.Conv3d(hidden_dim + input_dim + 3, hidden_dim, 3, padding="same")
+
+    def forward(self, h, x):
+        grd = identity_grid_torch(x.shape[-3:])
+        hx = torch.cat([grd, h, x], dim=1)
+        z = torch.sigmoid(self.convz(hx))
+        r = torch.sigmoid(self.convz(hx))
+        q = torch.tanh(self.convq(torch.cat([grd, r * h, x], dim=1)))
+
+        h = (1 - z) * h + z * q
+        return h
 
 
 class ConvGRU(nn.Module):
@@ -91,7 +108,7 @@ class UpdateBlock(nn.Module):
     ):
         super().__init__()
         self.encoder = BasicMotionEncoder(correlation_features=correlation_features)
-        self.gru = ConvGRU(hidden_dim=hidden_dim, input_dim=input_dim)
+        self.gru = CoordConvGRU(hidden_dim=hidden_dim, input_dim=input_dim)
         self.flowhead = nn.Sequential(
             nn.Conv3d(hidden_dim, hidden_dim*2, 3, padding='same'),
             nn.LeakyReLU(),
@@ -112,7 +129,7 @@ class SomeNet(nn.Module):
         self.search_range = search_range
         # self.context= Unet3D(infeats=1, outfeats=80)
         self.context= FeatureExtractor(
-                infeats=1, 
+                infeats=4, 
                 feature_sizes=[8,16,32,80],
                 strides=[1,1,1,1],
                 kernel_sizes=[3,3,3,3])
@@ -148,15 +165,18 @@ class SomeNet(nn.Module):
         self,
         fixed_image: torch.Tensor,
         moving_image: torch.Tensor,
+        hidden_init: Optional[torch.Tensor]=None,
         iters: int=4,
         downsample: int=2,
     ):
         moving_ = F.interpolate(moving_image, [i // downsample for i in moving_image.shape[-3:]])
         fixed_ = F.interpolate(fixed_image, [i // downsample for i in moving_image.shape[-3:]])
         
-        context = self.context(moving_)
+        context = self.context(torch.cat([identity_grid_torch(moving_.shape[-3:]),  moving_], dim=1))
         inp, hidden = torch.split(context, [16, 64], dim=1)
         hidden = torch.tanh(hidden)
+        if hidden_init is not None:
+            hidden = hidden + hidden_init
         inp = torch.relu(inp)
 
         flow_predictions = []
@@ -180,7 +200,36 @@ class SomeNet(nn.Module):
 
         flow = flow_predictions[-1]
         flow_final = self.flow_upsample(F.interpolate(flow, fixed_image.shape[-3:]))
-        return flow_final
+        return flow_final, hidden
+
+
+class SomeNetMultiRes(nn.Module):
+    def __init__(self, 
+            resolutions: List[int]=[4,2,1],
+            search_ranges: List[int]=[3,2,1],
+            iterations: List[int]=[4,4,4]):
+        super().__init__()
+        if len(resolutions) != len(search_ranges):
+            raise ValueError
+        self.nets = nn.ModuleList(
+            [SomeNet(sr) for sr in search_ranges]
+        )
+        self.resolutions = resolutions
+        self.iterations = iterations
+
+    def forward(self, fixed: torch.Tensor, moving: torch.Tensor):
+        hprev = None
+        flow_ret = torch.zeros((1, 3, *fixed.shape[-3:]), device=fixed.device)
+        gen = enumerate(zip(self.resolutions, self.nets, self.iterations))
+        for i, (resolution, net, iters) in gen:
+            flow, h = net(fixed, moving, hidden_init=hprev, downsample=resolution, iters=iters) 
+            moving = warp_image(flow, moving)
+            if i + 1 < len(self.resolutions):
+                res = self.resolutions[i+1]
+                hprev = F.interpolate(h, tuple(i//res for i in fixed.shape[-3:]))
+            flow_ret = concat_flow(flow_ret, flow)
+        return flow_ret
+
 
 
 class FeatureExtractor(nn.Module):

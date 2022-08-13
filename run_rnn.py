@@ -18,6 +18,7 @@ import nibabel as nib
 from tqdm import tqdm, trange
 import torch
 from torch import nn
+import torch.nn.functional as F
 from torch.utils.tensorboard.writer import SummaryWriter
 import typer
 
@@ -53,7 +54,7 @@ from metrics import (
     compute_log_jacobian_determinant_standard_deviation,
     compute_total_registration_error,
 )
-from networks import SpatialTransformer, VecInt, SomeNet
+from networks import SpatialTransformer, VecInt, SomeNet, SomeNetMultiRes
 
 app = typer.Typer()
 logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
@@ -203,11 +204,8 @@ def run_somenet(
             fixed = (fixed - fixed.min()) / (fixed.max() - fixed.min())
             moving = (moving - moving.min()) / (moving.max() - moving.min())
 
-        flow4 = model(fixed, moving, downsample=4)
-        moved = warp_image(flow4, moving)
-        flow2 = model(fixed, moved, downsample=2)
-        moved = warp_image(flow2, moved)
-        flow = concat_flow(flow4, flow2)
+        flow = model(fixed, moving)
+        moved = warp_image(flow, moving)
 
         losses_dict: Dict[str, torch.Tensor] = {}
         losses_dict["image_loss"] = image_loss_weight * MINDLoss()( # FIXME: make this a parameter
@@ -338,7 +336,7 @@ def train(
     checkpoint_dir.mkdir(exist_ok=True)
     writer = SummaryWriter(log_dir=checkpoint_dir)
 
-    model = SomeNet().to(device)
+    model = SomeNetMultiRes().to(device)
 
     starting_step = 0
     if start is not None:
@@ -455,7 +453,7 @@ def eval(
     """
     savedir.mkdir(exist_ok=True)
 
-    model = SomeNet()
+    model = SomeNetMultiRes()
     model.load_state_dict(torch.load(checkpoint))
     model = model.to(device).eval()
     gen = data_generator(data_json, split="val")
