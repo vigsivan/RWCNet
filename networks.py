@@ -212,7 +212,7 @@ class SomeNetFullRes(nn.Module):
 
         self.context= FeatureExtractor(
                 infeats=4, 
-                feature_sizes=[8,16,32,80],
+                feature_sizes=[8,16,32,48],
                 strides=[1,1,1,1],
                 kernel_sizes=[3,3,3,3])
 
@@ -233,7 +233,7 @@ class SomeNetFullRes(nn.Module):
         moving_ = F.interpolate(moving, [i // self.resolution for i in moving.shape[-3:]])
 
         context = self.context(torch.cat([identity_grid_torch(moving_.shape[-3:]),  moving_], dim=1))
-        inp, hidden = torch.split(context, [16, 64], dim=1)
+        inp, hidden = torch.split(context, [16, 32], dim=1)
         hidden = torch.tanh(hidden)
         if hidden_init is not None:
             hidden = hidden + hidden_init
@@ -264,7 +264,7 @@ class SomeNetMultiRes(nn.Module):
         super().__init__()
         if len(resolutions) != len(search_ranges):
             raise ValueError
-        self.nets = nn.ModuleList([SomeNet(sr) for sr in search_ranges])
+        self.nets = nn.ModuleList([SomeNet(sr, hidden_dim=hidden_dim) for sr in search_ranges])
         self.resolutions = resolutions
         self.iterations = iterations
 
