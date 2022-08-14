@@ -54,7 +54,7 @@ from metrics import (
     compute_log_jacobian_determinant_standard_deviation,
     compute_total_registration_error,
 )
-from networks import SpatialTransformer, VecInt, SomeNet, SomeNetMultiRes
+from networks import SpatialTransformer, VecInt, SomeNetFullRes, SomeNetMultiRes
 
 app = typer.Typer()
 logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
@@ -172,6 +172,106 @@ def run_flownetc(
             losses_dict=losses_dict_log
         )
 
+def run_somenet_fullres(
+    data: Data,
+    model: nn.Module,
+    input_model: nn.Module,
+    skip_normalize: bool,
+    image_loss_weight: float,
+    reg_loss_weight: float,
+    dice_loss_weight: float,
+    kp_loss_weight: float,
+    use_labels: bool,
+    use_keypoints: bool,
+    with_grad: bool = True,
+    vector_integration_steps: int=7,
+    device: str = "cuda",
+    downsample: int=2,
+    ) -> RunModelOut:
+
+    context = nullcontext() if with_grad else torch.no_grad()
+
+    with context:
+
+        fixed_nib = nib.load(data.fixed_image)
+        moving_nib = nib.load(data.moving_image)
+
+        fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata()))
+        moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata()))
+
+        fixed, moving = fixed.to(device), moving.to(device)
+
+        if not skip_normalize:
+            fixed = (fixed - fixed.min()) / (fixed.max() - fixed.min())
+            moving = (moving - moving.min()) / (moving.max() - moving.min())
+
+        flow, hin = input_model(fixed, moving, return_hidden=True)
+        flow = flow.detach()
+        hin = hin.detach()
+        hin = F.interpolate(hin, moving.shape[-3:])
+        moving = warp_image(flow, moving)
+        moving = moving.detach()
+
+        flow = model(fixed, moving, hin)
+        moved = warp_image(flow, moving)
+
+        losses_dict: Dict[str, torch.Tensor] = {}
+        losses_dict["image_loss"] = image_loss_weight * MINDLoss()( # FIXME: make this a parameter
+            moved.squeeze(), fixed.squeeze()
+        )
+        losses_dict["grad"] = reg_loss_weight * Grad()(flow)
+
+        if use_labels:
+
+            fixed_seg = add_bc_dim(
+                torch.from_numpy(
+                    np.round(nib.load(data.fixed_segmentation).get_fdata())
+                )
+            ).to(device)
+            moving_seg = add_bc_dim(
+                torch.from_numpy(
+                    np.round(nib.load(data.moving_segmentation).get_fdata())
+                )
+            ).to(device)
+
+            moved_seg = torch.round(
+                warp_image(flow, moving_seg.float(), mode="nearest")
+            )
+            losses_dict["dice"] = dice_loss_weight * DiceLoss()(
+                fixed_seg.squeeze(), moving_seg.squeeze(), moved_seg.squeeze()
+            )
+
+        if use_keypoints:
+            assert (
+                data.fixed_keypoints is not None and data.moving_keypoints is not None
+            )
+
+            fixed_kps = load_keypoints(data.fixed_keypoints)
+            moving_kps = load_keypoints(data.moving_keypoints)
+            losses_dict["keypoints"] = kp_loss_weight * TotalRegistrationLoss()(
+                fixed_landmarks=fixed_kps,
+                moving_landmarks=moving_kps,
+                displacement_field=flow,
+                fixed_spacing=torch.Tensor(get_spacing(fixed_nib)),
+                moving_spacing=torch.Tensor(get_spacing(moving_nib)),
+            )
+
+
+        loss = sum(losses_dict.values())
+        assert isinstance(loss, torch.Tensor)
+        losses_dict_log = {k: v.item() for k, v in losses_dict.items()}
+
+        return RunModelOut(
+            flow=flow,
+            fixed=fixed,
+            moving=moving,
+            moved=moved,
+            total_loss = loss,
+            losses_dict=losses_dict_log
+        )
+
+
+
 def run_somenet(
     data: Data,
     model: nn.Module,
@@ -261,6 +361,175 @@ def run_somenet(
             total_loss = loss,
             losses_dict=losses_dict_log
         )
+
+
+@app.command()
+def train_fullres(
+    data_json: Path,
+    checkpoint_dir: Path,
+    low_res_model_weights: Path,
+    start: Optional[Path] = None,
+    steps: int = 10000,
+    lr: float = 1e-4,
+    skip_normalize: bool = False,
+    train_paired: bool = True,
+    val_paired: bool = True,
+    device: str = "cuda",
+    image_loss_weight: float = 1,
+    dice_loss_weight: float = 10.0,
+    reg_loss_weight: float = 0.1,
+    kp_loss_weight: float = 1,
+    log_freq: int = 5,
+    save_freq: int = 100,
+    val_freq: int = 50,
+):
+    """
+    Trains a FlowNetC Model.
+
+    Parameters
+    ----------
+    data_json: Path
+    checkpoint_dir: Path
+        This is where checkpoints are saved
+    steps: int
+        Total number of training steps. Default=1000
+    lr: float
+        Adam Optimizer learning rate. Default=3e-4
+    feature_extractor_strides: str
+        Comma-separated string. If not provided, default is 2,1,1
+    feature_extractor_feature_sizes: str
+        Comma-separated string. If not provided, default is 8,32,64
+    feature_extractor_kernel_sizes: str
+        Comma-separated string. If not provided, default is 7,5,5
+    enforce_inverse_consistency: bool
+        Default=False, # TODO
+    train_paired: bool
+        Default=True,
+    val_paired: bool
+        Default=True,
+    device: str = 
+        Default="cuda",
+    image_loss: ImageLoss 
+        Default= ImageLoss.MutualInformation,
+    image_loss_weight: float
+        Image similarity loss weight. Default=1.
+    dice_loss_weight
+        Dice loss weight. Note, this only applies if labels present in the dataset. Default=1.
+    reg_loss_weight
+        Regularization loss weight. Default=.01
+    kp_loss_weight
+        Keypoints loss weight. Note, only applies when keypoints provided. Default=1.
+    log_freq: int
+        Frequency at which to write losses to tensorboard. Default=5
+    save_freq: int
+        Frequency at which to save models. Default=100
+    val_feq: int
+        Frequency at which to evaluate model against validation. Default=0 (never).
+    """
+
+    if train_paired:
+        train_gen = random_never_ending_generator(data_json, split="train", seed=42)
+    else:
+        train_gen = random_unpaired_never_ending_generator(
+            data_json, split="train", seed=42
+        )
+
+    checkpoint_dir.mkdir(exist_ok=True)
+    writer = SummaryWriter(log_dir=checkpoint_dir)
+
+    lr_model = SomeNetMultiRes().to(device)
+    hr_model = SomeNetFullRes().to(device)
+
+    lr_model.load_state_dict(torch.load(low_res_model_weights))
+    lr_model.eval()
+
+    starting_step = 0
+    if start is not None:
+        hr_model.load_state_dict(torch.load(start))
+        if "step" in start.name:
+            starting_step = int(start.name.split("_step")[-1].split(".")[0])
+
+    opt = torch.optim.Adam(hr_model.parameters(), lr=lr)
+
+    data_sample = next(train_gen)
+    use_labels = data_sample.fixed_segmentation is not None
+    use_keypoints = (
+        data_sample.fixed_keypoints is not None and data_sample.moving_image is not None
+    )
+
+    if use_labels:
+        labels = load_labels(data_json)
+        logging.debug(f"Using labels. Found labels {','.join(str(i) for i in labels)}")
+
+    print(f"Starting training from step {starting_step}")
+    for step in trange(starting_step, steps + starting_step):
+        data = next(train_gen)
+
+        model_out = run_somenet_fullres(
+            data,
+            hr_model,
+            lr_model,
+            skip_normalize,
+            image_loss_weight,
+            reg_loss_weight,
+            dice_loss_weight,
+            kp_loss_weight,
+            use_labels,
+            use_keypoints,
+        )
+
+        opt.zero_grad()
+        model_out.total_loss.backward()
+        opt.step()
+
+        if step % log_freq == 0:
+            tb_log(
+                writer,
+                model_out.losses_dict,
+                step=step,
+                moving_fixed_moved=(model_out.moving, model_out.fixed, model_out.moved),
+            )
+
+        if step % save_freq == 0:
+            torch.save(
+                hr_model.state_dict(), checkpoint_dir / f"flownet_step{step}.pth",
+            )
+
+        if val_freq > 0 and step % val_freq == 0:
+            hr_model.eval()
+
+            if val_paired:
+                val_gen = data_generator(data_json, split="val")
+            else:
+                raise NotImplementedError("Unpaired validation not implemented!")
+
+            losses_cum_dict = defaultdict(list)
+            for data in val_gen:
+                model_out = run_somenet_fullres(
+                    data,
+                    hr_model,
+                    lr_model,
+                    skip_normalize,
+                    image_loss_weight,
+                    reg_loss_weight,
+                    dice_loss_weight,
+                    kp_loss_weight,
+                    use_labels,
+                    use_keypoints,
+                    with_grad=False,
+                )
+                for k,v in model_out.losses_dict.items():
+                    losses_cum_dict[k].append(v)
+
+            for k, v in losses_cum_dict.items():
+                writer.add_scalar(f"val_{k}", np.mean(v).item(), global_step=step)
+
+            hr_model = hr_model.train()
+
+    torch.save(
+        hr_model.state_dict(), checkpoint_dir / f"flownet_step{starting_step+steps}.pth"
+    )
+
 
 
 @app.command()

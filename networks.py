@@ -198,18 +198,68 @@ class SomeNet(nn.Module):
             flow = concat_flow(flow , delta_flow)
             moving = warp_image(flow, moving)
             flow_predictions.append(flow)
-            del cost_volume
 
 
         flow = flow_predictions[-1]
         return flow, hidden
 
 
+class SomeNetFullRes(nn.Module):
+    def __init__(self, 
+            resolution: int=1,
+            iterations: int=4):
+        super().__init__()
+
+        self.context= FeatureExtractor(
+                infeats=4, 
+                feature_sizes=[8,16,32,80],
+                strides=[1,1,1,1],
+                kernel_sizes=[3,3,3,3])
+
+        self.net2 = FeatureExtractor(
+                infeats=2, 
+                feature_sizes=[4,16,16,4],
+                strides=[1,1,1,1],
+                kernel_sizes=[3,3,3,3])
+
+        self.update = UpdateBlock(4)
+
+        self.resolution = resolution
+        self.iterations = iterations
+
+    def forward(self, fixed: torch.Tensor, moving: torch.Tensor, hidden_init: Optional[torch.Tensor]):
+
+        fixed_ = F.interpolate(fixed, [i // self.resolution for i in moving.shape[-3:]])
+        moving_ = F.interpolate(moving, [i // self.resolution for i in moving.shape[-3:]])
+
+        context = self.context(torch.cat([identity_grid_torch(moving_.shape[-3:]),  moving_], dim=1))
+        inp, hidden = torch.split(context, [16, 64], dim=1)
+        hidden = torch.tanh(hidden)
+        if hidden_init is not None:
+            hidden = hidden + hidden_init
+        inp = torch.relu(inp)
+
+        flow_predictions = []
+        flow_ret = torch.zeros((1, 3, *fixed_.shape[-3:]), device=fixed_.device)
+        flow_predictions.append(flow_ret)
+
+        for _ in range(self.iterations):
+            flow = flow_predictions[-1]
+            cost_volume = self.net2(torch.cat((moving_, fixed_), dim=1))
+            hidden, delta_flow = self.update(cost_volume, flow, hidden, inp)
+            flow = concat_flow(flow , delta_flow)
+            moving_ = warp_image(flow, moving_)
+            flow_predictions.append(flow)
+
+        flow = flow_predictions[-1]
+        return flow
+
+
 class SomeNetMultiRes(nn.Module):
     def __init__(self, 
             resolutions: List[int]=[4,2],
-            search_ranges: List[int]=[3,3],
-            iterations: List[int]=[12,4]):
+            search_ranges: List[int]=[1,1],
+            iterations: List[int]=[12,8]):
         super().__init__()
         if len(resolutions) != len(search_ranges):
             raise ValueError
@@ -217,7 +267,7 @@ class SomeNetMultiRes(nn.Module):
         self.resolutions = resolutions
         self.iterations = iterations
 
-    def forward(self, fixed: torch.Tensor, moving: torch.Tensor):
+    def forward(self, fixed: torch.Tensor, moving: torch.Tensor, return_hidden: bool=False):
         hprev = None
         flow_prev = None
         flow_ret = torch.zeros((1, 3, *fixed.shape[-3:]), device=fixed.device)
@@ -234,6 +284,8 @@ class SomeNetMultiRes(nn.Module):
                 hprev = F.interpolate(h, tuple(i//res for i in fixed.shape[-3:]))
             flow_prev = flow
             flow_ret = concat_flow(flow_ret, F.interpolate(flow, flow_ret.shape[-3:]))
+        if return_hidden:
+            return flow_ret, hprev
             
         return flow_ret
 
