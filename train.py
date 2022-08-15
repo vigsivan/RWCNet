@@ -12,7 +12,7 @@ import torch.nn.functional as F
 import nibabel as nib
 from torch.utils.data import Dataset, DataLoader
 from typer import Typer
-from tqdm import trange
+from tqdm import trange, tqdm
 from dataclasses import dataclass
 
 from common import warp_image, tb_log
@@ -102,7 +102,7 @@ class PatchDataset(Dataset):
         if self.random_switch and random.randint(0, 10) % 2 == 0:
             f, m = m, f
 
-        fname, mname = data[f"{f}_image"], data[f"{m}_image"]
+        fname, mname = Path(data[f"{f}_image"]), Path(data[f"{m}_image"])
 
         fixed_nib = nib.load(fname)
         moving_nib = nib.load(mname)
@@ -145,8 +145,8 @@ class PatchDataset(Dataset):
             }
 
         ret["patch_index"] = patch_index
-        ret["fixed_image_name"] = fname
-        ret["moving_image_name"] = mname
+        ret["fixed_image_name"] = fname.name
+        ret["moving_image_name"] = mname.name
 
         return ret
 
@@ -170,7 +170,6 @@ def eval_stage1(
     val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False)
 
     savedir.mkdir(exist_ok=True)
-    writer = SummaryWriter(log_dir=savedir)
 
     model = SomeNet().to(device)
     model.load_state_dict(torch.load(checkpoint))
@@ -180,22 +179,24 @@ def eval_stage1(
     with torch.no_grad(), evaluating(model):
         flows, hiddens = defaultdict(list), defaultdict(list)
         for loader in (train_loader, val_loader):
-            for data in loader:
+            for data in tqdm(loader):
                 fixed, moving = data["fixed_image"], data["moving_image"]
                 fixed, moving = fixed.to(device), moving.to(device)
                 flow, hidden = model(fixed, moving)
-                savename = f'{data["moving_image_name"]}2{data["fixed_image_name"]}.pt'
-                flows[savename].append((data.patch_index, flow))
-                hiddens[savename].append((data.patch_index, hidden))
+                savename = f'{data["moving_image_name"][0]}2{data["fixed_image_name"][0]}.pt'
+                flows[savename].append((data["patch_index"], flow))
+                hiddens[savename].append((data["patch_index"], hidden))
 
                 flow, hidden = model(moving, fixed)
-                savename = f'{data["moving_image_name"]}2{data["fixed_image_name"]}.pt'
-                flows[savename].append((data.patch_index, flow))
-                hiddens[savename].append((data.patch_index, hidden))
+                savename = f'{data["fixed_image_name"][0]}2{data["moving_image_name"][0]}.pt'
+                flows[savename].append((data["patch_index"], flow))
+                hiddens[savename].append((data["patch_index"], hidden))
 
-        breakpoint()
-        flows = torch.stack(sorted(flows), dim=-1)
-        hiddens = torch.stack(sorted(hiddens), dim=-1)
+        for k, v in flows.items():
+            fk = torch.stack([i[1] for i in sorted(v)], dim=-1)
+            hk = torch.stack([i[1] for i in sorted(hiddens[k])], dim=-1)
+            torch.save(fk, savedir/("flow-" + k))
+            torch.save(hk, savedir/("hidden-" + k))
 
 
 
