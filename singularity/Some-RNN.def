@@ -1,18 +1,36 @@
 Bootstrap: docker
-From: pytorch/pytorch:1.10.0-cuda11.3-cudnn8-devel
+#From: pytorch/pytorch:1.10.0-cuda11.3-cudnn8-devel
+From: nvidia/cuda:11.3.1-devel-ubuntu18.04
 
 %post
-    rm /etc/apt/sources.list.d/cuda.list
-    rm /etc/apt/sources.list.d/nvidia-ml.list
+    #rm /etc/apt/sources.list.d/cuda.listls 
+    #rm /etc/apt/sources.list.d/nvidia-ml.list
+    #apt-get -y update
+    #apt-get -y install wget
+    #apt-key del 7fa2af80
+    #wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/cuda-keyring_1.0-1_all.deb
+    #dpkg -i cuda-keyring_1.0-1_all.deb
+
     apt-get -y update
     apt-get -y install git
     git clone https://github.com/MDL-UzL/L2R.git
-    cd L2R/evaluation/surface-distance/
-    #python setup.py install
+    git clone https://github.com/vigsivan/optimization-based-registration.git
+    cd optimization-based-registration
+    git checkout singularity
+    cd singularity
+    conda init bash
+    bash
+    conda create --name Some-RNN --file spec-file.txt
+    conda activate Some-RNN
+    pip install -r pip_requirements.txt
+    cd ../../L2R/evaluation/surface-distance/
+    python setup.py install
+    #
 
 #%environment
 #   export LC_ALL=C
 #    export PATH=/usr/games:$PATH
 #
-#%runscript
-#   fortune | cowsay | lolcat
+%runscript
+    cd /optimization-based-registration 
+    python run_rnn.py --help
