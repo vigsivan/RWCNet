@@ -124,7 +124,7 @@ class UpdateBlock(nn.Module):
         return next_hidden, delta_flow
 
 class SomeNet(nn.Module):
-    def __init__(self, search_range: int=3, hidden_dim: int=32, input_size: int=16):
+    def __init__(self, search_range: int=3, hidden_dim: int=64, input_size: int=16, iters:int=12):
         super().__init__()
         self.search_range = search_range
         # self.context= Unet3D(infeats=1, outfeats=80)
@@ -134,13 +134,7 @@ class SomeNet(nn.Module):
                 strides=[1,1,1,1],
                 kernel_sizes=[3,3,3,3])
 
-        self.net2 = FeatureExtractor(
-                infeats=2, 
-                feature_sizes=[4,16,16,4],
-                strides=[1,1,1,1],
-                kernel_sizes=[3,3,3,3])
-
-        self.update = UpdateBlock(4, hidden_dim=hidden_dim)
+        self.update = UpdateBlock((2*search_range+1)**3, hidden_dim=hidden_dim)
         self.mesh = (
             F.affine_grid(
                 self.search_range * torch.eye(3, 4).cuda().half().unsqueeze(0),
@@ -156,6 +150,7 @@ class SomeNet(nn.Module):
             nn.Conv3d(3,3,3,1,padding='same'),
         )
         self.count = 0
+        self.iters=iters
 
     def compute_correlation(self, moving_image: torch.Tensor, fixed_image: torch.Tensor):
         feat_fix = MINDSSC(fixed_image)
@@ -172,11 +167,10 @@ class SomeNet(nn.Module):
         fixed: torch.Tensor,
         moving: torch.Tensor,
         hidden_init: Optional[torch.Tensor]=None,
-        iters: int=4,
     ):
        
         context = self.context(torch.cat([identity_grid_torch(moving.shape[-3:]),  moving], dim=1))
-        inp, hidden = torch.split(context, [16, 32], dim=1)
+        inp, hidden = torch.split(context, [16, 64], dim=1)
         hidden = torch.tanh(hidden)
         if hidden_init is not None:
             hidden = hidden + hidden_init
@@ -191,14 +185,13 @@ class SomeNet(nn.Module):
         del correlation
 
 
-        for _ in range(iters):
+        for _ in range(self.iters):
             flow = flow_predictions[-1]
-            cost_volume = self.net2(torch.cat((moving, fixed), dim=1))
+            cost_volume = self.compute_correlation(moving, fixed,)
             hidden, delta_flow = self.update(cost_volume, flow, hidden, inp)
             flow = concat_flow(flow , delta_flow)
             moving = warp_image(flow, moving)
             flow_predictions.append(flow)
-
 
         flow = flow_predictions[-1]
         return flow, hidden
