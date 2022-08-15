@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from pathlib import Path
 import einops
 import numpy as np
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 from torch.utils.tensorboard.writer import SummaryWriter
 import torch
 import torch.nn.functional as F
@@ -133,7 +133,7 @@ class PatchDataset(Dataset):
             fixed_p = fixed_p.reshape(1, fixed.shape[-3], *pshape[-2:])
             moving_p = moving_p.reshape(1, fixed.shape[-3], *pshape[-2:])
 
-            ret = {
+            ret: Dict[str, Union[torch.Tensor, int, str]] = {
                 "fixed_image": fixed_p,
                 "moving_image": moving_p,
             }
@@ -141,15 +141,14 @@ class PatchDataset(Dataset):
             ret = {
                 "fixed_image": fixed,
                 "moving_image": moving,
+
             }
 
-        return PatchData(
-            **ret,
-            fixed_image_name=fname,
-            moving_image_name=mname,
-            patch_index=patch_index,
-        )
+        ret["patch_index"] = patch_index
+        ret["fixed_image_name"] = fname
+        ret["moving_image_name"] = mname
 
+        return ret
 
 @app.command()
 def eval_stage1(
@@ -182,15 +181,15 @@ def eval_stage1(
         flows, hiddens = defaultdict(list), defaultdict(list)
         for loader in (train_loader, val_loader):
             for data in loader:
-                fixed, moving = data.fixed_image, data.moving_image
+                fixed, moving = data["fixed_image"], data["moving_image"]
                 fixed, moving = fixed.to(device), moving.to(device)
                 flow, hidden = model(fixed, moving)
-                savename = f"{data.moving_image_name}2{data.fixed_image_name}.pt"
+                savename = f'{data["moving_image_name"]}2{data["fixed_image_name"]}.pt'
                 flows[savename].append((data.patch_index, flow))
                 hiddens[savename].append((data.patch_index, hidden))
 
                 flow, hidden = model(moving, fixed)
-                savename = f"{data.fixed_image_name}2{data.moving_image_name}.pt"
+                savename = f'{data["moving_image_name"]}2{data["fixed_image_name"]}.pt'
                 flows[savename].append((data.patch_index, flow))
                 hiddens[savename].append((data.patch_index, hidden))
 
@@ -245,7 +244,7 @@ def train_stage1(
     while step_count < steps:
         for step_count, data in zip(trange(step_count, steps), train_loader):
 
-            fixed, moving = data.fixed_image, data.moving_image
+            fixed, moving = data["fixed_image"], data["moving_image"]
             fixed, moving = fixed.to(device), moving.to(device)
             flow, hidden = model(fixed, moving)
 
@@ -277,7 +276,7 @@ def train_stage1(
                 losses_cum_dict = defaultdict(list)
                 with torch.no_grad(), evaluating(model):
                     for data in val_loader:
-                        fixed, moving = data.fixed_image, data.moving_image
+                        fixed, moving = data["fixed_image"], data["moving_image"]
                         fixed, moving = fixed.to(device), moving.to(device)
                         flow, hidden = model(fixed, moving)
                         moved = warp_image(flow, moving)
