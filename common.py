@@ -1096,7 +1096,7 @@ def concat_flow(
 def warp_image(
     displacement_field: torch.Tensor, image: torch.Tensor, mode: str = "bilinear"
 ) -> torch.Tensor:
-    grid = identity_grid_torch(image.shape[-3:]).to(image.device)
+    grid = identity_grid_torch(image.shape[-3:], device=image.device)
     new_locs = grid + displacement_field
 
     shape = displacement_field.shape[2:]
