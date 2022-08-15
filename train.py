@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from pathlib import Path
 import einops
 import numpy as np
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 from torch.utils.tensorboard.writer import SummaryWriter
 import torch
 import torch.nn.functional as F
@@ -21,20 +21,19 @@ from networks import SomeNet
 
 app = Typer()
 
+
 @dataclass
 class PatchData:
     fixed_image: torch.Tensor
     moving_image: torch.Tensor
-    fixed_seg: Optional[torch.Tensor]
-    moving_seg: Optional[torch.Tensor]
-    fixed_kps: Optional[torch.Tensor]
-    moving_kps: Optional[torch.Tensor]
-    fixed_spacing: Optional[torch.Tensor]
-    moving_spacing: Optional[torch.Tensor]
+    fixed_image_name: str
+    moving_image_name: str
+    patch_index: int
 
 
 add_bc_dim = lambda x: einops.repeat(x, "d h w -> b c d h w", b=1, c=1).float()
 get_spacing = lambda x: np.sqrt(np.sum(x.affine[:3, :3] * x.affine[:3, :3], axis=0))
+
 
 @contextmanager
 def evaluating(net):
@@ -84,7 +83,7 @@ class PatchDataset(Dataset):
             n_patches = 16
 
         self.data = data
-        self.indexes = [(i, j) for i,_ in enumerate(data) for j in range(n_patches)]
+        self.indexes = [(i, j) for i, _ in enumerate(data) for j in range(n_patches)]
         self.res_factor = res_factor
         self.patch_factor = patch_factor
         self.n_patches = n_patches
@@ -99,12 +98,14 @@ class PatchDataset(Dataset):
         r = self.res_factor
         p = self.patch_factor
 
-        f, m = "fixed", "moving" 
+        f, m = "fixed", "moving"
         if self.random_switch and random.randint(0, 10) % 2 == 0:
             f, m = m, f
 
-        fixed_nib = nib.load(data[f"{f}_image"])
-        moving_nib = nib.load(data[f"{m}_image"])
+        fname, mname = data[f"{f}_image"], data[f"{m}_image"]
+
+        fixed_nib = nib.load(fname)
+        moving_nib = nib.load(mname)
         ogshape = fixed_nib.shape[-3:]
 
         fixed = torch.from_numpy(fixed_nib.get_fdata()).unsqueeze(0)
@@ -113,12 +114,12 @@ class PatchDataset(Dataset):
         fixed = (fixed - fixed.min()) / (fixed.max() - fixed.min())
         moving = (moving - moving.min()) / (moving.max() - moving.min())
 
-        rshape = tuple(i//r for i in fixed.shape[-3:])
+        rshape = tuple(i // r for i in fixed.shape[-3:])
         fixed = F.interpolate(fixed.unsqueeze(0), rshape).squeeze(0).float()
         moving = F.interpolate(moving.unsqueeze(0), rshape).squeeze(0).float()
 
         if r != self.patch_factor:
-            pshape = tuple(i//p for i in ogshape[-3:])
+            pshape = tuple(i // p for i in ogshape[-3:])
 
             fixed_ps = F.unfold(fixed, pshape[-2:], stride=pshape[-2:])
             moving_ps = F.unfold(moving, pshape[-2:], stride=pshape[-2:])
@@ -126,22 +127,78 @@ class PatchDataset(Dataset):
             L = fixed_ps.shape[-1]
             assert L == self.n_patches, f"Unexpected number of patches: {L}"
 
-            fixed_p = fixed_ps[...,patch_index]
-            moving_p = moving_ps[...,patch_index]
+            fixed_p = fixed_ps[..., patch_index]
+            moving_p = moving_ps[..., patch_index]
 
             fixed_p = fixed_p.reshape(1, fixed.shape[-3], *pshape[-2:])
             moving_p = moving_p.reshape(1, fixed.shape[-3], *pshape[-2:])
 
             ret = {
-                "fixed_image":fixed_p,
-                "moving_image":moving_p,
+                "fixed_image": fixed_p,
+                "moving_image": moving_p,
             }
         else:
             ret = {
-                "fixed_image":fixed,
-                "moving_image":moving,
+                "fixed_image": fixed,
+                "moving_image": moving,
             }
-        return ret
+
+        return PatchData(
+            **ret,
+            fixed_image_name=fname,
+            moving_image_name=mname,
+            patch_index=patch_index,
+        )
+
+
+@app.command()
+def eval_stage1(
+    data_json: Path,
+    savedir: Path,
+    res: int,
+    checkpoint: Path,
+    steps: int = 10000,
+    device: str = "cuda",
+):
+    """
+    Stage1 training
+    """
+
+    train_dataset = PatchDataset(data_json, res, 4, split="train")
+    val_dataset = PatchDataset(data_json, res, 4, split="val")
+
+    train_loader = DataLoader(train_dataset, batch_size=1, shuffle=False)
+    val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False)
+
+    savedir.mkdir(exist_ok=True)
+    writer = SummaryWriter(log_dir=savedir)
+
+    model = SomeNet().to(device)
+    model.load_state_dict(torch.load(checkpoint))
+
+    patches = train_dataset.n_patches
+
+    with torch.no_grad(), evaluating(model):
+        flows, hiddens = defaultdict(list), defaultdict(list)
+        for loader in (train_loader, val_loader):
+            for data in loader:
+                fixed, moving = data.fixed_image, data.moving_image
+                fixed, moving = fixed.to(device), moving.to(device)
+                flow, hidden = model(fixed, moving)
+                savename = f"{data.moving_image_name}2{data.fixed_image_name}.pt"
+                flows[savename].append((data.patch_index, flow))
+                hiddens[savename].append((data.patch_index, hidden))
+
+                flow, hidden = model(moving, fixed)
+                savename = f"{data.fixed_image_name}2{data.moving_image_name}.pt"
+                flows[savename].append((data.patch_index, flow))
+                hiddens[savename].append((data.patch_index, hidden))
+
+        breakpoint()
+        flows = torch.stack(sorted(flows), dim=-1)
+        hiddens = torch.stack(sorted(hiddens), dim=-1)
+
+
 
 @app.command()
 def train_stage1(
@@ -188,7 +245,7 @@ def train_stage1(
     while step_count < steps:
         for step_count, data in zip(trange(step_count, steps), train_loader):
 
-            fixed, moving = data["fixed_image"], data["moving_image"]
+            fixed, moving = data.fixed_image, data.moving_image
             fixed, moving = fixed.to(device), moving.to(device)
             flow, hidden = model(fixed, moving)
 
@@ -220,26 +277,32 @@ def train_stage1(
                 losses_cum_dict = defaultdict(list)
                 with torch.no_grad(), evaluating(model):
                     for data in val_loader:
-                        fixed, moving = data["fixed_image"], data["moving_image"]
+                        fixed, moving = data.fixed_image, data.moving_image
                         fixed, moving = fixed.to(device), moving.to(device)
                         flow, hidden = model(fixed, moving)
                         moved = warp_image(flow, moving)
 
-                        losses_cum_dict["image_loss"].append((
-                            image_loss_weight * 
-                            MINDLoss()(moved.squeeze(), fixed.squeeze())).item())
-                        losses_cum_dict["grad"].append((reg_loss_weight * Grad()(flow)).item())
+                        losses_cum_dict["image_loss"].append(
+                            (
+                                image_loss_weight
+                                * MINDLoss()(moved.squeeze(), fixed.squeeze())
+                            ).item()
+                        )
+                        losses_cum_dict["grad"].append(
+                            (reg_loss_weight * Grad()(flow)).item()
+                        )
 
                 for k, v in losses_cum_dict.items():
-                    writer.add_scalar(f"val_{k}", np.mean(v).item(), global_step=step_count)
+                    writer.add_scalar(
+                        f"val_{k}", np.mean(v).item(), global_step=step_count
+                    )
 
             if step_count % save_freq == 0:
                 torch.save(
                     model.state_dict(), checkpoint_dir / f"rnn{res}x_{step_count}.pth",
                 )
 
-    torch.save(
-        model.state_dict(), checkpoint_dir /f"rnn{res}x_{step_count}.pth" 
-    )
+    torch.save(model.state_dict(), checkpoint_dir / f"rnn{res}x_{step_count}.pth")
+
 
 app()
