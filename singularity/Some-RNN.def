@@ -1,18 +1,31 @@
 Bootstrap: docker
-#From: pytorch/pytorch:1.10.0-cuda11.3-cudnn8-devel
 From: nvidia/cuda:11.3.1-devel-ubuntu18.04
 
+#commands needed within the container are the following
+#bash
+#conda init
+#bash
+#conda activate Some-RNN
+#
+
 %post
-    #rm /etc/apt/sources.list.d/cuda.listls 
-    #rm /etc/apt/sources.list.d/nvidia-ml.list
-    #apt-get -y update
-    #apt-get -y install wget
-    #apt-key del 7fa2af80
-    #wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/cuda-keyring_1.0-1_all.deb
-    #dpkg -i cuda-keyring_1.0-1_all.deb
 
     apt-get -y update
-    apt-get -y install git
+
+    #conda
+    
+    apt-get -y install curl git
+    curl https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc | gpg --dearmor > conda.gpg
+    install -o root -g root -m 644 conda.gpg /usr/share/keyrings/conda-archive-keyring.gpg
+    gpg --keyring /usr/share/keyrings/conda-archive-keyring.gpg --no-default-keyring --fingerprint 34161F5BF5EB1D4BFBBB8F0A8AEB4F8B29D82806
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" > /etc/apt/sources.list.d/conda.list
+    
+    apt-get -y update
+    apt-get -y install conda 
+    bash
+    . /opt/conda/etc/profile.d/conda.sh
+
+
     git clone https://github.com/MDL-UzL/L2R.git
     git clone https://github.com/vigsivan/optimization-based-registration.git
     cd optimization-based-registration
@@ -27,10 +40,14 @@ From: nvidia/cuda:11.3.1-devel-ubuntu18.04
     python setup.py install
     #
 
-#%environment
+%environment
 #   export LC_ALL=C
-#    export PATH=/usr/games:$PATH
+#   export PATH=/usr/games:$PATH
 #
 %runscript
+    bash
+    conda init bash
+    bash
+    conda activate Some-RNN
     cd /optimization-based-registration 
     python run_rnn.py --help
