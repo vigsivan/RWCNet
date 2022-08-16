@@ -15,7 +15,7 @@ from typer import Typer
 from tqdm import trange, tqdm
 
 from common import concat_flow, identity_grid_torch, load_keypoints, tb_log, warp_image
-from differentiable_metrics import MINDLoss, Grad
+from differentiable_metrics import MINDLoss, Grad, TotalRegistrationLoss
 from networks import SomeNet
 
 app = Typer()
@@ -114,7 +114,13 @@ class PatchDatasetStage2(Dataset):
         if inp.shape[-1] == 1:
             return inp[...,0]
         else:
-            return F.fold(inp, res_shape[-2:], patch_shape[-2:], stride=patch_shape[-2:])
+            unsqueeze = inp.shape[0] == 1
+            inp = inp.squeeze(0)
+            inp = einops.rearrange(inp, 'c h d w p -> c (h d w) p')
+            r2 = tuple(r//2 for r in res_shape[-2:])
+            folded = F.fold(inp, r2, patch_shape[-2:], stride=patch_shape[-2:])
+            if unsqueeze: folded = folded.unsqueeze(0)
+            return folded
 
     def load_keypoints_for_patch(self, data, res_shape, patch_shape, patch_index):
         fixed_kps = load_keypoints(data["fixed_keypoints"])
@@ -123,12 +129,27 @@ class PatchDatasetStage2(Dataset):
         grid = identity_grid_torch(res_shape, device="cpu").squeeze()
         grid_patched = F.unfold(grid, patch_shape[-2:], stride=patch_shape[-2:])
         grid_patch = grid_patched[..., patch_index]
-        grid_patch = grid_patch.reshape(3, res_shape.shape[-3], *patch_shape[-2:])
+        grid_patch = grid_patch.reshape(3, res_shape[-3], *patch_shape[-2:])
 
-        masks = []
-        breakpoint()
+        masks = [
+            torch.logical_and(
+                fixed_kps[:,i] > grid_patch[i,...].min(),
+                fixed_kps[:,i] < grid_patch[i,...].max()
+            )
+            for i in range(3)
+        ]
+        mask = torch.logical_and(torch.logical_and(masks[0], masks[1]), masks[2])
+        if not mask.any():
+            return None
+        fixed_kps_p = fixed_kps[mask.squeeze(),:]
+        moving_kps_p = moving_kps[mask.squeeze(),:]
+        min_tensor = torch.stack([grid_patch[i,...].min() for i in range(3)], dim=-1).unsqueeze(0)
 
-        ...
+        fixed_kps_p = fixed_kps_p - min_tensor
+        moving_kps_p = moving_kps_p - min_tensor
+
+        return fixed_kps_p, moving_kps_p
+
 
     def __getitem__(self, index: int):
         data_index, patch_index = self.indexes[index]
@@ -195,8 +216,14 @@ class PatchDatasetStage2(Dataset):
         ret["moving_image_name"] = mname.name
 
 
-        if self.res_factor == 1 and "fixed_keypoints" in data:
-            self.load_keypoints_for_patch(data, rshape, pshape, patch_index)
+        # if self.res_factor == 1 and "fixed_keypoints" in data:
+        #     out = self.load_keypoints_for_patch(data, rshape, pshape, patch_index)
+        #     if out is not None:
+        #         fixed_kps, moving_kps = out
+        #         ret["fixed_keypoints"] = fixed_kps
+        #         ret["moving_keypoints"] = moving_kps
+        #         ret["fixed_spacing"] = torch.Tensor(get_spacing(fixed_nib))
+        #         ret["moving_spacing"] = torch.Tensor(get_spacing(moving_nib))
 
         return ret
 
@@ -313,7 +340,7 @@ def eval_stage2(
     res: int,
     checkpoint: Path,
     device: str = "cuda",
-    iters: int=8,
+    iters: int=1,
 ):
     """
     Stage2 eval
@@ -416,9 +443,12 @@ def train_stage2(
     device: str = "cuda",
     image_loss_weight: float = 1,
     reg_loss_weight: float = 0.1,
+    kp_loss_weight: float=1,
     log_freq: int = 5,
-    save_freq: int = 50,
-    val_freq: int = 50,
+    save_freq: int = 100,
+    val_freq: int = 1600,
+    iters: int=4,
+    search_range: int=2
 ):
     """
     Stage2 training
@@ -433,7 +463,7 @@ def train_stage2(
     checkpoint_dir.mkdir(exist_ok=True)
     writer = SummaryWriter(log_dir=checkpoint_dir)
 
-    model = SomeNet().to(device)
+    model = SomeNet(search_range=search_range, iters=iters).to(device)
     step_count = 0
     if start is not None:
         model.load_state_dict(torch.load(start))
@@ -445,7 +475,6 @@ def train_stage2(
     print(f"Starting training from step {step_count}")
     while step_count < steps:
         for step_count, data in zip(trange(step_count, steps), train_loader):
-
             fixed, moving, hidden = data["fixed_image"], data["moving_image"], data["hidden"]
             fixed, moving, hidden = fixed.to(device), moving.to(device), hidden.to(device)
             flow, hidden = model(fixed, moving, hidden)
@@ -457,6 +486,15 @@ def train_stage2(
                 moved.squeeze(), fixed.squeeze()
             )
             losses_dict["grad"] = reg_loss_weight * Grad()(flow)
+
+            if "fixed_keypoints" in data:
+                losses_dict["keypoints"] = kp_loss_weight * TotalRegistrationLoss()(
+                    fixed_landmarks=data["fixed_keypoints"].squeeze(0),
+                    moving_landmarks=data["moving_keypoints"].squeeze(0),
+                    displacement_field=flow,
+                    fixed_spacing=data["fixed_spacing"].squeeze(0),
+                    moving_spacing=data["moving_spacing"].squeeze(0),
+                )
 
             total_loss = sum(losses_dict.values())
             assert isinstance(total_loss, torch.Tensor)
@@ -474,7 +512,7 @@ def train_stage2(
                     moving_fixed_moved=(moving, fixed, moved),
                 )
 
-            if val_freq > 0 and step_count % val_freq == 0:
+            if val_freq > 0 and step_count % val_freq == 0 and step_count>0:
                 losses_cum_dict = defaultdict(list)
                 with torch.no_grad(), evaluating(model):
                     for data in val_loader:
@@ -492,6 +530,8 @@ def train_stage2(
                         losses_cum_dict["grad"].append(
                             (reg_loss_weight * Grad()(flow)).item()
                         )
+
+
 
                 for k, v in losses_cum_dict.items():
                     writer.add_scalar(
