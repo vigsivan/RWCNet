@@ -14,7 +14,7 @@ from torch.utils.data import Dataset, DataLoader
 from typer import Typer
 from tqdm import trange, tqdm
 
-from common import concat_flow, tb_log, warp_image
+from common import concat_flow, identity_grid_torch, load_keypoints, tb_log, warp_image
 from differentiable_metrics import MINDLoss, Grad
 from networks import SomeNet
 
@@ -116,6 +116,20 @@ class PatchDatasetStage2(Dataset):
         else:
             return F.fold(inp, res_shape[-2:], patch_shape[-2:], stride=patch_shape[-2:])
 
+    def load_keypoints_for_patch(self, data, res_shape, patch_shape, patch_index):
+        fixed_kps = load_keypoints(data["fixed_keypoints"])
+        moving_kps = load_keypoints(data["moving_keypoints"])
+
+        grid = identity_grid_torch(res_shape, device="cpu").squeeze()
+        grid_patched = F.unfold(grid, patch_shape[-2:], stride=patch_shape[-2:])
+        grid_patch = grid_patched[..., patch_index]
+        grid_patch = grid_patch.reshape(3, res_shape.shape[-3], *patch_shape[-2:])
+
+        masks = []
+        breakpoint()
+
+        ...
+
     def __getitem__(self, index: int):
         data_index, patch_index = self.indexes[index]
         data = self.data[data_index]
@@ -179,6 +193,10 @@ class PatchDatasetStage2(Dataset):
         ret["patch_index"] = patch_index
         ret["fixed_image_name"] = fname.name
         ret["moving_image_name"] = mname.name
+
+
+        if self.res_factor == 1 and "fixed_keypoints" in data:
+            self.load_keypoints_for_patch(data, rshape, pshape, patch_index)
 
         return ret
 
