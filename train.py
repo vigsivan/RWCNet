@@ -219,14 +219,14 @@ class PatchDatasetStage2(Dataset):
         ret["moving_image_name"] = mname.name
 
 
-        if self.res_factor == 1 and "fixed_keypoints" in data:
-            out = self.load_keypoints_for_patch(data, rshape, pshape, patch_index)
-            if out is not None:
-                fixed_kps, moving_kps = out
-                ret["fixed_keypoints"] = fixed_kps
-                ret["moving_keypoints"] = moving_kps
-                ret["fixed_spacing"] = torch.Tensor(get_spacing(fixed_nib))
-                ret["moving_spacing"] = torch.Tensor(get_spacing(moving_nib))
+        # if self.res_factor == 1 and "fixed_keypoints" in data:
+        #     out = self.load_keypoints_for_patch(data, rshape, pshape, patch_index)
+        #     if out is not None:
+        #         fixed_kps, moving_kps = out
+        #         ret["fixed_keypoints"] = fixed_kps
+        #         ret["moving_keypoints"] = moving_kps
+        #         ret["fixed_spacing"] = torch.Tensor(get_spacing(fixed_nib))
+        #         ret["moving_spacing"] = torch.Tensor(get_spacing(moving_nib))
 
         return ret
 
@@ -491,8 +491,7 @@ def train_stage2(
             losses_dict["grad"] = reg_loss_weight * Grad()(flow)
 
             if "fixed_keypoints" in data:
-                flowin = data["flowin"].squeeze().unsqueeze(0)
-                breakpoint()
+                flowin = data["flowin"].to(device)
                 flow = concat_flow(flowin, flow)
                 losses_dict["keypoints"] = kp_loss_weight * TotalRegistrationLoss()(
                     fixed_landmarks=data["fixed_keypoints"].squeeze(0),
