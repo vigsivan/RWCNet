@@ -193,6 +193,7 @@ class PatchDatasetStage2(Dataset):
         fixed_ps = F.unfold(fixed, pshape[-2:], stride=pshape[-2:])
         moving_ps = F.unfold(moving, pshape[-2:], stride=pshape[-2:])
         hidden_ps = F.unfold(hidden.squeeze(0), pshape[-2:], stride=pshape[-2:])
+        flow_ps = F.unfold(flow.squeeze(0), pshape[-2:], stride=pshape[-2:])
 
         L = fixed_ps.shape[-1]
         assert L == self.n_patches, f"Unexpected number of patches: {L}"
@@ -200,30 +201,32 @@ class PatchDatasetStage2(Dataset):
         fixed_p = fixed_ps[..., patch_index]
         moving_p = moving_ps[..., patch_index]
         hidden_p = hidden_ps[..., patch_index]
+        flow_p = flow_ps[..., patch_index]
 
         fixed_p = fixed_p.reshape(1, fixed.shape[-3], *pshape[-2:])
         moving_p = moving_p.reshape(1, fixed.shape[-3], *pshape[-2:])
         hidden_p = hidden_p.reshape(hidden_p.shape[0], fixed.shape[-3], *pshape[-2:])
+        flow_p = flow_p.reshape(3, fixed.shape[-3], *pshape[-2:])
 
         ret: Dict[str, Union[torch.Tensor, int, str]] = {
             "fixed_image": fixed_p,
             "moving_image": moving_p,
             "hidden": hidden_p,
-            "flowin": flow,
+            "flowin": flow_p,
         }
         ret["patch_index"] = patch_index
         ret["fixed_image_name"] = fname.name
         ret["moving_image_name"] = mname.name
 
 
-        # if self.res_factor == 1 and "fixed_keypoints" in data:
-        #     out = self.load_keypoints_for_patch(data, rshape, pshape, patch_index)
-        #     if out is not None:
-        #         fixed_kps, moving_kps = out
-        #         ret["fixed_keypoints"] = fixed_kps
-        #         ret["moving_keypoints"] = moving_kps
-        #         ret["fixed_spacing"] = torch.Tensor(get_spacing(fixed_nib))
-        #         ret["moving_spacing"] = torch.Tensor(get_spacing(moving_nib))
+        if self.res_factor == 1 and "fixed_keypoints" in data:
+            out = self.load_keypoints_for_patch(data, rshape, pshape, patch_index)
+            if out is not None:
+                fixed_kps, moving_kps = out
+                ret["fixed_keypoints"] = fixed_kps
+                ret["moving_keypoints"] = moving_kps
+                ret["fixed_spacing"] = torch.Tensor(get_spacing(fixed_nib))
+                ret["moving_spacing"] = torch.Tensor(get_spacing(moving_nib))
 
         return ret
 
@@ -369,7 +372,7 @@ def eval_stage2(
                 hiddens[savename].append((data["patch_index"], hidden))
 
                 flow, hidden = model(moving, fixed)
-                flowin = data["flowin"]
+                flowin = data["flowin"].to(device)
                 flow = concat_flow(flowin, flow)
 
                 savename = f'{data["fixed_image_name"][0]}2{data["moving_image_name"][0]}.pt'
@@ -488,6 +491,9 @@ def train_stage2(
             losses_dict["grad"] = reg_loss_weight * Grad()(flow)
 
             if "fixed_keypoints" in data:
+                flowin = data["flowin"].squeeze().unsqueeze(0)
+                breakpoint()
+                flow = concat_flow(flowin, flow)
                 losses_dict["keypoints"] = kp_loss_weight * TotalRegistrationLoss()(
                     fixed_landmarks=data["fixed_keypoints"].squeeze(0),
                     moving_landmarks=data["moving_keypoints"].squeeze(0),
