@@ -394,6 +394,7 @@ def eval_stage1(
     res: int,
     checkpoint: Path,
     device: str = "cuda",
+    iters: int=12
 ):
     """
     Stage1 training
@@ -407,7 +408,7 @@ def eval_stage1(
 
     savedir.mkdir(exist_ok=True)
 
-    model = SomeNet().to(device)
+    model = SomeNet(iters=iters).to(device)
     model.load_state_dict(torch.load(checkpoint))
 
     with torch.no_grad(), evaluating(model):
