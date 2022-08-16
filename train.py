@@ -162,7 +162,6 @@ class PatchDatasetStage2(Dataset):
         moving = warp_image(flow, moving.unsqueeze(0)).squeeze(0)
 
         if r != self.patch_factor:
-            breakpoint()
             pshape = tuple(i // p for i in ogshape[-3:])
 
             fixed_ps = F.unfold(fixed, pshape[-2:], stride=pshape[-2:])
