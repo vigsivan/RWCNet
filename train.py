@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from pathlib import Path
 import einops
 import numpy as np
-from typing import Dict, List, Optional, Union
+from typing import Dict, Optional, Union
 from torch.utils.tensorboard.writer import SummaryWriter
 import torch
 import torch.nn.functional as F
@@ -13,22 +13,12 @@ import nibabel as nib
 from torch.utils.data import Dataset, DataLoader
 from typer import Typer
 from tqdm import trange, tqdm
-from dataclasses import dataclass
 
-from common import warp_image, tb_log
+from common import concat_flow, tb_log, warp_image
 from differentiable_metrics import MINDLoss, Grad
 from networks import SomeNet
 
 app = Typer()
-
-
-@dataclass
-class PatchData:
-    fixed_image: torch.Tensor
-    moving_image: torch.Tensor
-    fixed_image_name: str
-    moving_image_name: str
-    patch_index: int
 
 
 add_bc_dim = lambda x: einops.repeat(x, "d h w -> b c d h w", b=1, c=1).float()
@@ -47,6 +37,7 @@ def evaluating(net):
             net.train()
 
 
+# FIXME: make this dataset more distinct from stage1 (remove func to not return hidden)
 class PatchDatasetStage2(Dataset):
     """
     Extracts 3D `patches' at a specific resolution
@@ -119,11 +110,11 @@ class PatchDatasetStage2(Dataset):
                     raise ValueError("Could not find hidden (random switch)", str(hiddenpath))
 
 
-    def fold_(self, inp): 
+    def fold_(self, inp, res_shape, patch_shape): 
         if inp.shape[-1] == 1:
             return inp[...,0]
         else:
-            raise NotImplementedError("Fold not implemented for larger patch sizes yet")
+            return F.fold(inp, res_shape[-2:], patch_shape[-2:], stride=patch_shape[-2:])
 
     def __getitem__(self, index: int):
         data_index, patch_index = self.indexes[index]
@@ -131,6 +122,7 @@ class PatchDatasetStage2(Dataset):
 
         r = self.res_factor
         p = self.patch_factor
+
 
         f, m = "fixed", "moving"
         if self.random_switch and random.randint(0, 10) % 2 == 0:
@@ -140,20 +132,22 @@ class PatchDatasetStage2(Dataset):
         flow = torch.load(self.artifacts/(f"flow-{mname.name}2{fname.name}.pt"), map_location="cpu")
         hidden = torch.load(self.artifacts/(f"hidden-{mname.name}2{fname.name}.pt"), map_location="cpu")
 
-        flow = self.fold_(flow)
-        hidden = self.fold_(hidden)
-
         fixed_nib = nib.load(fname)
         moving_nib = nib.load(mname)
-        ogshape = fixed_nib.shape[-3:]
 
         fixed = torch.from_numpy(fixed_nib.get_fdata()).unsqueeze(0)
         moving = torch.from_numpy(moving_nib.get_fdata()).unsqueeze(0)
 
+        ogshape = fixed_nib.shape[-3:]
+        rshape = tuple(i // r for i in fixed.shape[-3:])
+        pshape = tuple(i // p for i in ogshape[-3:])
+
+        flow = self.fold_(flow, rshape, pshape)
+        hidden = self.fold_(hidden, rshape, pshape)
+
         fixed = (fixed - fixed.min()) / (fixed.max() - fixed.min())
         moving = (moving - moving.min()) / (moving.max() - moving.min())
 
-        rshape = tuple(i // r for i in fixed.shape[-3:])
         fixed = F.interpolate(fixed.unsqueeze(0), rshape).squeeze(0).float()
         moving = F.interpolate(moving.unsqueeze(0), rshape).squeeze(0).float()
 
@@ -161,36 +155,27 @@ class PatchDatasetStage2(Dataset):
         hidden = F.interpolate(hidden, rshape)*2
         moving = warp_image(flow, moving.unsqueeze(0)).squeeze(0)
 
-        if r != self.patch_factor:
-            pshape = tuple(i // p for i in ogshape[-3:])
+        fixed_ps = F.unfold(fixed, pshape[-2:], stride=pshape[-2:])
+        moving_ps = F.unfold(moving, pshape[-2:], stride=pshape[-2:])
+        hidden_ps = F.unfold(hidden.squeeze(0), pshape[-2:], stride=pshape[-2:])
 
-            fixed_ps = F.unfold(fixed, pshape[-2:], stride=pshape[-2:])
-            moving_ps = F.unfold(moving, pshape[-2:], stride=pshape[-2:])
-            hidden_ps = F.unfold(hidden.squeeze(0), pshape[-2:], stride=pshape[-2:])
+        L = fixed_ps.shape[-1]
+        assert L == self.n_patches, f"Unexpected number of patches: {L}"
 
-            L = fixed_ps.shape[-1]
-            assert L == self.n_patches, f"Unexpected number of patches: {L}"
+        fixed_p = fixed_ps[..., patch_index]
+        moving_p = moving_ps[..., patch_index]
+        hidden_p = hidden_ps[..., patch_index]
 
-            fixed_p = fixed_ps[..., patch_index]
-            moving_p = moving_ps[..., patch_index]
-            hidden_p = hidden_ps[..., patch_index]
+        fixed_p = fixed_p.reshape(1, fixed.shape[-3], *pshape[-2:])
+        moving_p = moving_p.reshape(1, fixed.shape[-3], *pshape[-2:])
+        hidden_p = hidden_p.reshape(hidden_p.shape[0], fixed.shape[-3], *pshape[-2:])
 
-            fixed_p = fixed_p.reshape(1, fixed.shape[-3], *pshape[-2:])
-            moving_p = moving_p.reshape(1, fixed.shape[-3], *pshape[-2:])
-            hidden_p = hidden_p.reshape(hidden_p.shape[0], fixed.shape[-3], *pshape[-2:])
-
-            ret: Dict[str, Union[torch.Tensor, int, str]] = {
-                "fixed_image": fixed_p,
-                "moving_image": moving_p,
-                "hidden": hidden_p,
-            }
-        else:
-            ret = {
-                "fixed_image": fixed,
-                "moving_image": moving,
-
-            }
-
+        ret: Dict[str, Union[torch.Tensor, int, str]] = {
+            "fixed_image": fixed_p,
+            "moving_image": moving_p,
+            "hidden": hidden_p,
+            "flowin": flow,
+        }
         ret["patch_index"] = patch_index
         ret["fixed_image_name"] = fname.name
         ret["moving_image_name"] = mname.name
@@ -198,6 +183,7 @@ class PatchDatasetStage2(Dataset):
         return ret
 
 
+# FIXME: stage1 => patch_size === res_size, so you can simplify the __getitem__
 class PatchDataset(Dataset):
     """
     Extracts 3D `patches' at a specific resolution
@@ -302,12 +288,63 @@ class PatchDataset(Dataset):
         return ret
 
 @app.command()
+def eval_stage2(
+    data_json: Path,
+    savedir: Path,
+    artifacts: Path,
+    res: int,
+    checkpoint: Path,
+    device: str = "cuda",
+    iters: int=8,
+):
+    """
+    Stage2 eval
+    """
+
+    train_dataset = PatchDatasetStage2(data_json, res, artifacts, 4, split="train")
+    val_dataset = PatchDatasetStage2(data_json, res, artifacts, 4, split="val")
+
+    train_loader = DataLoader(train_dataset, batch_size=1, shuffle=False)
+    val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False)
+
+    savedir.mkdir(exist_ok=True)
+
+    model = SomeNet(iters=iters).to(device)
+    model.load_state_dict(torch.load(checkpoint))
+
+    with torch.no_grad(), evaluating(model):
+        flows, hiddens = defaultdict(list), defaultdict(list)
+        for loader in (train_loader, val_loader):
+            for data in tqdm(loader):
+                fixed, moving = data["fixed_image"], data["moving_image"]
+                fixed, moving = fixed.to(device), moving.to(device)
+                flow, hidden = model(fixed, moving)
+                savename = f'{data["moving_image_name"][0]}2{data["fixed_image_name"][0]}.pt'
+                flows[savename].append((data["patch_index"], flow))
+                hiddens[savename].append((data["patch_index"], hidden))
+
+                flow, hidden = model(moving, fixed)
+                flowin = data["flowin"]
+                flow = concat_flow(flowin, flow)
+
+                savename = f'{data["fixed_image_name"][0]}2{data["moving_image_name"][0]}.pt'
+                flows[savename].append((data["patch_index"], flow))
+                hiddens[savename].append((data["patch_index"], hidden))
+
+        for k, v in flows.items():
+            fk = torch.stack([i[1] for i in sorted(v)], dim=-1)
+            hk = torch.stack([i[1] for i in sorted(hiddens[k])], dim=-1)
+            torch.save(fk, savedir/("flow-" + k))
+            torch.save(hk, savedir/("hidden-" + k))
+
+
+
+@app.command()
 def eval_stage1(
     data_json: Path,
     savedir: Path,
     res: int,
     checkpoint: Path,
-    steps: int = 10000,
     device: str = "cuda",
 ):
     """
@@ -324,8 +361,6 @@ def eval_stage1(
 
     model = SomeNet().to(device)
     model.load_state_dict(torch.load(checkpoint))
-
-    patches = train_dataset.n_patches
 
     with torch.no_grad(), evaluating(model):
         flows, hiddens = defaultdict(list), defaultdict(list)
@@ -360,13 +395,9 @@ def train_stage2(
     start: Optional[Path] = None,
     steps: int = 10000,
     lr: float = 1e-4,
-    train_paired: bool = True,
-    val_paired: bool = True,
     device: str = "cuda",
     image_loss_weight: float = 1,
-    dice_loss_weight: float = 10.0,
     reg_loss_weight: float = 0.1,
-    kp_loss_weight: float = 1,
     log_freq: int = 5,
     save_freq: int = 50,
     val_freq: int = 50,
@@ -465,13 +496,9 @@ def train_stage1(
     start: Optional[Path] = None,
     steps: int = 10000,
     lr: float = 1e-4,
-    train_paired: bool = True,
-    val_paired: bool = True,
     device: str = "cuda",
     image_loss_weight: float = 1,
-    dice_loss_weight: float = 10.0,
     reg_loss_weight: float = 0.1,
-    kp_loss_weight: float = 1,
     log_freq: int = 5,
     save_freq: int = 50,
     val_freq: int = 50,
