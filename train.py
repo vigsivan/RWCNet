@@ -494,7 +494,7 @@ def eval_stage1(
                 assert isinstance(moving, torch.Tensor)
                 fixed, moving = fixed.unsqueeze(0).to(device), moving.unsqueeze(0).to(device)
                 flow, hidden = model(fixed, moving)
-                savename = f'{data["moving_image_name"][0]}2{data["fixed_image_name"][0]}.pt'
+                savename = f'{data["moving_image_name"]}2{data["fixed_image_name"]}.pt'
                 flows[savename].append((data["patch_index"], flow.detach().cpu()))
                 hiddens[savename].append((data["patch_index"], hidden.detach().cpu()))
 
