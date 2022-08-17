@@ -14,7 +14,7 @@ from torch.utils.data import Dataset, DataLoader
 from typer import Typer
 from tqdm import trange, tqdm
 
-from common import concat_flow, identity_grid_torch, load_keypoints, tb_log, warp_image
+from common import concat_flow, identity_grid_torch, load_keypoints, tb_log, torch2skimage_disp, warp_image
 from differentiable_metrics import MINDLoss, Grad, TotalRegistrationLoss
 from networks import SomeNet
 
@@ -336,6 +336,67 @@ class PatchDataset(Dataset):
         return ret
 
 @app.command()
+def eval_stage3(
+    data_json: Path,
+    savedir: Path,
+    artifacts: Path,
+    res: int,
+    checkpoint: Path,
+    device: str = "cuda",
+    iters: int=4,
+    search_range: int=2,
+    split: str="val"
+):
+    """
+    Stage3 (Final) eval
+    """
+
+    dataset = PatchDatasetStage2(data_json, res, artifacts, 4, split="val")
+    loader = DataLoader(dataset, batch_size=1, shuffle=False)
+
+    savedir.mkdir(exist_ok=True)
+
+    model = SomeNet(iters=iters, search_range=search_range).to(device)
+    model.load_state_dict(torch.load(checkpoint))
+
+    with torch.no_grad(), evaluating(model):
+        flows = defaultdict(list)
+        for data in tqdm(loader):
+            fixed, moving = data["fixed_image"], data["moving_image"]
+            fixed, moving = fixed.to(device), moving.to(device)
+            flow, _ = model(fixed, moving)
+            savename = f'{data["moving_image_name"][0]}2{data["fixed_image_name"][0]}.pt'
+            flows[savename].append((data["patch_index"], flow.detach().cpu()))
+
+            flow, _ = model(moving, fixed)
+            flowin = data["flowin"].to(device)
+            flow = concat_flow(flowin, flow)
+
+            savename = f'{data["fixed_image_name"][0]}2{data["moving_image_name"][0]}.pt'
+            flows[savename].append((data["patch_index"], flow.detach().cpu()))
+
+        for k, v in flows.items():
+            try:
+                fk = torch.stack([i[1] for i in sorted(v)], dim=-1)
+                pshape = fk.shape[-3:-1]
+                res_shape = (fk.shape[2], *[i*4 for i in pshape])
+                inp = fk.squeeze(0)
+                inp = einops.rearrange(inp, 'c h d w p -> c (h d w) p')
+                folded = F.fold(inp, res_shape[-2:], pshape, stride=pshape)
+                folded = folded.unsqueeze(0)
+                moving, fixed = k.split('z2')
+                moving = moving + "z"
+                fixed = ".".join(fixed.split(".")[:-1]) # remove .pt
+                disp_name = f"disp_{fixed[-16:-12]}_{moving[-16:-12]}"
+                disp_np = torch2skimage_disp(folded)
+                disp_nib = nib.Nifti1Image(disp_np, affine=np.eye(4))
+                nib.save(disp_nib, savedir/f"{disp_name}.nii.gz")
+            except:
+                print(k)
+                continue
+
+
+@app.command()
 def eval_stage2(
     data_json: Path,
     savedir: Path,
@@ -343,41 +404,39 @@ def eval_stage2(
     res: int,
     checkpoint: Path,
     device: str = "cuda",
-    iters: int=1,
+    iters: int=8,
+    search_range: int=3,
+    split="val"
 ):
     """
     Stage2 eval
     """
 
-    train_dataset = PatchDatasetStage2(data_json, res, artifacts, 4, split="train")
-    val_dataset = PatchDatasetStage2(data_json, res, artifacts, 4, split="val")
-
-    train_loader = DataLoader(train_dataset, batch_size=1, shuffle=False)
-    val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False)
+    dataset = PatchDatasetStage2(data_json, res, artifacts, 4, split=split)
+    loader = DataLoader(dataset, batch_size=1, shuffle=False)
 
     savedir.mkdir(exist_ok=True)
 
-    model = SomeNet(iters=iters).to(device)
+    model = SomeNet(iters=iters, search_range=search_range).to(device)
     model.load_state_dict(torch.load(checkpoint))
 
     with torch.no_grad(), evaluating(model):
         flows, hiddens = defaultdict(list), defaultdict(list)
-        for loader in (train_loader, val_loader):
-            for data in tqdm(loader):
-                fixed, moving = data["fixed_image"], data["moving_image"]
-                fixed, moving = fixed.to(device), moving.to(device)
-                flow, hidden = model(fixed, moving)
-                savename = f'{data["moving_image_name"][0]}2{data["fixed_image_name"][0]}.pt'
-                flows[savename].append((data["patch_index"], flow))
-                hiddens[savename].append((data["patch_index"], hidden))
+        for data in tqdm(loader):
+            fixed, moving = data["fixed_image"], data["moving_image"]
+            fixed, moving = fixed.to(device), moving.to(device)
+            flow, hidden = model(fixed, moving)
+            savename = f'{data["moving_image_name"][0]}2{data["fixed_image_name"][0]}.pt'
+            flows[savename].append((data["patch_index"], flow.detach().cpu()))
+            hiddens[savename].append((data["patch_index"], hidden.detach().cpu()))
 
-                flow, hidden = model(moving, fixed)
-                flowin = data["flowin"].to(device)
-                flow = concat_flow(flowin, flow)
+            flow, hidden = model(moving, fixed)
+            flowin = data["flowin"].to(device)
+            flow = concat_flow(flowin, flow)
 
-                savename = f'{data["fixed_image_name"][0]}2{data["moving_image_name"][0]}.pt'
-                flows[savename].append((data["patch_index"], flow))
-                hiddens[savename].append((data["patch_index"], hidden))
+            savename = f'{data["fixed_image_name"][0]}2{data["moving_image_name"][0]}.pt'
+            flows[savename].append((data["patch_index"], flow.detach().cpu()))
+            hiddens[savename].append((data["patch_index"], hidden.detach().cpu()))
 
         for k, v in flows.items():
             fk = torch.stack([i[1] for i in sorted(v)], dim=-1)
@@ -394,37 +453,36 @@ def eval_stage1(
     res: int,
     checkpoint: Path,
     device: str = "cuda",
+    iters: int=12,
+    search_range: int=3,
+    split="val"
 ):
     """
     Stage1 training
     """
 
-    train_dataset = PatchDataset(data_json, res, 4, split="train")
-    val_dataset = PatchDataset(data_json, res, 4, split="val")
-
-    train_loader = DataLoader(train_dataset, batch_size=1, shuffle=False)
-    val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False)
+    dataset = PatchDataset(data_json, res, 4, split=split)
+    loader = DataLoader(dataset, batch_size=1, shuffle=False)
 
     savedir.mkdir(exist_ok=True)
 
-    model = SomeNet().to(device)
+    model = SomeNet(iters=iters, search_range=search_range).to(device)
     model.load_state_dict(torch.load(checkpoint))
 
     with torch.no_grad(), evaluating(model):
         flows, hiddens = defaultdict(list), defaultdict(list)
-        for loader in (train_loader, val_loader):
-            for data in tqdm(loader):
-                fixed, moving = data["fixed_image"], data["moving_image"]
-                fixed, moving = fixed.to(device), moving.to(device)
-                flow, hidden = model(fixed, moving)
-                savename = f'{data["moving_image_name"][0]}2{data["fixed_image_name"][0]}.pt'
-                flows[savename].append((data["patch_index"], flow))
-                hiddens[savename].append((data["patch_index"], hidden))
+        for data in tqdm(loader):
+            fixed, moving = data["fixed_image"], data["moving_image"]
+            fixed, moving = fixed.to(device), moving.to(device)
+            flow, hidden = model(fixed, moving)
+            savename = f'{data["moving_image_name"][0]}2{data["fixed_image_name"][0]}.pt'
+            flows[savename].append((data["patch_index"], flow.detach().cpu()))
+            hiddens[savename].append((data["patch_index"], hidden.detach().cpu()))
 
-                flow, hidden = model(moving, fixed)
-                savename = f'{data["fixed_image_name"][0]}2{data["moving_image_name"][0]}.pt'
-                flows[savename].append((data["patch_index"], flow))
-                hiddens[savename].append((data["patch_index"], hidden))
+            flow, hidden = model(moving, fixed)
+            savename = f'{data["fixed_image_name"][0]}2{data["moving_image_name"][0]}.pt'
+            flows[savename].append((data["patch_index"], flow.detach().cpu()))
+            hiddens[savename].append((data["patch_index"], hidden.detach().cpu()))
 
         for k, v in flows.items():
             fk = torch.stack([i[1] for i in sorted(v)], dim=-1)
@@ -450,8 +508,8 @@ def train_stage2(
     log_freq: int = 5,
     save_freq: int = 100,
     val_freq: int = 1600,
-    iters: int=4,
-    search_range: int=2
+    iters: int=8,
+    search_range: int=3
 ):
     """
     Stage2 training
@@ -470,8 +528,7 @@ def train_stage2(
     step_count = 0
     if start is not None:
         model.load_state_dict(torch.load(start))
-        if "step" in start.name:
-            step_count = int(start.name.split("_step")[-1].split(".")[0])
+        step_count = int(start.name.split("_")[-1].split(".")[0])
 
     opt = torch.optim.Adam(model.parameters(), lr=lr)
 
