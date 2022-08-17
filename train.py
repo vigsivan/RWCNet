@@ -485,25 +485,27 @@ def eval_stage1(
     model.load_state_dict(torch.load(checkpoint))
 
     with torch.no_grad(), evaluating(model):
-        flows, hiddens = defaultdict(list), defaultdict(list)
-        for data in tqdm(loader):
-            fixed, moving = data["fixed_image"], data["moving_image"]
-            fixed, moving = fixed.to(device), moving.to(device)
-            flow, hidden = model(fixed, moving)
-            savename = f'{data["moving_image_name"][0]}2{data["fixed_image_name"][0]}.pt'
-            flows[savename].append((data["patch_index"], flow.detach().cpu()))
-            hiddens[savename].append((data["patch_index"], hidden.detach().cpu()))
+        for i in trange(0, len(dataset), dataset.n_patches):
+            flows, hiddens = defaultdict(list), defaultdict(list)
+            for j in range(i, i+dataset.n_patches):
+                data = dataset[j]
+                fixed, moving = data["fixed_image"], data["moving_image"]
+                assert isinstance(fixed, torch.Tensor)
+                assert isinstance(moving, torch.Tensor)
+                fixed, moving = fixed.unsqueeze(0).to(device), moving.unsqueeze(0).to(device)
+                flow, hidden = model(fixed, moving)
+                savename = f'{data["moving_image_name"][0]}2{data["fixed_image_name"][0]}.pt'
+                flows[savename].append((data["patch_index"], flow.detach().cpu()))
+                hiddens[savename].append((data["patch_index"], hidden.detach().cpu()))
 
-            flow, hidden = model(moving, fixed)
-            savename = f'{data["fixed_image_name"][0]}2{data["moving_image_name"][0]}.pt'
-            flows[savename].append((data["patch_index"], flow.detach().cpu()))
-            hiddens[savename].append((data["patch_index"], hidden.detach().cpu()))
+            assert len(flows.keys()) == 1, "Expected only one key"
+            for k, v in flows.items():
+                fk = torch.stack([i[1] for i in sorted(v, key=lambda x: x[0])], dim=-1)
+                hk = torch.stack([i[1] for i in sorted(hiddens[k], key=lambda x: x[0])], dim=-1)
+                torch.save(fk, savedir/("flow-" + k))
+                torch.save(hk, savedir/("hidden-" + k))
 
-        for k, v in flows.items():
-            fk = torch.stack([i[1] for i in sorted(v)], dim=-1)
-            hk = torch.stack([i[1] for i in sorted(hiddens[k])], dim=-1)
-            torch.save(fk, savedir/("flow-" + k))
-            torch.save(hk, savedir/("hidden-" + k))
+            del flows, hiddens
 
 
 
