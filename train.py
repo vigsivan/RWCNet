@@ -1,5 +1,4 @@
 import json
-import random
 from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
@@ -50,7 +49,6 @@ class PatchDatasetStage2(Dataset):
         artifacts: Path,
         patch_factor: int,
         split: str,
-        random_switch: bool = True,
     ):
         super().__init__()
         if res_factor not in [1, 2, 4]:
@@ -61,8 +59,6 @@ class PatchDatasetStage2(Dataset):
 
         with open(data_json, "r") as f:
             data = json.load(f)[split]
-
-        self.random_switch = random_switch
 
         # FIXME
         # I'm sure the heuristic here is like 2**(patch_factor/res_factor) or
@@ -98,17 +94,6 @@ class PatchDatasetStage2(Dataset):
                 raise ValueError("Could not find flow ", str(flowpath))
             if not hiddenpath.exists():
                 raise ValueError("Could not find hidden ", str(hiddenpath))
-
-            if self.random_switch:
-                f, m = m, f
-                fname, mname = Path(data[f"{f}_image"]), Path(data[f"{m}_image"])
-                flowpath = self.artifacts/(f"flow-{mname.name}2{fname.name}.pt")
-                hiddenpath = self.artifacts/(f"hidden-{mname.name}2{fname.name}.pt")
-                if not flowpath.exists():
-                    raise ValueError("Could not find flow (random switch)", str(flowpath))
-                if not hiddenpath.exists():
-                    raise ValueError("Could not find hidden (random switch)", str(hiddenpath))
-
 
     def fold_(self, inp, res_shape, patch_shape): 
         if inp.shape[-1] == 1:
@@ -160,8 +145,6 @@ class PatchDatasetStage2(Dataset):
 
 
         f, m = "fixed", "moving"
-        if self.random_switch and random.randint(0, 10) % 2 == 0:
-            f, m = m, f
 
         fname, mname = Path(data[f"{f}_image"]), Path(data[f"{m}_image"])
         flow = torch.load(self.artifacts/(f"flow-{mname.name}2{fname.name}.pt"), map_location="cpu")
@@ -243,7 +226,6 @@ class PatchDataset(Dataset):
         res_factor: int,
         patch_factor: int,
         split: str,
-        random_switch: bool = True,
     ):
         super().__init__()
         if res_factor not in [1, 2, 4]:
@@ -254,8 +236,6 @@ class PatchDataset(Dataset):
 
         with open(data_json, "r") as f:
             data = json.load(f)[split]
-
-        self.random_switch = random_switch
 
         # FIXME
         # I'm sure the heuristic here is like 2**(patch_factor/res_factor) or
@@ -312,8 +292,6 @@ class PatchDataset(Dataset):
         p = self.patch_factor
 
         f, m = "fixed", "moving"
-        if self.random_switch and random.randint(0, 10) % 2 == 0:
-            f, m = m, f
 
         fname, mname = Path(data[f"{f}_image"]), Path(data[f"{m}_image"])
 
