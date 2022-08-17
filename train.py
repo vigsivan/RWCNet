@@ -123,8 +123,8 @@ class PatchDatasetStage2(Dataset):
             return folded
 
     def load_keypoints_for_patch(self, data, res_shape, patch_shape, patch_index):
-        fixed_kps = load_keypoints(data["fixed_keypoints"])
-        moving_kps = load_keypoints(data["moving_keypoints"])
+        fixed_kps = load_keypoints(data["fixed_keypoints"])/self.res_factor
+        moving_kps = load_keypoints(data["moving_keypoints"])/self.res_factor
 
         grid = identity_grid_torch(res_shape, device="cpu").squeeze()
         grid_patched = F.unfold(grid, patch_shape[-2:], stride=patch_shape[-2:])
@@ -219,14 +219,14 @@ class PatchDatasetStage2(Dataset):
         ret["moving_image_name"] = mname.name
 
 
-        # if self.res_factor == 1 and "fixed_keypoints" in data:
-        #     out = self.load_keypoints_for_patch(data, rshape, pshape, patch_index)
-        #     if out is not None:
-        #         fixed_kps, moving_kps = out
-        #         ret["fixed_keypoints"] = fixed_kps
-        #         ret["moving_keypoints"] = moving_kps
-        #         ret["fixed_spacing"] = torch.Tensor(get_spacing(fixed_nib))
-        #         ret["moving_spacing"] = torch.Tensor(get_spacing(moving_nib))
+        if "fixed_keypoints" in data:
+            out = self.load_keypoints_for_patch(data, rshape, pshape, patch_index)
+            if out is not None:
+                fixed_kps, moving_kps = out
+                ret["fixed_keypoints"] = fixed_kps
+                ret["moving_keypoints"] = moving_kps
+                ret["fixed_spacing"] = torch.Tensor(get_spacing(fixed_nib))
+                ret["moving_spacing"] = torch.Tensor(get_spacing(moving_nib))
 
         return ret
 
@@ -276,6 +276,34 @@ class PatchDataset(Dataset):
     def __len__(self):
         return len(self.indexes)
 
+    def load_keypoints_for_patch(self, data, res_shape, patch_shape, patch_index):
+        fixed_kps = load_keypoints(data["fixed_keypoints"])/self.res_factor
+        moving_kps = load_keypoints(data["moving_keypoints"])/self.res_factor
+
+        grid = identity_grid_torch(res_shape, device="cpu").squeeze()
+        grid_patched = F.unfold(grid, patch_shape[-2:], stride=patch_shape[-2:])
+        grid_patch = grid_patched[..., patch_index]
+        grid_patch = grid_patch.reshape(3, res_shape[-3], *patch_shape[-2:])
+
+        masks = [
+            torch.logical_and(
+                fixed_kps[:,i] > grid_patch[i,...].min(),
+                fixed_kps[:,i] < grid_patch[i,...].max()
+            )
+            for i in range(3)
+        ]
+        mask = torch.logical_and(torch.logical_and(masks[0], masks[1]), masks[2])
+        if not mask.any():
+            return None
+        fixed_kps_p = fixed_kps[mask.squeeze(),:]
+        moving_kps_p = moving_kps[mask.squeeze(),:]
+        min_tensor = torch.stack([grid_patch[i,...].min() for i in range(3)], dim=-1).unsqueeze(0)
+
+        fixed_kps_p = fixed_kps_p - min_tensor
+        moving_kps_p = moving_kps_p - min_tensor
+
+        return fixed_kps_p, moving_kps_p
+
     def __getitem__(self, index: int):
         data_index, patch_index = self.indexes[index]
         data = self.data[data_index]
@@ -300,11 +328,11 @@ class PatchDataset(Dataset):
         moving = (moving - moving.min()) / (moving.max() - moving.min())
 
         rshape = tuple(i // r for i in fixed.shape[-3:])
+        pshape = tuple(i // p for i in ogshape[-3:])
         fixed = F.interpolate(fixed.unsqueeze(0), rshape).squeeze(0).float()
         moving = F.interpolate(moving.unsqueeze(0), rshape).squeeze(0).float()
 
         if r != self.patch_factor:
-            pshape = tuple(i // p for i in ogshape[-3:])
 
             fixed_ps = F.unfold(fixed, pshape[-2:], stride=pshape[-2:])
             moving_ps = F.unfold(moving, pshape[-2:], stride=pshape[-2:])
@@ -332,6 +360,15 @@ class PatchDataset(Dataset):
         ret["patch_index"] = patch_index
         ret["fixed_image_name"] = fname.name
         ret["moving_image_name"] = mname.name
+
+        if "fixed_keypoints" in data:
+            out = self.load_keypoints_for_patch(data, rshape, pshape, patch_index)
+            if out is not None:
+                fixed_kps, moving_kps = out
+                ret["fixed_keypoints"] = fixed_kps
+                ret["moving_keypoints"] = moving_kps
+                ret["fixed_spacing"] = torch.Tensor(get_spacing(fixed_nib))
+                ret["moving_spacing"] = torch.Tensor(get_spacing(moving_nib))
 
         return ret
 
@@ -593,7 +630,16 @@ def train_stage2(
                             (reg_loss_weight * Grad()(flow)).item()
                         )
 
-
+                        if "fixed_keypoints" in data:
+                            flowin = data["flowin"].to(device)
+                            flow = concat_flow(flowin, flow)
+                            losses_cum_dict["keypoints"].append(kp_loss_weight * TotalRegistrationLoss()(
+                                fixed_landmarks=data["fixed_keypoints"].squeeze(0),
+                                moving_landmarks=data["moving_keypoints"].squeeze(0),
+                                displacement_field=flow,
+                                fixed_spacing=data["fixed_spacing"].squeeze(0),
+                                moving_spacing=data["moving_spacing"].squeeze(0),
+                            ).item())
 
                 for k, v in losses_cum_dict.items():
                     writer.add_scalar(
