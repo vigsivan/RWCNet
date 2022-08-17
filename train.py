@@ -665,6 +665,7 @@ def train_stage1(
     device: str = "cuda",
     image_loss_weight: float = 1,
     reg_loss_weight: float = 0.1,
+    kp_loss_weight: float=1,
     log_freq: int = 5,
     save_freq: int = 50,
     val_freq: int = 50,
@@ -707,6 +708,15 @@ def train_stage1(
             )
             losses_dict["grad"] = reg_loss_weight * Grad()(flow)
 
+            if "fixed_keypoints" in data:
+                losses_dict["keypoints"] = kp_loss_weight * TotalRegistrationLoss()(
+                    fixed_landmarks=data["fixed_keypoints"].squeeze(0),
+                    moving_landmarks=data["moving_keypoints"].squeeze(0),
+                    displacement_field=flow,
+                    fixed_spacing=data["fixed_spacing"].squeeze(0),
+                    moving_spacing=data["moving_spacing"].squeeze(0),
+                )
+
             total_loss = sum(losses_dict.values())
             assert isinstance(total_loss, torch.Tensor)
             losses_dict_log = {k: v.item() for k, v in losses_dict.items()}
@@ -741,6 +751,16 @@ def train_stage1(
                         losses_cum_dict["grad"].append(
                             (reg_loss_weight * Grad()(flow)).item()
                         )
+
+                        if "fixed_keypoints" in data:
+                            losses_cum_dict["keypoints"].append(kp_loss_weight * TotalRegistrationLoss()(
+                                fixed_landmarks=data["fixed_keypoints"].squeeze(0),
+                                moving_landmarks=data["moving_keypoints"].squeeze(0),
+                                displacement_field=flow,
+                                fixed_spacing=data["fixed_spacing"].squeeze(0),
+                                moving_spacing=data["moving_spacing"].squeeze(0),
+                            ).item())
+
 
                 for k, v in losses_cum_dict.items():
                     writer.add_scalar(
