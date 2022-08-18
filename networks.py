@@ -114,6 +114,7 @@ class SomeNet(nn.Module):
         self.context= FeatureExtractor(
                 infeats=1, 
                 feature_sizes=[8,16,32,80],
+                #feature_sizes=[4,8,8,80],
                 strides=[1,1,1,1],
                 kernel_sizes=[3,3,3,3])
 
