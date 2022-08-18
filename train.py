@@ -3,6 +3,7 @@ from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
 import einops
+import pickle
 import numpy as np
 from typing import Dict, Optional, Union
 from torch.utils.tensorboard.writer import SummaryWriter
@@ -13,7 +14,14 @@ from torch.utils.data import Dataset, DataLoader
 from typer import Typer
 from tqdm import trange, tqdm
 
-from common import concat_flow, identity_grid_torch, load_keypoints, tb_log, torch2skimage_disp, warp_image
+from common import (
+    concat_flow,
+    identity_grid_torch,
+    load_keypoints,
+    tb_log,
+    torch2skimage_disp,
+    warp_image,
+)
 from differentiable_metrics import MINDLoss, Grad, TotalRegistrationLoss
 from networks import SomeNet
 
@@ -49,6 +57,7 @@ class PatchDatasetStage2(Dataset):
         artifacts: Path,
         patch_factor: int,
         split: str,
+        cache_file: Path=Path("./stage2.pkl"),
     ):
         super().__init__()
         if res_factor not in [1, 2, 4]:
@@ -70,85 +79,141 @@ class PatchDatasetStage2(Dataset):
         else:
             n_patches = 16
 
+        chan_split = patch_factor // res_factor
+
         self.data = data
-        self.indexes = [(i, j) for i, _ in enumerate(data) for j in range(n_patches)]
+        self.indexes = [(i, j, k) for i, _ in enumerate(data) for j in range(chan_split) for k in range(n_patches)]
         self.res_factor = res_factor
         self.patch_factor = patch_factor
         self.n_patches = n_patches
         self.artifacts = artifacts
+        self.chan_split = chan_split
         self.check_artifacts()
+
+        if not cache_file.exists():
+            cache = self.get_dataset_minmax_(data_json.name)
+            with open(cache_file, 'wb') as f:
+                pickle.dump(cache, f)
+        else:
+            with open(cache_file, 'rb') as f:
+                cache = pickle.load(f)
+            if data_json.name in cache:
+                self.min_int = cache[data_json.name]["min_int"]
+                self.max_int = cache[data_json.name]["max_int"]
+            else:
+                cache_ = self.get_dataset_minmax_(data_json.name)
+                cache.update(cache_)
+                with open(cache_file, 'wb') as f:
+                    pickle.dump(cache, f)
+
+        self.cache = cache[data_json.name]
+
+
+    def get_dataset_minmax_(self, json_name):
+        cache = defaultdict(dict)
+        min_int, max_int = np.inf, -1*np.inf
+
+        f, m = "fixed", "moving"
+
+        min_int, max_int = np.inf, -1*np.inf
+        for dat in self.data:
+            fixed_image=Path(dat[f"{f}_image"])
+            moving_image=Path(dat[f"{m}_image"])
+
+            fixed_nib = nib.load(fixed_image)
+            moving_nib = nib.load(moving_image)
+
+            mi = min(fixed_nib.get_fdata().min(), moving_nib.get_fdata().min())
+            ma = max(fixed_nib.get_fdata().max(), moving_nib.get_fdata().max())
+
+            if mi < min_int:
+                min_int = mi
+            if ma > max_int:
+                max_int = ma
+
+        cache[json_name]["min_int"] = min_int
+        cache[json_name]["max_int"] = max_int
+        return cache
+
 
     def __len__(self):
         return len(self.indexes)
 
     def check_artifacts(self):
         for index in range(len(self.indexes)):
-            data_index, _ = self.indexes[index]
+            data_index, _, _ = self.indexes[index]
             data = self.data[data_index]
 
             f, m = "fixed", "moving"
             fname, mname = Path(data[f"{f}_image"]), Path(data[f"{m}_image"])
-            flowpath = self.artifacts/(f"flow-{mname.name}2{fname.name}.pt")
-            hiddenpath = self.artifacts/(f"hidden-{mname.name}2{fname.name}.pt")
+            flowpath = self.artifacts / (f"flow-{mname.name}2{fname.name}.pt")
+            hiddenpath = self.artifacts / (f"hidden-{mname.name}2{fname.name}.pt")
             if not flowpath.exists():
                 raise ValueError("Could not find flow ", str(flowpath))
             if not hiddenpath.exists():
                 raise ValueError("Could not find hidden ", str(hiddenpath))
 
-    def fold_(self, inp, res_shape, patch_shape): 
+    def fold_(self, inp, res_shape, patch_shape):
         if inp.shape[-1] == 1:
-            return inp[...,0]
+            return inp[..., 0]
         else:
             unsqueeze = inp.shape[0] == 1
             inp = inp.squeeze(0)
-            inp = einops.rearrange(inp, 'c h d w p -> c (h d w) p')
-            r2 = tuple(r//2 for r in res_shape[-2:])
+            inp = einops.rearrange(inp, "c h d w p -> c (h d w) p")
+            r2 = tuple(r // 2 for r in res_shape[-2:])
             folded = F.fold(inp, r2, patch_shape[-2:], stride=patch_shape[-2:])
-            if unsqueeze: folded = folded.unsqueeze(0)
+            if unsqueeze:
+                folded = folded.unsqueeze(0)
             return folded
 
-    def load_keypoints_for_patch(self, data, res_shape, patch_shape, patch_index):
-        fixed_kps = load_keypoints(data["fixed_keypoints"])/self.res_factor
-        moving_kps = load_keypoints(data["moving_keypoints"])/self.res_factor
+    def load_keypoints_for_patch(self, data, res_shape, patch_shape, chan_index, patch_index):
+        fixed_kps = load_keypoints(data["fixed_keypoints"]) / self.res_factor
+        moving_kps = load_keypoints(data["moving_keypoints"]) / self.res_factor
 
         grid = identity_grid_torch(res_shape, device="cpu").squeeze()
         grid_patched = F.unfold(grid, patch_shape[-2:], stride=patch_shape[-2:])
         grid_patch = grid_patched[..., patch_index]
         grid_patch = grid_patch.reshape(3, res_shape[-3], *patch_shape[-2:])
+        grid_patch = torch.split(grid_patch, [res_shape[-3]//self.chan_split]*self.chan_split, dim=1)[chan_index]
 
         masks = [
             torch.logical_and(
-                fixed_kps[:,i] > grid_patch[i,...].min(),
-                fixed_kps[:,i] < grid_patch[i,...].max()
+                fixed_kps[:, i] > grid_patch[i, ...].min(),
+                fixed_kps[:, i] < grid_patch[i, ...].max(),
             )
             for i in range(3)
         ]
         mask = torch.logical_and(torch.logical_and(masks[0], masks[1]), masks[2])
         if not mask.any():
             return None
-        fixed_kps_p = fixed_kps[mask.squeeze(),:]
-        moving_kps_p = moving_kps[mask.squeeze(),:]
-        min_tensor = torch.stack([grid_patch[i,...].min() for i in range(3)], dim=-1).unsqueeze(0)
+        fixed_kps_p = fixed_kps[mask.squeeze(), :]
+        moving_kps_p = moving_kps[mask.squeeze(), :]
+        min_tensor = torch.stack(
+            [grid_patch[i, ...].min() for i in range(3)], dim=-1
+        ).unsqueeze(0)
 
         fixed_kps_p = fixed_kps_p - min_tensor
         moving_kps_p = moving_kps_p - min_tensor
 
         return fixed_kps_p, moving_kps_p
 
-
     def __getitem__(self, index: int):
-        data_index, patch_index = self.indexes[index]
+        data_index, chan_index, patch_index = self.indexes[index]
         data = self.data[data_index]
 
         r = self.res_factor
         p = self.patch_factor
 
-
         f, m = "fixed", "moving"
 
         fname, mname = Path(data[f"{f}_image"]), Path(data[f"{m}_image"])
-        flow = torch.load(self.artifacts/(f"flow-{mname.name}2{fname.name}.pt"), map_location="cpu")
-        hidden = torch.load(self.artifacts/(f"hidden-{mname.name}2{fname.name}.pt"), map_location="cpu")
+        flow = torch.load(
+            self.artifacts / (f"flow-{mname.name}2{fname.name}.pt"), map_location="cpu"
+        )
+        hidden = torch.load(
+            self.artifacts / (f"hidden-{mname.name}2{fname.name}.pt"),
+            map_location="cpu",
+        )
 
         fixed_nib = nib.load(fname)
         moving_nib = nib.load(mname)
@@ -163,15 +228,15 @@ class PatchDatasetStage2(Dataset):
         flow = self.fold_(flow, rshape, pshape)
         hidden = self.fold_(hidden, rshape, pshape)
 
-        fixed = (fixed - fixed.min()) / (fixed.max() - fixed.min())
-        moving = (moving - moving.min()) / (moving.max() - moving.min())
+        fixed = (fixed - self.cache["min_int"]) / (self.cache["max_int"] - self.cache["min_int"])
+        moving = (moving - self.cache["min_int"]) / (self.cache["max_int"] - self.cache["min_int"])
 
         fixed = F.interpolate(fixed.unsqueeze(0), rshape).squeeze(0).float()
         moving = F.interpolate(moving.unsqueeze(0), rshape).squeeze(0).float()
 
-        factor = rshape[-1]//flow.shape[-1]
-        flow = F.interpolate(flow, rshape)*factor
-        hidden = F.interpolate(hidden, rshape)*factor
+        factor = rshape[-1] // flow.shape[-1]
+        flow = F.interpolate(flow, rshape) * factor
+        hidden = F.interpolate(hidden, rshape) * factor
         moving = warp_image(flow, moving.unsqueeze(0)).squeeze(0)
 
         fixed_ps = F.unfold(fixed, pshape[-2:], stride=pshape[-2:])
@@ -192,6 +257,11 @@ class PatchDatasetStage2(Dataset):
         hidden_p = hidden_p.reshape(hidden_p.shape[0], fixed.shape[-3], *pshape[-2:])
         flow_p = flow_p.reshape(3, fixed.shape[-3], *pshape[-2:])
 
+        fixed_p = torch.split(fixed_p, [fixed.shape[-3]//self.chan_split]*self.chan_split, dim=1)[chan_index]
+        moving_p = torch.split(moving_p, [fixed.shape[-3]//self.chan_split]*self.chan_split, dim=1)[chan_index]
+        hidden_p = torch.split(hidden_p, [fixed.shape[-3]//self.chan_split]*self.chan_split, dim=1)[chan_index]
+        flow_p = torch.split(flow_p, [fixed.shape[-3]//self.chan_split]*self.chan_split, dim=1)[chan_index]
+
         ret: Dict[str, Union[torch.Tensor, int, str]] = {
             "fixed_image": fixed_p,
             "moving_image": moving_p,
@@ -199,12 +269,12 @@ class PatchDatasetStage2(Dataset):
             "flowin": flow_p,
         }
         ret["patch_index"] = patch_index
+        ret["chan_index"] = chan_index
         ret["fixed_image_name"] = fname.name
         ret["moving_image_name"] = mname.name
 
-
         if "fixed_keypoints" in data:
-            out = self.load_keypoints_for_patch(data, rshape, pshape, patch_index)
+            out = self.load_keypoints_for_patch(data, rshape, pshape, chan_index, patch_index)
             if out is not None:
                 fixed_kps, moving_kps = out
                 ret["fixed_keypoints"] = fixed_kps
@@ -258,8 +328,8 @@ class PatchDataset(Dataset):
         return len(self.indexes)
 
     def load_keypoints_for_patch(self, data, res_shape, patch_shape, patch_index):
-        fixed_kps = load_keypoints(data["fixed_keypoints"])/self.res_factor
-        moving_kps = load_keypoints(data["moving_keypoints"])/self.res_factor
+        fixed_kps = load_keypoints(data["fixed_keypoints"]) / self.res_factor
+        moving_kps = load_keypoints(data["moving_keypoints"]) / self.res_factor
 
         grid = identity_grid_torch(res_shape, device="cpu").squeeze()
         grid_patched = F.unfold(grid, patch_shape[-2:], stride=patch_shape[-2:])
@@ -268,17 +338,19 @@ class PatchDataset(Dataset):
 
         masks = [
             torch.logical_and(
-                fixed_kps[:,i] > grid_patch[i,...].min(),
-                fixed_kps[:,i] < grid_patch[i,...].max()
+                fixed_kps[:, i] > grid_patch[i, ...].min(),
+                fixed_kps[:, i] < grid_patch[i, ...].max(),
             )
             for i in range(3)
         ]
         mask = torch.logical_and(torch.logical_and(masks[0], masks[1]), masks[2])
         if not mask.any():
             return None
-        fixed_kps_p = fixed_kps[mask.squeeze(),:]
-        moving_kps_p = moving_kps[mask.squeeze(),:]
-        min_tensor = torch.stack([grid_patch[i,...].min() for i in range(3)], dim=-1).unsqueeze(0)
+        fixed_kps_p = fixed_kps[mask.squeeze(), :]
+        moving_kps_p = moving_kps[mask.squeeze(), :]
+        min_tensor = torch.stack(
+            [grid_patch[i, ...].min() for i in range(3)], dim=-1
+        ).unsqueeze(0)
 
         fixed_kps_p = fixed_kps_p - min_tensor
         moving_kps_p = moving_kps_p - min_tensor
@@ -333,7 +405,6 @@ class PatchDataset(Dataset):
             ret = {
                 "fixed_image": fixed,
                 "moving_image": moving,
-
             }
 
         ret["patch_index"] = patch_index
@@ -351,6 +422,7 @@ class PatchDataset(Dataset):
 
         return ret
 
+
 @app.command()
 def eval_stage3(
     data_json: Path,
@@ -359,9 +431,9 @@ def eval_stage3(
     res: int,
     checkpoint: Path,
     device: str = "cuda",
-    iters: int=4,
-    search_range: int=2,
-    split: str="val"
+    iters: int = 4,
+    search_range: int = 2,
+    split: str = "val",
 ):
     """
     Stage3 (Final) eval
@@ -381,32 +453,36 @@ def eval_stage3(
             fixed, moving = data["fixed_image"], data["moving_image"]
             fixed, moving = fixed.to(device), moving.to(device)
             flow, _ = model(fixed, moving)
-            savename = f'{data["moving_image_name"][0]}2{data["fixed_image_name"][0]}.pt'
+            savename = (
+                f'{data["moving_image_name"][0]}2{data["fixed_image_name"][0]}.pt'
+            )
             flows[savename].append((data["patch_index"], flow.detach().cpu()))
 
             flow, _ = model(moving, fixed)
             flowin = data["flowin"].to(device)
             flow = concat_flow(flowin, flow)
 
-            savename = f'{data["fixed_image_name"][0]}2{data["moving_image_name"][0]}.pt'
+            savename = (
+                f'{data["fixed_image_name"][0]}2{data["moving_image_name"][0]}.pt'
+            )
             flows[savename].append((data["patch_index"], flow.detach().cpu()))
 
         for k, v in flows.items():
             try:
                 fk = torch.stack([i[1] for i in sorted(v)], dim=-1)
                 pshape = fk.shape[-3:-1]
-                res_shape = (fk.shape[2], *[i*4 for i in pshape])
+                res_shape = (fk.shape[2], *[i * 4 for i in pshape])
                 inp = fk.squeeze(0)
-                inp = einops.rearrange(inp, 'c h d w p -> c (h d w) p')
+                inp = einops.rearrange(inp, "c h d w p -> c (h d w) p")
                 folded = F.fold(inp, res_shape[-2:], pshape, stride=pshape)
                 folded = folded.unsqueeze(0)
-                moving, fixed = k.split('z2')
+                moving, fixed = k.split("z2")
                 moving = moving + "z"
-                fixed = ".".join(fixed.split(".")[:-1]) # remove .pt
+                fixed = ".".join(fixed.split(".")[:-1])  # remove .pt
                 disp_name = f"disp_{fixed[-16:-12]}_{moving[-16:-12]}"
                 disp_np = torch2skimage_disp(folded)
                 disp_nib = nib.Nifti1Image(disp_np, affine=np.eye(4))
-                nib.save(disp_nib, savedir/f"{disp_name}.nii.gz")
+                nib.save(disp_nib, savedir / f"{disp_name}.nii.gz")
             except:
                 print(k)
                 continue
@@ -420,9 +496,9 @@ def eval_stage2(
     res: int,
     checkpoint: Path,
     device: str = "cuda",
-    iters: int=8,
-    search_range: int=3,
-    split="val"
+    iters: int = 8,
+    search_range: int = 3,
+    split="val",
 ):
     """
     Stage2 eval
@@ -439,12 +515,14 @@ def eval_stage2(
     with torch.no_grad(), evaluating(model):
         for i in trange(0, len(dataset), dataset.n_patches):
             flows, hiddens = defaultdict(list), defaultdict(list)
-            for j in range(i, i+dataset.n_patches):
+            for j in range(i, i + dataset.n_patches):
                 data = dataset[j]
                 fixed, moving = data["fixed_image"], data["moving_image"]
                 assert isinstance(fixed, torch.Tensor)
                 assert isinstance(moving, torch.Tensor)
-                fixed, moving = fixed.unsqueeze(0).to(device), moving.unsqueeze(0).to(device)
+                fixed, moving = fixed.unsqueeze(0).to(device), moving.unsqueeze(0).to(
+                    device
+                )
                 flow, hidden = model(fixed, moving)
                 savename = f'{data["moving_image_name"]}2{data["fixed_image_name"]}.pt'
                 flowin = data["flowin"]
@@ -457,10 +535,11 @@ def eval_stage2(
             for k, v in flows.items():
 
                 fk = torch.stack([i[1] for i in sorted(v, key=lambda x: x[0])], dim=-1)
-                hk = torch.stack([i[1] for i in sorted(hiddens[k], key=lambda x: x[0])], dim=-1)
-                torch.save(fk, savedir/("flow-" + k))
-                torch.save(hk, savedir/("hidden-" + k))
-
+                hk = torch.stack(
+                    [i[1] for i in sorted(hiddens[k], key=lambda x: x[0])], dim=-1
+                )
+                torch.save(fk, savedir / ("flow-" + k))
+                torch.save(hk, savedir / ("hidden-" + k))
 
 
 @app.command()
@@ -470,9 +549,9 @@ def eval_stage1(
     res: int,
     checkpoint: Path,
     device: str = "cuda",
-    iters: int=12,
-    search_range: int=3,
-    split="val"
+    iters: int = 12,
+    search_range: int = 3,
+    split="val",
 ):
     """
     Stage1 training
@@ -488,12 +567,14 @@ def eval_stage1(
     with torch.no_grad(), evaluating(model):
         for i in trange(0, len(dataset), dataset.n_patches):
             flows, hiddens = defaultdict(list), defaultdict(list)
-            for j in range(i, i+dataset.n_patches):
+            for j in range(i, i + dataset.n_patches):
                 data = dataset[j]
                 fixed, moving = data["fixed_image"], data["moving_image"]
                 assert isinstance(fixed, torch.Tensor)
                 assert isinstance(moving, torch.Tensor)
-                fixed, moving = fixed.unsqueeze(0).to(device), moving.unsqueeze(0).to(device)
+                fixed, moving = fixed.unsqueeze(0).to(device), moving.unsqueeze(0).to(
+                    device
+                )
                 flow, hidden = model(fixed, moving)
                 savename = f'{data["moving_image_name"]}2{data["fixed_image_name"]}.pt'
                 flows[savename].append((data["patch_index"], flow.detach().cpu()))
@@ -502,12 +583,13 @@ def eval_stage1(
             assert len(flows.keys()) == 1, "Expected only one key"
             for k, v in flows.items():
                 fk = torch.stack([i[1] for i in sorted(v, key=lambda x: x[0])], dim=-1)
-                hk = torch.stack([i[1] for i in sorted(hiddens[k], key=lambda x: x[0])], dim=-1)
-                torch.save(fk, savedir/("flow-" + k))
-                torch.save(hk, savedir/("hidden-" + k))
+                hk = torch.stack(
+                    [i[1] for i in sorted(hiddens[k], key=lambda x: x[0])], dim=-1
+                )
+                torch.save(fk, savedir / ("flow-" + k))
+                torch.save(hk, savedir / ("hidden-" + k))
 
             del flows, hiddens
-
 
 
 @app.command()
@@ -522,22 +604,22 @@ def train_stage2(
     device: str = "cuda",
     image_loss_weight: float = 1,
     reg_loss_weight: float = 0.01,
-    kp_loss_weight: float=1,
+    kp_loss_weight: float = 1,
     log_freq: int = 100,
     save_freq: int = 100,
     val_freq: int = 1000,
-    iters: int=4,
-    search_range: int=1
+    iters: int = 8,
+    search_range: int = 3,
 ):
     """
     Stage2 training
     """
 
     train_dataset = PatchDatasetStage2(data_json, res, artifacts, 4, split="train")
-    val_dataset = PatchDatasetStage2(data_json, res, artifacts,4, split="val")
+    val_dataset = PatchDatasetStage2(data_json, res, artifacts, 4, split="val")
 
-    train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=1, shuffle=True)
+    train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True, num_workers=4)
+    val_loader = DataLoader(val_dataset, batch_size=1, shuffle=True, num_workers=4)
 
     checkpoint_dir.mkdir(exist_ok=True)
     writer = SummaryWriter(log_dir=checkpoint_dir)
@@ -550,11 +632,20 @@ def train_stage2(
 
     opt = torch.optim.Adam(model.parameters(), lr=lr)
 
+    print(f"Dataset size is {len(train_dataset)}")
     print(f"Starting training from step {step_count}")
     while step_count < steps:
         for step_count, data in zip(trange(step_count, steps), train_loader):
-            fixed, moving, hidden = data["fixed_image"], data["moving_image"], data["hidden"]
-            fixed, moving, hidden = fixed.to(device), moving.to(device), hidden.to(device)
+            fixed, moving, hidden = (
+                data["fixed_image"],
+                data["moving_image"],
+                data["hidden"],
+            )
+            fixed, moving, hidden = (
+                fixed.to(device),
+                moving.to(device),
+                hidden.to(device),
+            )
             flow, hidden = model(fixed, moving, hidden)
 
             moved = warp_image(flow, moving)
@@ -592,7 +683,7 @@ def train_stage2(
                     moving_fixed_moved=(moving, fixed, moved),
                 )
 
-            if val_freq > 0 and step_count % val_freq == 0 and step_count>0:
+            if val_freq > 0 and step_count % val_freq == 0 and step_count > 0:
                 losses_cum_dict = defaultdict(list)
                 with torch.no_grad(), evaluating(model):
                     for data in val_loader:
@@ -614,13 +705,18 @@ def train_stage2(
                         if "fixed_keypoints" in data:
                             flowin = data["flowin"].to(device)
                             flow = concat_flow(flowin, flow)
-                            losses_cum_dict["keypoints"].append(kp_loss_weight * TotalRegistrationLoss()(
-                                fixed_landmarks=data["fixed_keypoints"].squeeze(0),
-                                moving_landmarks=data["moving_keypoints"].squeeze(0),
-                                displacement_field=flow,
-                                fixed_spacing=data["fixed_spacing"].squeeze(0),
-                                moving_spacing=data["moving_spacing"].squeeze(0),
-                            ).item())
+                            losses_cum_dict["keypoints"].append(
+                                kp_loss_weight
+                                * TotalRegistrationLoss()(
+                                    fixed_landmarks=data["fixed_keypoints"].squeeze(0),
+                                    moving_landmarks=data["moving_keypoints"].squeeze(
+                                        0
+                                    ),
+                                    displacement_field=flow,
+                                    fixed_spacing=data["fixed_spacing"].squeeze(0),
+                                    moving_spacing=data["moving_spacing"].squeeze(0),
+                                ).item()
+                            )
 
                 for k, v in losses_cum_dict.items():
                     writer.add_scalar(
@@ -629,7 +725,8 @@ def train_stage2(
 
             if step_count % save_freq == 0:
                 torch.save(
-                    model.state_dict(), checkpoint_dir / f"rnn{res}x_{step_count}.pth",
+                    model.state_dict(),
+                    checkpoint_dir / f"rnn{res}x_{step_count}.pth",
                 )
 
     torch.save(model.state_dict(), checkpoint_dir / f"rnn{res}x_{step_count}.pth")
@@ -646,7 +743,7 @@ def train_stage1(
     device: str = "cuda",
     image_loss_weight: float = 1,
     reg_loss_weight: float = 0.1,
-    kp_loss_weight: float=1,
+    kp_loss_weight: float = 1,
     log_freq: int = 5,
     save_freq: int = 50,
     val_freq: int = 50,
@@ -734,14 +831,18 @@ def train_stage1(
                         )
 
                         if "fixed_keypoints" in data:
-                            losses_cum_dict["keypoints"].append(kp_loss_weight * TotalRegistrationLoss()(
-                                fixed_landmarks=data["fixed_keypoints"].squeeze(0),
-                                moving_landmarks=data["moving_keypoints"].squeeze(0),
-                                displacement_field=flow,
-                                fixed_spacing=data["fixed_spacing"].squeeze(0),
-                                moving_spacing=data["moving_spacing"].squeeze(0),
-                            ).item())
-
+                            losses_cum_dict["keypoints"].append(
+                                kp_loss_weight
+                                * TotalRegistrationLoss()(
+                                    fixed_landmarks=data["fixed_keypoints"].squeeze(0),
+                                    moving_landmarks=data["moving_keypoints"].squeeze(
+                                        0
+                                    ),
+                                    displacement_field=flow,
+                                    fixed_spacing=data["fixed_spacing"].squeeze(0),
+                                    moving_spacing=data["moving_spacing"].squeeze(0),
+                                ).item()
+                            )
 
                 for k, v in losses_cum_dict.items():
                     writer.add_scalar(
@@ -750,7 +851,8 @@ def train_stage1(
 
             if step_count % save_freq == 0:
                 torch.save(
-                    model.state_dict(), checkpoint_dir / f"rnn{res}x_{step_count}.pth",
+                    model.state_dict(),
+                    checkpoint_dir / f"rnn{res}x_{step_count}.pth",
                 )
 
     torch.save(model.state_dict(), checkpoint_dir / f"rnn{res}x_{step_count}.pth")
