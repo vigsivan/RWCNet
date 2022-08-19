@@ -705,7 +705,7 @@ def train_stage2(
             if "fixed_keypoints" in data:
                 flowin = data["flowin"].to(device)
                 flow = concat_flow(flowin, flow)
-                losses_dict["keypoints"] = kp_loss_weight * TotalRegistrationLoss()(
+                losses_dict["keypoints"] = res * TotalRegistrationLoss()(
                     fixed_landmarks=data["fixed_keypoints"].squeeze(0),
                     moving_landmarks=data["moving_keypoints"].squeeze(0),
                     displacement_field=flow,
@@ -752,7 +752,7 @@ def train_stage2(
                             flowin = data["flowin"].to(device)
                             flow = concat_flow(flowin, flow)
                             losses_cum_dict["keypoints"].append(
-                                kp_loss_weight
+                                res
                                 * TotalRegistrationLoss()(
                                     fixed_landmarks=data["fixed_keypoints"].squeeze(0),
                                     moving_landmarks=data["moving_keypoints"].squeeze(
@@ -833,7 +833,7 @@ def train_stage1(
             losses_dict["grad"] = reg_loss_weight * Grad()(flow)
 
             if "fixed_keypoints" in data:
-                losses_dict["keypoints"] = kp_loss_weight * TotalRegistrationLoss()(
+                losses_dict["keypoints"] = res * TotalRegistrationLoss()(
                     fixed_landmarks=data["fixed_keypoints"].squeeze(0),
                     moving_landmarks=data["moving_keypoints"].squeeze(0),
                     displacement_field=flow,
@@ -878,7 +878,7 @@ def train_stage1(
 
                         if "fixed_keypoints" in data:
                             losses_cum_dict["keypoints"].append(
-                                kp_loss_weight
+                                res
                                 * TotalRegistrationLoss()(
                                     fixed_landmarks=data["fixed_keypoints"].squeeze(0),
                                     moving_landmarks=data["moving_keypoints"].squeeze(
