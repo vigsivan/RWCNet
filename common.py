@@ -45,7 +45,7 @@ def tb_log(
     triplet = [moving.squeeze(), fixed.squeeze(), moved.squeeze()]
     writer.add_images(
         "(moving,fixed,moved)",
-        img_tensor=torch.stack(triplet)[:, slice_index, ...].unsqueeze(1),
+        img_tensor=torch.stack(triplet)[:, :, slice_index, ...].unsqueeze(1),
         global_step=step,
         dataformats="nchw",
     )
