@@ -680,7 +680,7 @@ def train_stage2(
 
     print(f"Dataset size is {len(train_dataset)}")
     print(f"Starting training from step {step_count}")
-    while step_count < steps:
+    while step_count+1 < steps:
         for step_count, data in zip(trange(step_count, steps), train_loader):
             fixed, moving, hidden = (
                 data["fixed_image"],
@@ -817,7 +817,7 @@ def train_stage1(
     opt = torch.optim.Adam(model.parameters(), lr=lr)
 
     print(f"Starting training from step {step_count}")
-    while step_count < steps:
+    while step_count+1 < steps:
         for step_count, data in zip(trange(step_count, steps), train_loader):
 
             fixed, moving = data["fixed_image"], data["moving_image"]
