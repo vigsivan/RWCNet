@@ -297,6 +297,7 @@ class PatchDataset(Dataset):
         res_factor: int,
         patch_factor: int,
         split: str,
+        cache_file: Path=Path("./stage2.pkl"),
     ):
         super().__init__()
         if res_factor not in [1, 2, 4]:
@@ -323,6 +324,51 @@ class PatchDataset(Dataset):
         self.res_factor = res_factor
         self.patch_factor = patch_factor
         self.n_patches = n_patches
+
+        if not cache_file.exists():
+            cache = self.get_dataset_minmax_(data_json.name)
+            with open(cache_file, 'wb') as f:
+                pickle.dump(cache, f)
+        else:
+            with open(cache_file, 'rb') as f:
+                cache = pickle.load(f)
+            if data_json.name in cache:
+                self.min_int = cache[data_json.name]["min_int"]
+                self.max_int = cache[data_json.name]["max_int"]
+            else:
+                cache_ = self.get_dataset_minmax_(data_json.name)
+                cache.update(cache_)
+                with open(cache_file, 'wb') as f:
+                    pickle.dump(cache, f)
+
+        self.cache = cache[data_json.name]
+
+
+    def get_dataset_minmax_(self, json_name):
+        cache = defaultdict(dict)
+        min_int, max_int = np.inf, -1*np.inf
+
+        f, m = "fixed", "moving"
+
+        min_int, max_int = np.inf, -1*np.inf
+        for dat in self.data:
+            fixed_image=Path(dat[f"{f}_image"])
+            moving_image=Path(dat[f"{m}_image"])
+
+            fixed_nib = nib.load(fixed_image)
+            moving_nib = nib.load(moving_image)
+
+            mi = min(fixed_nib.get_fdata().min(), moving_nib.get_fdata().min())
+            ma = max(fixed_nib.get_fdata().max(), moving_nib.get_fdata().max())
+
+            if mi < min_int:
+                min_int = mi
+            if ma > max_int:
+                max_int = ma
+
+        cache[json_name]["min_int"] = min_int
+        cache[json_name]["max_int"] = max_int
+        return cache
 
     def __len__(self):
         return len(self.indexes)
@@ -375,8 +421,8 @@ class PatchDataset(Dataset):
         fixed = torch.from_numpy(fixed_nib.get_fdata()).unsqueeze(0)
         moving = torch.from_numpy(moving_nib.get_fdata()).unsqueeze(0)
 
-        fixed = (fixed - fixed.min()) / (fixed.max() - fixed.min())
-        moving = (moving - moving.min()) / (moving.max() - moving.min())
+        fixed = (fixed - self.cache["min_int"]) / (self.cache["max_int"] - self.cache["min_int"])
+        moving = (moving - self.cache["min_int"]) / (self.cache["max_int"] - self.cache["min_int"])
 
         rshape = tuple(i // r for i in fixed.shape[-3:])
         pshape = tuple(i // p for i in ogshape[-3:])
