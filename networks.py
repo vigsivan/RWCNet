@@ -4,6 +4,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from torch.distributions.normal import Normal
+from monai.networks.nets.segresnet import SegResNet
 from common import correlate, MINDSSC, concat_flow, identity_grid_torch, warp_image
 
 
@@ -128,22 +129,17 @@ class SomeNet(nn.Module):
         super().__init__()
         self.search_range = search_range
         # self.context= Unet3D(infeats=1, outfeats=80)
-        self.context= FeatureExtractor(
-                infeats=4, 
-                feature_sizes=[8,16,32,(hidden_dim+input_size)],
-                strides=[1,1,1,1],
-                kernel_sizes=[3,3,3,3])
+
+        self.feature_extractor = SegResNet(in_channels=1, out_channels= input_size//2)
+        self.context = SegResNet(in_channels=4, out_channels=hidden_dim)
+        # self.context= FeatureExtractor(
+        #         infeats=4,
+        #         feature_sizes=[8,16,32,hidden_dim],
+        #         strides=[1,1,1,1],
+        #         kernel_sizes=[3,3,3,3])
 
         self.update = UpdateBlock((2*search_range+1)**3, hidden_dim=hidden_dim)
-        self.mesh = (
-            F.affine_grid(
-                self.search_range * torch.eye(3, 4).cuda().half().unsqueeze(0),
-                [1, 1, self.search_range * 2 + 1, self.search_range * 2 + 1, self.search_range * 2 + 1],
-                align_corners=True,
-            )
-            .permute(0, 4, 1, 2, 3)
-            .reshape(3, -1, 1)
-        )
+        self.starting = None
         self.flow_upsample = nn.Sequential(
             nn.Conv3d(3,3,3,1,padding='same'),
             nn.ReLU(),
@@ -152,12 +148,9 @@ class SomeNet(nn.Module):
         self.count = 0
         self.iters=iters
 
-    def compute_correlation(self, moving_image: torch.Tensor, fixed_image: torch.Tensor):
-        feat_fix = MINDSSC(fixed_image)
-        feat_mov = MINDSSC(moving_image)
-
+    def compute_correlation(self, fixed_feat: torch.Tensor, moving_feat: torch.Tensor):
         with torch.no_grad():
-            correlation, _ = correlate(feat_fix, feat_mov, search_radius=self.search_range)
+            correlation, _ = correlate(fixed_feat, moving_feat, search_radius=self.search_range)
             correlation = correlation.squeeze().unsqueeze(0)
 
         return correlation
@@ -168,49 +161,48 @@ class SomeNet(nn.Module):
         moving: torch.Tensor,
         hidden_init: Optional[torch.Tensor]=None,
     ):
-       
-        context = self.context(torch.cat([identity_grid_torch(moving.shape[-3:]),  moving], dim=1))
-        inp, hidden = torch.split(context, [16, 64], dim=1)
+
+
+        if self.starting == None:
+            self.starting = torch.zeros((moving.shape[0], 3, *moving.shape[-3:]), device=moving.device)
+
+        hidden = self.context(torch.cat([self.starting,  moving], dim=1))
+        fixed_feat = self.feature_extractor(fixed)
+        moving_feat = self.feature_extractor(moving)
+        inp = torch.cat((fixed_feat, moving_feat), dim=1)
         hidden = torch.tanh(hidden)
         if hidden_init is not None:
             hidden = hidden + hidden_init
         inp = torch.relu(inp)
 
-        flow_predictions = []
-        correlation = self.compute_correlation(moving, fixed,)
-        argmin = torch.argmin(correlation, 1)
-        flow_hard = self.mesh.view(3, -1)[:, argmin.view(-1)].reshape(1, 3, *moving.shape[-3:])
-        flow_soft = F.avg_pool3d(flow_hard, 3, padding=1, stride=1).float()
-        flow_predictions.append(flow_soft)
-        del correlation
-
+        delta_flow = self.starting
+        flow = delta_flow
 
         for _ in range(self.iters):
-            flow = flow_predictions[-1]
-            cost_volume = self.compute_correlation(moving, fixed,)
-            hidden, delta_flow = self.update(cost_volume, flow, hidden, inp)
-            flow = concat_flow(flow , delta_flow)
-            moving = warp_image(flow, moving)
-            flow_predictions.append(flow)
+            cost_volume = self.compute_correlation(fixed_feat, moving_feat,)
+            hidden, delta_flow = self.update(cost_volume, delta_flow, hidden, inp)
+            flow = flow + delta_flow
+            moving_ = warp_image(flow, moving)
+            moving_feat = self.feature_extractor(moving_)
+            inp = torch.cat((fixed_feat, moving_feat), dim=1)
 
-        flow = flow_predictions[-1]
         return flow, hidden
 
 
 class SomeNetFullRes(nn.Module):
-    def __init__(self, 
+    def __init__(self,
             resolution: int=1,
             iterations: int=4):
         super().__init__()
 
         self.context= FeatureExtractor(
-                infeats=4, 
+                infeats=4,
                 feature_sizes=[8,16,32,48],
                 strides=[1,1,1,1],
                 kernel_sizes=[3,3,3,3])
 
         self.net2 = FeatureExtractor(
-                infeats=2, 
+                infeats=2,
                 feature_sizes=[4,16,16,4],
                 strides=[1,1,1,1],
                 kernel_sizes=[3,3,3,3])
@@ -280,7 +272,7 @@ class SomeNetMultiRes(nn.Module):
             flow_ret = concat_flow(flow_ret, F.interpolate(flow, flow_ret.shape[-3:]))
         if return_hidden:
             return flow_ret, hprev
-            
+
         return flow_ret
 
 
