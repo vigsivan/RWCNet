@@ -559,9 +559,9 @@ def eval_stage2(
     model.load_state_dict(torch.load(checkpoint))
 
     with torch.no_grad(), evaluating(model):
-        for i in trange(0, len(dataset), dataset.n_patches):
+        for i in trange(0, len(dataset), dataset.n_patches*dataset.chan_split):
             flows, hiddens = defaultdict(list), defaultdict(list)
-            for j in range(i, i + dataset.n_patches):
+            for j in range(i, i + (dataset.n_patches*dataset.chan_split)):
                 data = dataset[j]
                 fixed, moving = data["fixed_image"], data["moving_image"]
                 assert isinstance(fixed, torch.Tensor)
@@ -575,15 +575,31 @@ def eval_stage2(
                 assert isinstance(flowin, torch.Tensor)
                 flow = concat_flow(flowin.to(device), flow)
 
-                flows[savename].append((data["patch_index"], flow.detach().cpu()))
-                hiddens[savename].append((data["patch_index"], hidden.detach().cpu()))
+                flows[savename].append((data["chan_index"], data["patch_index"], flow.detach().cpu()))
+                hiddens[savename].append((data["chan_index"], data["patch_index"], hidden.detach().cpu()))
 
             for k, v in flows.items():
+                fchannels = [[]]*dataset.chan_split
+                hchannels = [[]]*dataset.chan_split
+                for i in v:
+                    fchannels[i[0]].append((i[1], i[2]))
 
-                fk = torch.stack([i[1] for i in sorted(v, key=lambda x: x[0])], dim=-1)
-                hk = torch.stack(
-                    [i[1] for i in sorted(hiddens[k], key=lambda x: x[0])], dim=-1
-                )
+                ffchannels = [
+                    torch.stack([i[1] for i in sorted(fchan, key=lambda x: x[0])], dim=-1)
+                    for fchan in fchannels
+                ]
+                fk = torch.cat(ffchannels, dim=2)
+
+                hv = hiddens[k]
+                for i in hv:
+                    hchannels[i[0]].append((i[1], i[2]))
+
+                fhchannels = [
+                    torch.stack([i[1] for i in sorted(hchan, key=lambda x: x[0])], dim=-1)
+                    for hchan in hchannels
+                ]
+
+                hk = torch.cat(fhchannels, dim=2)
                 torch.save(fk, savedir / ("flow-" + k))
                 torch.save(hk, savedir / ("hidden-" + k))
 
