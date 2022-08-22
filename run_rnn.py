@@ -253,7 +253,10 @@ def run_somenet(
 
         loss = sum(losses_dict.values())
         assert isinstance(loss, torch.Tensor)
-        losses_dict_log = {k: v.item() for k, v in losses_dict.items()}
+        #losses_dict_log = {k: v.item() for k, v in losses_dict.items()}
+        losses_dict_log={}
+        for k, v in losses_dict.items():
+            losses_dict_log.update({k: v.item()})
 
         return RunModelOut(
             flow=flow,
