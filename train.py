@@ -817,8 +817,8 @@ def train_stage1(
     train_dataset = PatchDataset(data_json, res, 4, split="train")
     val_dataset = PatchDataset(data_json, res, 4, split="val")
 
-    train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=1, shuffle=True)
+    train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True, num_workers=4)
+    val_loader = DataLoader(val_dataset, batch_size=1, shuffle=True, num_workers=4)
 
     checkpoint_dir.mkdir(exist_ok=True)
     writer = SummaryWriter(log_dir=checkpoint_dir)
