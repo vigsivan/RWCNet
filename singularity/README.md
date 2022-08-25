@@ -39,10 +39,13 @@ python run_rnn.py train ~/src/optimization-based-registration/singularityTrainin
 
 To use Singularity on Compute Canada cluster (Beluga, Cedar, Graham, Niagara) using CUDA follow the following instructions in shell. 
 on shell submit job with a script as shown below:
+```
 $ sbatch train-job.sh 
+```
 
 where train-job.sh is a bash script shown below:
 
+```
 !/bin/bash
 #SBATCH --nodes=1
 #SBATCH --gpus-per-node=v100:1
