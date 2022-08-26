@@ -1242,7 +1242,7 @@ def train_stage1(
 
                             losses_cum_dict["dice_loss"].append(
                                     seg_loss_weight
-                                    * DiceLoss()(fixed_segmentation, moved_segmentation)
+                                    * DiceLoss()(fixed_segmentation, moved_segmentation).item()
                             )
 
 
