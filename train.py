@@ -5,7 +5,7 @@ from pathlib import Path
 import einops
 import pickle
 import numpy as np
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, Tuple, Union
 from torch.utils.tensorboard.writer import SummaryWriter
 import torch
 import torch.nn.functional as F
@@ -22,13 +22,18 @@ from common import (
     torch2skimage_disp,
     warp_image,
 )
-from differentiable_metrics import MINDLoss, Grad, TotalRegistrationLoss
+from differentiable_metrics import (
+    MINDLoss,
+    DiceLoss,
+    Grad,
+    TotalRegistrationLoss,
+    MutualInformationLoss,
+)
 from networks import SomeNet
 
 app = Typer()
 
 
-add_bc_dim = lambda x: einops.repeat(x, "d h w -> b c d h w", b=1, c=1).float()
 get_spacing = lambda x: np.sqrt(np.sum(x.affine[:3, :3] * x.affine[:3, :3], axis=0))
 
 
@@ -44,7 +49,6 @@ def evaluating(net):
             net.train()
 
 
-# FIXME: make this dataset more distinct from stage1 (remove func to not return hidden)
 class PatchDatasetStage2(Dataset):
     """
     Extracts 3D `patches' at a specific resolution
@@ -57,32 +61,37 @@ class PatchDatasetStage2(Dataset):
         artifacts: Path,
         patch_factor: int,
         split: str,
-        cache_file: Path=Path("./stage2.pkl"),
+        cache_file: Path = Path("./stage2.pkl"),
+        cache_patches_dir: Optional[Path] = None,
+        precache: bool = False,
     ):
         super().__init__()
         if res_factor not in [1, 2, 4]:
             raise ValueError(f"Unacceptable resolution factor {res_factor}")
 
-        if patch_factor not in [4]:
+        if patch_factor not in [1, 2, 4]:
             raise ValueError(f"Unacceptable patch factor {patch_factor}")
 
         with open(data_json, "r") as f:
             data = json.load(f)[split]
 
-        # FIXME
-        # I'm sure the heuristic here is like 2**(patch_factor/res_factor) or
-        # something but I'm too lazy to figure it out
-        if res_factor == 4:
-            n_patches = 1
-        elif res_factor == 2:
-            n_patches = 4
+        r, p = 1 / res_factor, 1 / patch_factor
+        n_patches = (((r - p) / p) + 1) ** 2
+
+        if n_patches.is_integer():
+            n_patches = int(n_patches)
         else:
-            n_patches = 16
+            raise Exception(f"Number of patches is not integer, is {n_patches}")
 
         chan_split = patch_factor // res_factor
 
         self.data = data
-        self.indexes = [(i, j, k) for i, _ in enumerate(data) for j in range(chan_split) for k in range(n_patches)]
+        self.indexes = [
+            (i, j, k)
+            for i, _ in enumerate(data)
+            for j in range(chan_split)
+            for k in range(n_patches)
+        ]
         self.res_factor = res_factor
         self.patch_factor = patch_factor
         self.n_patches = n_patches
@@ -92,10 +101,10 @@ class PatchDatasetStage2(Dataset):
 
         if not cache_file.exists():
             cache = self.get_dataset_minmax_(data_json.name)
-            with open(cache_file, 'wb') as f:
+            with open(cache_file, "wb") as f:
                 pickle.dump(cache, f)
         else:
-            with open(cache_file, 'rb') as f:
+            with open(cache_file, "rb") as f:
                 cache = pickle.load(f)
             if data_json.name in cache:
                 self.min_int = cache[data_json.name]["min_int"]
@@ -103,22 +112,29 @@ class PatchDatasetStage2(Dataset):
             else:
                 cache_ = self.get_dataset_minmax_(data_json.name)
                 cache.update(cache_)
-                with open(cache_file, 'wb') as f:
+                with open(cache_file, "wb") as f:
                     pickle.dump(cache, f)
 
         self.cache = cache[data_json.name]
 
+        self.cache_patches_dir = cache_patches_dir
+        self.cached = []
+        if cache_patches_dir is not None:
+            cache_patches_dir.mkdir(exist_ok=True)
+            self.cached = [False] * len(self.indexes)
+            if precache:
+                self.precache()
 
     def get_dataset_minmax_(self, json_name):
         cache = defaultdict(dict)
-        min_int, max_int = np.inf, -1*np.inf
+        min_int, max_int = np.inf, -1 * np.inf
 
         f, m = "fixed", "moving"
 
-        min_int, max_int = np.inf, -1*np.inf
+        min_int, max_int = np.inf, -1 * np.inf
         for dat in self.data:
-            fixed_image=Path(dat[f"{f}_image"])
-            moving_image=Path(dat[f"{m}_image"])
+            fixed_image = Path(dat[f"{f}_image"])
+            moving_image = Path(dat[f"{m}_image"])
 
             fixed_nib = nib.load(fixed_image)
             moving_nib = nib.load(moving_image)
@@ -134,7 +150,6 @@ class PatchDatasetStage2(Dataset):
         cache[json_name]["min_int"] = min_int
         cache[json_name]["max_int"] = max_int
         return cache
-
 
     def __len__(self):
         return len(self.indexes)
@@ -166,7 +181,9 @@ class PatchDatasetStage2(Dataset):
                 folded = folded.unsqueeze(0)
             return folded
 
-    def load_keypoints_for_patch(self, data, res_shape, patch_shape, chan_index, patch_index):
+    def load_keypoints_for_patch(
+        self, data, res_shape, patch_shape, chan_index, patch_index
+    ):
         fixed_kps = load_keypoints(data["fixed_keypoints"]) / self.res_factor
         moving_kps = load_keypoints(data["moving_keypoints"]) / self.res_factor
 
@@ -174,7 +191,9 @@ class PatchDatasetStage2(Dataset):
         grid_patched = F.unfold(grid, patch_shape[-2:], stride=patch_shape[-2:])
         grid_patch = grid_patched[..., patch_index]
         grid_patch = grid_patch.reshape(3, res_shape[-3], *patch_shape[-2:])
-        grid_patch = torch.split(grid_patch, [res_shape[-3]//self.chan_split]*self.chan_split, dim=1)[chan_index]
+        grid_patch = torch.split(
+            grid_patch, [res_shape[-3] // self.chan_split] * self.chan_split, dim=1
+        )[chan_index]
 
         masks = [
             torch.logical_and(
@@ -197,15 +216,40 @@ class PatchDatasetStage2(Dataset):
 
         return fixed_kps_p, moving_kps_p
 
-    def __getitem__(self, index: int):
-        data_index, chan_index, patch_index = self.indexes[index]
-        data = self.data[data_index]
+    def get_patch(
+        self,
+        tensor: torch.Tensor,
+        n_channels: int,
+        rshape: Tuple[int, int, int],
+        pshape: Tuple[int, int, int],
+        patch_index: int,
+        chan_index: int,
+    ):
+        r = self.res_factor
+        p = self.patch_factor
+
+        assert len(tensor.shape) == 4, "Expected tensor to have four dimensions"
+        tensor_ps = F.unfold(tensor, pshape[-2:], stride=pshape[-2:])
+
+        L = tensor_ps.shape[-1]
+        assert L == self.n_patches, f"Unexpected number of patches: {L}"
+
+        tensor_p = tensor_ps[..., patch_index]
+        tensor_p = tensor_p.reshape(n_channels, tensor.shape[-3], *pshape[-2:])
+        tensor_p = torch.split(
+            tensor_p, [tensor.shape[-3] // self.chan_split] * self.chan_split, dim=1
+        )[chan_index]
+
+        return tensor_p
+
+    def load_data_(self, data_index):
 
         r = self.res_factor
         p = self.patch_factor
 
         f, m = "fixed", "moving"
 
+        data = self.data[data_index]
         fname, mname = Path(data[f"{f}_image"]), Path(data[f"{m}_image"])
         flow = torch.load(
             self.artifacts / (f"flow-{mname.name}2{fname.name}.pt"), map_location="cpu"
@@ -225,11 +269,12 @@ class PatchDatasetStage2(Dataset):
         rshape = tuple(i // r for i in fixed.shape[-3:])
         pshape = tuple(i // p for i in ogshape[-3:])
 
-        flow = self.fold_(flow, rshape, pshape)
-        hidden = self.fold_(hidden, rshape, pshape)
-
-        fixed = (fixed - self.cache["min_int"]) / (self.cache["max_int"] - self.cache["min_int"])
-        moving = (moving - self.cache["min_int"]) / (self.cache["max_int"] - self.cache["min_int"])
+        fixed = (fixed - self.cache["min_int"]) / (
+            self.cache["max_int"] - self.cache["min_int"]
+        )
+        moving = (moving - self.cache["min_int"]) / (
+            self.cache["max_int"] - self.cache["min_int"]
+        )
 
         fixed = F.interpolate(fixed.unsqueeze(0), rshape).squeeze(0).float()
         moving = F.interpolate(moving.unsqueeze(0), rshape).squeeze(0).float()
@@ -239,28 +284,89 @@ class PatchDatasetStage2(Dataset):
         hidden = F.interpolate(hidden, rshape) * factor
         moving = warp_image(flow, moving.unsqueeze(0)).squeeze(0)
 
-        fixed_ps = F.unfold(fixed, pshape[-2:], stride=pshape[-2:])
-        moving_ps = F.unfold(moving, pshape[-2:], stride=pshape[-2:])
-        hidden_ps = F.unfold(hidden.squeeze(0), pshape[-2:], stride=pshape[-2:])
-        flow_ps = F.unfold(flow.squeeze(0), pshape[-2:], stride=pshape[-2:])
+        hidden = hidden.squeeze(0)
+        flow = flow.squeeze(0)
 
-        L = fixed_ps.shape[-1]
-        assert L == self.n_patches, f"Unexpected number of patches: {L}"
+        ret: Dict[str, Union[torch.Tensor, str, Tuple]] = {
+            "fixed_image": fixed,
+            "moving_image": moving,
+            "hidden": hidden,
+            "flow": flow,
+            "rshape": rshape,
+            "pshape": pshape,
+            "fname": fname,
+            "mname": mname,
+        }
 
-        fixed_p = fixed_ps[..., patch_index]
-        moving_p = moving_ps[..., patch_index]
-        hidden_p = hidden_ps[..., patch_index]
-        flow_p = flow_ps[..., patch_index]
+        if "fixed_segmentation" in data:
 
-        fixed_p = fixed_p.reshape(1, fixed.shape[-3], *pshape[-2:])
-        moving_p = moving_p.reshape(1, fixed.shape[-3], *pshape[-2:])
-        hidden_p = hidden_p.reshape(hidden_p.shape[0], fixed.shape[-3], *pshape[-2:])
-        flow_p = flow_p.reshape(3, fixed.shape[-3], *pshape[-2:])
+            fixed_seg_nib = nib.load(data["fixed_segmentation"])
+            moving_seg_nib = nib.load(data["moving_segmentation"])
 
-        fixed_p = torch.split(fixed_p, [fixed.shape[-3]//self.chan_split]*self.chan_split, dim=1)[chan_index]
-        moving_p = torch.split(moving_p, [fixed.shape[-3]//self.chan_split]*self.chan_split, dim=1)[chan_index]
-        hidden_p = torch.split(hidden_p, [fixed.shape[-3]//self.chan_split]*self.chan_split, dim=1)[chan_index]
-        flow_p = torch.split(flow_p, [fixed.shape[-3]//self.chan_split]*self.chan_split, dim=1)[chan_index]
+            fixed_seg = torch.from_numpy(fixed_seg_nib.get_fdata()).unsqueeze(0)
+            moving_seg = torch.from_numpy(moving_seg_nib.get_fdata()).unsqueeze(0)
+
+            fixed_seg = F.interpolate(fixed_seg.unsqueeze(0), rshape, mode='nearest').squeeze(0).float()
+            moving_seg = (
+                F.interpolate(moving_seg.unsqueeze(0), rshape, mode='nearest').squeeze(0).float()
+            )
+
+            moving_seg = warp_image(flow.unsqueeze(0), moving_seg.unsqueeze(0)).squeeze(0)
+
+            ret["fixed_segmentation"] = fixed_seg
+            ret["moving_segmentation"] = moving_seg
+
+        if "fixed_mask" in data:
+
+            fixed_mask_nib = nib.load(data["fixed_mask"])
+            moving_mask_nib = nib.load(data["moving_mask"])
+
+            fixed_mask = torch.from_numpy(fixed_mask_nib.get_fdata()).unsqueeze(0)
+            moving_mask = torch.from_numpy(moving_mask_nib.get_fdata()).unsqueeze(0)
+
+
+            fixed_mask = F.interpolate(fixed_mask.unsqueeze(0), rshape, mode='nearest').squeeze(0).float()
+            moving_mask = (
+                F.interpolate(moving_mask.unsqueeze(0), rshape, mode='nearest').squeeze(0).float()
+            )
+
+            moving_mask = warp_image(flow.unsqueeze(0), moving_mask.unsqueeze(0)).squeeze(0)
+
+            ret["fixed_mask"] = fixed_mask
+            ret["moving_mask"] = moving_mask
+
+        if "fixed_keypoints" in data:
+            ret["fixed_keypoints"] = data["fixed_keypoints"]
+            ret["moving_keypoints"] = data["moving_keypoints"]
+            ret["fixed_spacing"] = torch.Tensor(get_spacing(fixed_nib))
+            ret["moving_spacing"] = torch.Tensor(get_spacing(moving_nib))
+
+        return ret
+
+    def get_patch_data(self, data: Dict, chan_index: int, patch_index: int):
+        (fixed, moving, flow, hidden, rshape, pshape, fname, mname) = (
+            data["fixed_image"],
+            data["moving_image"],
+            data["flow"],
+            data["hidden"],
+            data["rshape"],
+            data["pshape"],
+            data["fname"],
+            data["mname"],
+        )
+
+        fixed_p = self.get_patch(
+            fixed, 1, rshape, pshape, patch_index, chan_index
+        )
+        moving_p = self.get_patch(
+            moving, 1, rshape, pshape, patch_index, chan_index
+        )
+        hidden_p = self.get_patch(
+            hidden, hidden.shape[0], rshape, pshape, patch_index, chan_index
+        )
+        flow_p = self.get_patch(
+            flow, 3, rshape, pshape, patch_index, chan_index
+        )
 
         ret: Dict[str, Union[torch.Tensor, int, str]] = {
             "fixed_image": fixed_p,
@@ -268,21 +374,91 @@ class PatchDatasetStage2(Dataset):
             "hidden": hidden_p,
             "flowin": flow_p,
         }
+
         ret["patch_index"] = patch_index
         ret["chan_index"] = chan_index
         ret["fixed_image_name"] = fname.name
         ret["moving_image_name"] = mname.name
 
         if "fixed_keypoints" in data:
-            out = self.load_keypoints_for_patch(data, rshape, pshape, chan_index, patch_index)
+            out = self.load_keypoints_for_patch(
+                data, rshape, pshape, chan_index, patch_index
+            )
             if out is not None:
                 fixed_kps, moving_kps = out
                 ret["fixed_keypoints"] = fixed_kps
                 ret["moving_keypoints"] = moving_kps
-                ret["fixed_spacing"] = torch.Tensor(get_spacing(fixed_nib))
-                ret["moving_spacing"] = torch.Tensor(get_spacing(moving_nib))
+                ret["fixed_spacing"] = data["fixed_spacing"]
+                ret["moving_spacing"] = data["moving_spacing"]
+
+        if "fixed_segmentation" in data:
+
+            fixed_seg, moving_seg = data["fixed_segmentation"], data["moving_segmentation"]
+
+            fixed_seg_p = self.get_patch(
+                fixed_seg, 1, rshape, pshape, patch_index, chan_index
+            )
+            moving_seg_p = self.get_patch(
+                moving_seg, 1, rshape, pshape, patch_index, chan_index
+            )
+
+            ret["fixed_segmentation"] = fixed_seg_p.long()
+            ret["moving_segmentation"] = moving_seg_p.long()
+
+        if "fixed_mask" in data:
+
+            fixed_mask, moving_mask = data["fixed_mask"], data["moving_mask"]
+
+            fixed_mask_p = self.get_patch(
+                fixed_mask, 1, rshape, pshape, patch_index, chan_index
+            )
+            moving_mask_p = self.get_patch(
+                moving_mask, 1, rshape, pshape, patch_index, chan_index
+            )
+
+            ret["fixed_mask"] = fixed_mask_p.long()
+            ret["moving_mask"] = moving_mask_p.long()
 
         return ret
+
+    def precache(self):
+        print("Precaching...")
+        index = 0
+        for data_index, data in tqdm(enumerate(self.data)):
+            loaded_data = None
+            for chan_index in range(self.chan_split):
+                for patch_index in range(self.n_patches):
+                    cachefile = self.cache_patches_dir / f"{index}.pkl"
+                    if cachefile.exists():
+                        self.cached[index] = True
+                        index += 1
+                        continue
+                    if loaded_data is None:
+                        loaded_data = self.load_data_(data_index)
+                    patch_data = self.get_patch_data(loaded_data, chan_index, patch_index)
+                    with open(cachefile, "wb") as f:
+                        pickle.dump(patch_data, f)
+                    self.cached[index] = True
+                    index += 1
+
+
+    def __getitem__(self, index: int):
+        if self.cache_patches_dir is not None and self.cached[index]:
+            with open(self.cache_patches_dir / f"{index}.pkl", "rb") as cached_file:
+                ret = pickle.load(cached_file)
+            return ret
+
+        data_index, chan_index, patch_index = self.indexes[index]
+        data = self.load_data_(data_index)
+
+        patch_data = self.get_patch_data(data, chan_index, patch_index)
+
+        if self.cache_patches_dir is not None:
+            with open(self.cache_patches_dir / f"{index}.pkl", "wb") as cached_file:
+                pickle.dump(patch_data, cached_file)
+            self.cached[index] = True
+
+        return patch_data
 
 
 # FIXME: stage1 => patch_size === res_size, so you can simplify the __getitem__
@@ -297,40 +473,29 @@ class PatchDataset(Dataset):
         res_factor: int,
         patch_factor: int,
         split: str,
-        cache_file: Path=Path("./stage2.pkl"),
+        cache_file: Path = Path("./stage2.pkl"),
     ):
         super().__init__()
+
+        assert patch_factor == res_factor, "Stage 1 training assumes patch factor equals res factor"
         if res_factor not in [1, 2, 4]:
             raise ValueError(f"Unacceptable resolution factor {res_factor}")
-
-        if patch_factor not in [4]:
-            raise ValueError(f"Unacceptable patch factor {patch_factor}")
 
         with open(data_json, "r") as f:
             data = json.load(f)[split]
 
-        # FIXME
-        # I'm sure the heuristic here is like 2**(patch_factor/res_factor) or
-        # something but I'm too lazy to figure it out
-        if res_factor == 4:
-            n_patches = 1
-        elif res_factor == 2:
-            n_patches = 4
-        else:
-            n_patches = 16
-
         self.data = data
-        self.indexes = [(i, j) for i, _ in enumerate(data) for j in range(n_patches)]
+        self.indexes = [(i, 0) for i, _ in enumerate(data)]
         self.res_factor = res_factor
         self.patch_factor = patch_factor
-        self.n_patches = n_patches
+        self.n_patches = 1
 
         if not cache_file.exists():
             cache = self.get_dataset_minmax_(data_json.name)
-            with open(cache_file, 'wb') as f:
+            with open(cache_file, "wb") as f:
                 pickle.dump(cache, f)
         else:
-            with open(cache_file, 'rb') as f:
+            with open(cache_file, "rb") as f:
                 cache = pickle.load(f)
             if data_json.name in cache:
                 self.min_int = cache[data_json.name]["min_int"]
@@ -338,22 +503,21 @@ class PatchDataset(Dataset):
             else:
                 cache_ = self.get_dataset_minmax_(data_json.name)
                 cache.update(cache_)
-                with open(cache_file, 'wb') as f:
+                with open(cache_file, "wb") as f:
                     pickle.dump(cache, f)
 
         self.cache = cache[data_json.name]
 
-
     def get_dataset_minmax_(self, json_name):
         cache = defaultdict(dict)
-        min_int, max_int = np.inf, -1*np.inf
+        min_int, max_int = np.inf, -1 * np.inf
 
         f, m = "fixed", "moving"
 
-        min_int, max_int = np.inf, -1*np.inf
+        min_int, max_int = np.inf, -1 * np.inf
         for dat in self.data:
-            fixed_image=Path(dat[f"{f}_image"])
-            moving_image=Path(dat[f"{m}_image"])
+            fixed_image = Path(dat[f"{f}_image"])
+            moving_image = Path(dat[f"{m}_image"])
 
             fixed_nib = nib.load(fixed_image)
             moving_nib = nib.load(moving_image)
@@ -421,8 +585,12 @@ class PatchDataset(Dataset):
         fixed = torch.from_numpy(fixed_nib.get_fdata()).unsqueeze(0)
         moving = torch.from_numpy(moving_nib.get_fdata()).unsqueeze(0)
 
-        fixed = (fixed - self.cache["min_int"]) / (self.cache["max_int"] - self.cache["min_int"])
-        moving = (moving - self.cache["min_int"]) / (self.cache["max_int"] - self.cache["min_int"])
+        fixed = (fixed - self.cache["min_int"]) / (
+            self.cache["max_int"] - self.cache["min_int"]
+        )
+        moving = (moving - self.cache["min_int"]) / (
+            self.cache["max_int"] - self.cache["min_int"]
+        )
 
         rshape = tuple(i // r for i in fixed.shape[-3:])
         pshape = tuple(i // p for i in ogshape[-3:])
@@ -466,6 +634,27 @@ class PatchDataset(Dataset):
                 ret["fixed_spacing"] = torch.Tensor(get_spacing(fixed_nib))
                 ret["moving_spacing"] = torch.Tensor(get_spacing(moving_nib))
 
+        if "fixed_segmentation" in data:
+            fname, mname = Path(data[f"{f}_segmentation"]), Path(data[f"{m}_segmentation"])
+
+            fixed_nib = nib.load(fname)
+            moving_nib = nib.load(mname)
+
+            fixed = torch.from_numpy(fixed_nib.get_fdata()).unsqueeze(0)
+            moving = torch.from_numpy(moving_nib.get_fdata()).unsqueeze(0)
+
+            fixed = (fixed - self.cache["min_int"]) / (
+                self.cache["max_int"] - self.cache["min_int"]
+            )
+            moving = (moving - self.cache["min_int"]) / (
+                self.cache["max_int"] - self.cache["min_int"]
+            )
+
+            fixed = F.interpolate(fixed.unsqueeze(0), rshape).squeeze(0).float()
+            moving = F.interpolate(moving.unsqueeze(0), rshape).squeeze(0).float()
+
+
+
         return ret
 
 
@@ -485,7 +674,7 @@ def eval_stage3(
     Stage3 (Final) eval
     """
 
-    dataset = PatchDatasetStage2(data_json, res, artifacts, 4, split="val")
+    dataset = PatchDatasetStage2(data_json, res, artifacts, 2, split="train")
     loader = DataLoader(dataset, batch_size=1, shuffle=False)
 
     savedir.mkdir(exist_ok=True)
@@ -559,9 +748,9 @@ def eval_stage2(
     model.load_state_dict(torch.load(checkpoint))
 
     with torch.no_grad(), evaluating(model):
-        for i in trange(0, len(dataset), dataset.n_patches*dataset.chan_split):
+        for i in trange(0, len(dataset), dataset.n_patches * dataset.chan_split):
             flows, hiddens = defaultdict(list), defaultdict(list)
-            for j in range(i, i + (dataset.n_patches*dataset.chan_split)):
+            for j in range(i, i + (dataset.n_patches * dataset.chan_split)):
                 data = dataset[j]
                 fixed, moving = data["fixed_image"], data["moving_image"]
                 assert isinstance(fixed, torch.Tensor)
@@ -575,18 +764,26 @@ def eval_stage2(
                 assert isinstance(flowin, torch.Tensor)
                 flow = concat_flow(flowin.to(device), flow)
 
-                flows[savename].append((data["chan_index"], data["patch_index"], flow.detach().cpu()))
-                hiddens[savename].append((data["chan_index"], data["patch_index"], hidden.detach().cpu()))
+                flows[savename].append(
+                    (data["chan_index"], data["patch_index"], flow.detach().cpu())
+                )
+                hiddens[savename].append(
+                    (data["chan_index"], data["patch_index"], hidden.detach().cpu())
+                )
 
+            assert len(list(flows.keys())) == 1
             for k, v in flows.items():
-                fchannels = [[]]*dataset.chan_split
-                hchannels = [[]]*dataset.chan_split
+                fchannels = defaultdict(list)
+                hchannels = defaultdict(list)
+
                 for i in v:
                     fchannels[i[0]].append((i[1], i[2]))
 
                 ffchannels = [
-                    torch.stack([i[1] for i in sorted(fchan, key=lambda x: x[0])], dim=-1)
-                    for fchan in fchannels
+                    torch.stack(
+                        [i[1] for i in sorted(fchan, key=lambda x: x[0])], dim=-1
+                    )
+                    for fchan in fchannels.values()
                 ]
                 fk = torch.cat(ffchannels, dim=2)
 
@@ -595,13 +792,27 @@ def eval_stage2(
                     hchannels[i[0]].append((i[1], i[2]))
 
                 fhchannels = [
-                    torch.stack([i[1] for i in sorted(hchan, key=lambda x: x[0])], dim=-1)
-                    for hchan in hchannels
+                    torch.stack(
+                        [i[1] for i in sorted(hchan, key=lambda x: x[0])], dim=-1
+                    )
+                    for hchan in hchannels.values()
                 ]
 
                 hk = torch.cat(fhchannels, dim=2)
-                torch.save(fk, savedir / ("flow-" + k))
-                torch.save(hk, savedir / ("hidden-" + k))
+
+                pshape = fk.shape[-3:-1]
+                res_shape = (fk.shape[2], *[i * 2 for i in pshape])
+
+                fk = fk.squeeze(0)
+                fk = einops.rearrange(fk, "c h d w p -> c (h d w) p")
+                folded_flow = F.fold(fk, res_shape[-2:], pshape, stride=pshape)
+
+                hk = hk.squeeze(0)
+                hk = einops.rearrange(hk, "c h d w p -> c (h d w) p")
+                folded_hidden = F.fold(hk, res_shape[-2:], pshape, stride=pshape)
+
+                torch.save(folded_flow, savedir / ("flow-" + k))
+                torch.save(folded_hidden, savedir / ("hidden-" + k))
 
 
 @app.command()
@@ -616,7 +827,7 @@ def eval_stage1(
     split="val",
 ):
     """
-    Stage1 training
+    Stage1 eval
     """
 
     dataset = PatchDataset(data_json, res, 4, split=split)
@@ -648,6 +859,8 @@ def eval_stage1(
                 hk = torch.stack(
                     [i[1] for i in sorted(hiddens[k], key=lambda x: x[0])], dim=-1
                 )
+                fk = fk[..., 0]
+                hk = hk[..., 0]
                 torch.save(fk, savedir / ("flow-" + k))
                 torch.save(hk, savedir / ("hidden-" + k))
 
@@ -660,28 +873,45 @@ def train_stage2(
     checkpoint_dir: Path,
     artifacts: Path,
     res: int,
+    patch_factor: int=4,
     start: Optional[Path] = None,
     steps: int = 10000,
     lr: float = 3e-4,
     device: str = "cuda",
     image_loss_weight: float = 1,
-    reg_loss_weight: float = 0.01,
+    reg_loss_weight: float = 0.05,
+    seg_loss_weight: float = 0.1,
     kp_loss_weight: float = 1,
     log_freq: int = 100,
     save_freq: int = 100,
     val_freq: int = 1000,
-    iters: int = 8,
-    search_range: int = 3,
+    iters: int = 2,
+    search_range: int = 1,
+    cache_dir: Optional[Path] = None,
+    use_mask: bool = False,
 ):
     """
     Stage2 training
     """
 
-    train_dataset = PatchDatasetStage2(data_json, res, artifacts, 4, split="train")
-    val_dataset = PatchDatasetStage2(data_json, res, artifacts, 4, split="val")
+    if cache_dir is not None:
+        precache = True
+    else:
+        precache=False
 
-    train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True, num_workers=4)
-    val_loader = DataLoader(val_dataset, batch_size=1, shuffle=True, num_workers=4)
+    train_dataset = PatchDatasetStage2(
+        data_json, res, artifacts, patch_factor, split="train", cache_patches_dir=cache_dir, precache=precache
+    )
+    val_dataset = PatchDatasetStage2(
+        data_json, res, artifacts, patch_factor, split="val", cache_patches_dir=cache_dir, precache=precache
+    )
+
+    train_loader = DataLoader(
+        train_dataset, batch_size=1, shuffle=True, num_workers=4
+    )
+    val_loader = DataLoader(
+        val_dataset, batch_size=1, shuffle=False, num_workers=4
+    )
 
     checkpoint_dir.mkdir(exist_ok=True)
     writer = SummaryWriter(log_dir=checkpoint_dir)
@@ -696,7 +926,7 @@ def train_stage2(
 
     print(f"Dataset size is {len(train_dataset)}")
     print(f"Starting training from step {step_count}")
-    while step_count+1 < steps:
+    while step_count + 1 < steps:
         for step_count, data in zip(trange(step_count, steps), train_loader):
             fixed, moving, hidden = (
                 data["fixed_image"],
@@ -713,10 +943,33 @@ def train_stage2(
             moved = warp_image(flow, moving)
 
             losses_dict: Dict[str, torch.Tensor] = {}
-            losses_dict["image_loss"] = image_loss_weight * MINDLoss()(
+            losses_dict["grad"] = reg_loss_weight * Grad()(flow)
+
+            if "fixed_mask" in data and use_mask:
+                fixed_mask = data["fixed_mask"].to(device).float()
+                moving_mask = data["moving_mask"].to(device).float()
+
+                moved_mask = warp_image(flow, moving_mask)
+
+                fixed = fixed_mask * fixed
+                moved = moved_mask * moved
+                moving = moving_mask * moving
+
+            losses_dict["image_loss"] = image_loss_weight * MutualInformationLoss()(
                 moved.squeeze(), fixed.squeeze()
             )
-            losses_dict["grad"] = reg_loss_weight * Grad()(flow)
+
+            if "fixed_segmentation" in data:
+                fixed_segmentation = data["fixed_segmentation"].to(device).float()
+                moving_segmentation = data["moving_segmentation"].to(device).float()
+
+                moved_segmentation = warp_image(flow, moving_mask)
+
+                fixed_segmentation = torch.round(fixed_segmentation)
+                moved_segmentation = torch.round(moved_segmentation)
+
+                losses_dict["dice_loss"] = seg_loss_weight * DiceLoss()(
+                    fixed_segmenatation, moved_segmentation())
 
             if "fixed_keypoints" in data:
                 flowin = data["flowin"].to(device)
@@ -754,10 +1007,21 @@ def train_stage2(
                         flow, hidden = model(fixed, moving)
                         moved = warp_image(flow, moving)
 
+                        if "fixed_mask" in data and use_mask:
+                            fixed_mask = data["fixed_mask"].to(device).float()
+                            moving_mask = data["moving_mask"].to(device).float()
+
+                            moved_mask = warp_image(flow, moving_mask)
+
+                            fixed = fixed_mask * fixed
+                            moved = moved_mask * moved
+
                         losses_cum_dict["image_loss"].append(
                             (
                                 image_loss_weight
-                                * MINDLoss()(moved.squeeze(), fixed.squeeze())
+                                * MutualInformationLoss()(
+                                    moved.squeeze(), fixed.squeeze()
+                                )
                             ).item()
                         )
                         losses_cum_dict["grad"].append(
@@ -780,6 +1044,21 @@ def train_stage2(
                                 ).item()
                             )
 
+                        if "fixed_segmentation" in data:
+                            fixed_segmentation = data["fixed_segmentation"].to(device).float()
+                            moving_segmentation = data["moving_segmentation"].to(device).float()
+
+                            moved_segmentation = warp_image(flow, moving_mask)
+
+                            fixed_segmentation = torch.round(fixed_segmentation)
+                            moved_segmentation = torch.round(moved_segmentation)
+
+                            losses_cum_dict["dice_loss"].append(
+                                    seg_loss_weight
+                                    * DiceLoss()(fixed_segmenatation, moved_segmentation())
+                            )
+
+
                 for k, v in losses_cum_dict.items():
                     writer.add_scalar(
                         f"val_{k}", np.mean(v).item(), global_step=step_count
@@ -791,7 +1070,7 @@ def train_stage2(
                     checkpoint_dir / f"rnn{res}x_{step_count}.pth",
                 )
 
-    torch.save(model.state_dict(), checkpoint_dir / f"rnn{res}x_{step_count}.pth")
+    torch.save(model.state_dict(), checkpoint_dir / f"rnn{res}x_{step_count+1}.pth")
 
 
 @app.command()
@@ -801,7 +1080,7 @@ def train_stage1(
     res: int,
     start: Optional[Path] = None,
     steps: int = 10000,
-    lr: float = 1e-4,
+    lr: float = 3e-4,
     device: str = "cuda",
     image_loss_weight: float = 1,
     reg_loss_weight: float = 0.1,
@@ -809,6 +1088,7 @@ def train_stage1(
     log_freq: int = 5,
     save_freq: int = 50,
     val_freq: int = 50,
+    use_mask: bool=False
 ):
     """
     Stage1 training
@@ -817,8 +1097,8 @@ def train_stage1(
     train_dataset = PatchDataset(data_json, res, 4, split="train")
     val_dataset = PatchDataset(data_json, res, 4, split="val")
 
-    train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=1, shuffle=True)
+    train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True, num_workers=4)
+    val_loader = DataLoader(val_dataset, batch_size=1, shuffle=True, num_workers=4)
 
     checkpoint_dir.mkdir(exist_ok=True)
     writer = SummaryWriter(log_dir=checkpoint_dir)
@@ -832,7 +1112,7 @@ def train_stage1(
     opt = torch.optim.Adam(model.parameters(), lr=lr)
 
     print(f"Starting training from step {step_count}")
-    while step_count+1 < steps:
+    while step_count + 1 < steps:
         for step_count, data in zip(trange(step_count, steps), train_loader):
 
             fixed, moving = data["fixed_image"], data["moving_image"]
@@ -842,7 +1122,17 @@ def train_stage1(
             moved = warp_image(flow, moving)
 
             losses_dict: Dict[str, torch.Tensor] = {}
-            losses_dict["image_loss"] = image_loss_weight * MINDLoss()(
+
+            if "fixed_mask" in data and use_mask:
+                fixed_mask = data["fixed_mask"].to(device).float()
+                moving_mask = data["moving_mask"].to(device).float()
+
+                moved_mask = warp_image(flow, moving_mask)
+
+                fixed = fixed_mask * fixed
+                moved = moved_mask * moved
+
+            losses_dict["image_loss"] = image_loss_weight * MutualInformationLoss()(
                 moved.squeeze(), fixed.squeeze()
             )
             losses_dict["grad"] = reg_loss_weight * Grad()(flow)
@@ -855,6 +1145,18 @@ def train_stage1(
                     fixed_spacing=data["fixed_spacing"].squeeze(0),
                     moving_spacing=data["moving_spacing"].squeeze(0),
                 )
+
+            if "fixed_segmentation" in data:
+                fixed_segmentation = data["fixed_segmentation"].to(device).float()
+                moving_segmentation = data["moving_segmentation"].to(device).float()
+
+                moved_segmentation = warp_image(flow, moving_mask)
+
+                fixed_segmentation = torch.round(fixed_segmentation)
+                moved_segmentation = torch.round(moved_segmentation)
+
+                losses_dict["dice_loss"] = seg_loss_weight * DiceLoss()(
+                    fixed_segmenatation, moved_segmentation())
 
             total_loss = sum(losses_dict.values())
             assert isinstance(total_loss, torch.Tensor)
@@ -884,7 +1186,9 @@ def train_stage1(
                         losses_cum_dict["image_loss"].append(
                             (
                                 image_loss_weight
-                                * MINDLoss()(moved.squeeze(), fixed.squeeze())
+                                * MutualInformationLoss()(
+                                    moved.squeeze(), fixed.squeeze()
+                                )
                             ).item()
                         )
                         losses_cum_dict["grad"].append(
@@ -905,6 +1209,21 @@ def train_stage1(
                                 ).item()
                             )
 
+                        if "fixed_segmentation" in data:
+                            fixed_segmentation = data["fixed_segmentation"].to(device).float()
+                            moving_segmentation = data["moving_segmentation"].to(device).float()
+
+                            moved_segmentation = warp_image(flow, moving_mask)
+
+                            fixed_segmentation = torch.round(fixed_segmentation)
+                            moved_segmentation = torch.round(moved_segmentation)
+
+                            losses_cum_dict["dice_loss"].append(
+                                    seg_loss_weight
+                                    * DiceLoss()(fixed_segmenatation, moved_segmentation())
+                            )
+
+
                 for k, v in losses_cum_dict.items():
                     writer.add_scalar(
                         f"val_{k}", np.mean(v).item(), global_step=step_count
@@ -919,4 +1238,5 @@ def train_stage1(
     torch.save(model.state_dict(), checkpoint_dir / f"rnn{res}x_{step_count}.pth")
 
 
-app()
+if __name__ == "__main__":
+    app()

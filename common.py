@@ -682,7 +682,7 @@ def swa_optimization(
     swa_net = AveragedModel(net)
     scheduler = CosineAnnealingLR(optimizer, T_max=100)
     swa_start = iterations // 2
-    swa_scheduler = SWALR(optimizer, swa_lr=5)
+    swa_scheduler = SWALR(optimizer, swa_lr=1)
 
     grid0 = get_identity_affine_grid(image_shape)
 
@@ -727,6 +727,80 @@ def swa_optimization(
             scheduler.step()
 
     return net
+
+def adam_optimization_teo(
+    disp: torch.Tensor,
+    mind_fixed: torch.Tensor,
+    mind_moving: torch.Tensor,
+    lambda_weight: float,
+    image_shape: Tuple[int, int, int],
+    iterations: int,
+    norm: int = 1,
+) -> nn.Module:
+    """
+    Instance-based optimization
+
+    Parameters
+    ----------
+    disp_lr: torch.Tensor,
+    mind_fixed: torch.Tensor,
+    mind_moving: torch.Tensor,
+    lambda_weight: float,
+    image_shape: Tuple[int, int, int],
+    iterations: int,
+
+    Returns
+    -------
+    nn.Module
+    """
+
+    H, W, D = image_shape
+    # create optimisable displacement grid
+    net = nn.Sequential(nn.Conv3d(3, 1, (H, W, D), bias=False))
+    net[0].weight.data[:] = disp / norm
+    net.cuda()
+    grid0 = get_identity_affine_grid(image_shape)
+    for iterations, lr in zip([70, 60, 60, 60], [1, 5, 2, 1]):
+        optimizer = torch.optim.Adam(net.parameters(), lr=lr)
+
+        for _ in range(iterations):
+            optimizer.zero_grad()
+
+            disp_sample = F.avg_pool3d(
+                F.avg_pool3d(net[0].weight, 3, stride=1, padding=1), 3, stride=1, padding=1,
+            ).permute(0, 2, 3, 4, 1)
+            reg_loss = (
+                lambda_weight
+                * ((disp_sample[0, :, 1:, :] - disp_sample[0, :, :-1, :]) ** 2).mean()
+                + lambda_weight
+                * ((disp_sample[0, 1:, :, :] - disp_sample[0, :-1, :, :]) ** 2).mean()
+                + lambda_weight
+                * ((disp_sample[0, :, :, 1:] - disp_sample[0, :, :, :-1]) ** 2).mean()
+            )
+
+            scale = (
+                torch.tensor([(H - 1) / 2, (W - 1) / 2, (D - 1) / 2,]).cuda().unsqueeze(0)
+            )
+            grid_disp = (
+                grid0.view(-1, 3).cuda().float()
+                + ((disp_sample.view(-1, 3)) / scale).flip(1).float()
+            )
+
+            patch_mov_sampled = F.grid_sample(
+                mind_moving.float(),
+                grid_disp.view(1, H, W, D, 3).cuda(),
+                align_corners=False,
+                mode="bilinear",
+            )  # ,padding_mode='border')
+            sampled_cost = (patch_mov_sampled - mind_fixed).pow(2).mean(1) * 12
+
+            loss = sampled_cost.mean()
+            (loss + reg_loss).backward(retain_graph=True)
+            optimizer.step()
+
+    return net
+
+
 
 
 def adam_optimization(
