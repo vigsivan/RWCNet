@@ -46,18 +46,20 @@ $ sbatch train-job.sh
 where train-job.sh is a bash script shown below:
 
 ```
-!/bin/bash
+#!/bin/bash
 #SBATCH --nodes=1
 #SBATCH --gpus-per-node=v100:1
 #SBATCH --ntasks-per-node=32
 #SBATCH --mem=127000M
 #SBATCH --time=4:00:0
-nvidia-smi
-module load singularity
-srun singularity exec --nv --cleanenv Some-RNN3.sif
-bash
+module load singularity/3.7
+srun singularity exec --nv --cleanenv Some-RNN3.sif /home/bhatrana/my_singularity_script.sh
+```
+my_singularity_script.sh should look like this 
+
+```
+#!/bin/bash
 source /opt/conda/bin/activate
-conda init bash
 conda activate Some-RNN
 cd /optimization-based-registration
 python util.py convert-nlst-json ~/datasets/NLST-resampled/NLST_dataset.json  ~/datasets/NLST-resampled   ~/src/optimization-based-registration/singularityTraining/NLST-resampled-input.json
