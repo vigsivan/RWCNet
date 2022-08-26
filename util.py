@@ -1,4 +1,5 @@
 import json
+import random
 from pathlib import Path
 from typing import Optional
 
@@ -6,6 +7,48 @@ import nibabel as nib
 import typer
 
 app = typer.Typer()
+
+
+@app.command()
+def unpaired2paired(
+    dataset_json: Path,
+    new_json: Path,
+    split: str = "train",
+    method: str = "random",
+    seed: int = 42,
+    npairs: int = 3,
+):
+    if method != "random":
+        raise NotImplementedError("Just haven't gotten around to it!")
+
+    with open(dataset_json, "r") as f:
+        all_data = json.load(f)
+        data = all_data[split]
+    random.seed(seed)
+    split_paired_data = []
+    for i, di in enumerate(data):
+        others = [random.choice(data) for _ in range(npairs)]
+        for j, other in enumerate(others):
+            pair_item = {}
+            l1, l2 = "fixed", "moving"
+            if j%2 == 0: l1, l2 = l2, l1
+            for k, v in di.items():
+                pair_item[f"{l1}_{k}"] = v
+
+            for k, v in other.items():
+                pair_item[f"{l2}_{k}"] = v
+
+            split_paired_data.append(pair_item)
+
+    new_all_data = {split: split_paired_data}
+    for k, v in all_data.items():
+        if k == split:
+            continue
+        new_all_data[k] = v
+
+    with open(new_json, 'w') as f:
+        json.dump(new_all_data, f)
+
 
 @app.command()
 def abdomen_mrct_val(dataset_json: Path, dataset_path: Path, output_json: Path):
@@ -35,7 +78,6 @@ def abdomen_mrct_val(dataset_json: Path, dataset_path: Path, output_json: Path):
             assert Path(p).exists()
         val_data.append(data)
 
-
     with open(output_json, "w") as f:
         json.dump({"labels": labels, "train": train_data, "val": val_data}, f)
 
@@ -47,11 +89,13 @@ def oasis(dataset_json: Path, dataset_path: Path, output_json: Path):
 
     images = l2r_data["training"]
     val_pairs = l2r_data["registration_val"]
-    val_images = set(p["fixed"] for p in val_pairs).union(p["moving"] for p in val_pairs)
+    val_images = set(p["fixed"] for p in val_pairs).union(
+        p["moving"] for p in val_pairs
+    )
 
     train_data = []
     val_data = []
-    labels = list(range(0,36))
+    labels = list(range(0, 36))
     mask_dir: Optional[Path] = None
     label_dir: Optional[Path] = None
     for image in images:
@@ -64,7 +108,7 @@ def oasis(dataset_json: Path, dataset_path: Path, output_json: Path):
         train_data.append(
             {
                 "image": str(dataset_path / image["image"]),
-                "label": str(dataset_path / image["label"]),
+                "segmentation": str(dataset_path / image["label"]),
                 "mask": str(dataset_path / image["mask"]),
             }
         )
@@ -83,9 +127,9 @@ def oasis(dataset_json: Path, dataset_path: Path, output_json: Path):
             assert Path(p).exists()
         val_data.append(data)
 
-
     with open(output_json, "w") as f:
-        json.dump({"labels": labels, "train": train_data, "val": val_data}, f)
+        json.dump({"train": train_data, "val": val_data}, f)
+
 
 @app.command()
 def convert_nlst_json(dataset_json: Path, dataset_path: Path, output_json: Path):
@@ -126,7 +170,6 @@ def convert_nlst_json(dataset_json: Path, dataset_path: Path, output_json: Path)
         )
     with open(output_json, "w") as f:
         json.dump({"labels": [1], "train": train_data, "val": val_data}, f)
-
 
 
 app()
