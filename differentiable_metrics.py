@@ -18,18 +18,18 @@ from common import MINDSSC
 __all__ = ["DiceLoss", "MutualInformationLoss", "TotalRegistrationLoss", "Grad", "NCC", "MSE", "MINDLoss"]
 
 class DiceLoss(nn.Module):
-    def __init__(self, labels: List[int]=[1]):
+    def __init__(self):
         super().__init__()
-        self.labels = labels
 
-    def forward(self, fixed: torch.Tensor, moving: torch.Tensor, moving_warped: torch.Tensor):
+    def forward(self, fixed: torch.Tensor, moving_warped: torch.Tensor):
         dice = 0
         count = 0
-        for i in self.labels:
-            if ((fixed == i).sum() == 0) or ((moving == i).sum() == 0):
-                continue
+        labels = fixed.unique()
+        for i in labels:
             dice += _compute_dice_coefficient((fixed == i), (moving_warped == i))
             count += 1
+        if count == 0:
+            return 1
         dice /= count
         return 1-dice
 
