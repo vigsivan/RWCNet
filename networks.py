@@ -125,7 +125,7 @@ class UpdateBlock(nn.Module):
         return next_hidden, delta_flow
 
 class SomeNet(nn.Module):
-    def __init__(self, search_range: int=3, hidden_dim: int=64, input_size: int=16, iters:int=12):
+    def __init__(self, search_range: int=3, hidden_dim: int=64, input_size: int=16, iters:int=12, diffeomorphic: bool = False):
         super().__init__()
         self.search_range = search_range
         # self.context= Unet3D(infeats=1, outfeats=80)
@@ -147,6 +147,7 @@ class SomeNet(nn.Module):
         )
         self.count = 0
         self.iters=iters
+        self.diffeomorphic = diffeomorphic
 
     def compute_correlation(self, fixed_feat: torch.Tensor, moving_feat: torch.Tensor):
         with torch.no_grad():
@@ -155,13 +156,18 @@ class SomeNet(nn.Module):
 
         return correlation
 
+    def apply_diffeomorphism(self, flow):
+        scale = 1 / (2**7)
+        for _ in range(7):
+            flow = flow + concat_flow(flow, flow)
+        return flow
+
     def forward(
         self,
         fixed: torch.Tensor,
         moving: torch.Tensor,
         hidden_init: Optional[torch.Tensor]=None,
     ):
-
 
         if self.starting == None:
             self.starting = torch.zeros((moving.shape[0], 3, *moving.shape[-3:]), device=moving.device)
@@ -182,9 +188,13 @@ class SomeNet(nn.Module):
             cost_volume = self.compute_correlation(fixed_feat, moving_feat,)
             hidden, delta_flow = self.update(cost_volume, delta_flow, hidden, inp)
             flow = flow + delta_flow
+            # TODO: test apply_diffeomorphism here
             moving_ = warp_image(flow, moving)
             moving_feat = self.feature_extractor(moving_)
             inp = torch.cat((fixed_feat, moving_feat), dim=1)
+
+        if self.diffeomorphic:
+            self.apply_diffeomorphism(flow)
 
         return flow, hidden
 

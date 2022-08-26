@@ -428,6 +428,7 @@ class PatchDatasetStage2(Dataset):
             loaded_data = None
             for chan_index in range(self.chan_split):
                 for patch_index in range(self.n_patches):
+                    assert self.cache_patches_dir is not None
                     cachefile = self.cache_patches_dir / f"{index}.pkl"
                     if cachefile.exists():
                         self.cached[index] = True
@@ -653,7 +654,23 @@ class PatchDataset(Dataset):
             fixed = F.interpolate(fixed.unsqueeze(0), rshape).squeeze(0).float()
             moving = F.interpolate(moving.unsqueeze(0), rshape).squeeze(0).float()
 
+            ret["fixed_segmentation"] = fixed
+            ret["moving_segmentation"] = moving
 
+        if "fixed_mask" in data:
+            fname, mname = Path(data[f"{f}_mask"]), Path(data[f"{m}_mask"])
+
+            fixed_nib = nib.load(fname)
+            moving_nib = nib.load(mname)
+
+            fixed = torch.from_numpy(fixed_nib.get_fdata()).unsqueeze(0)
+            moving = torch.from_numpy(moving_nib.get_fdata()).unsqueeze(0)
+
+            fixed = F.interpolate(fixed.unsqueeze(0), rshape).squeeze(0).float()
+            moving = F.interpolate(moving.unsqueeze(0), rshape).squeeze(0).float()
+
+            ret["fixed_mask"] = fixed
+            ret["moving_mask"] = moving
 
         return ret
 
@@ -889,6 +906,7 @@ def train_stage2(
     search_range: int = 1,
     cache_dir: Optional[Path] = None,
     use_mask: bool = False,
+    diffeomorphic: bool=False,
 ):
     """
     Stage2 training
@@ -916,7 +934,7 @@ def train_stage2(
     checkpoint_dir.mkdir(exist_ok=True)
     writer = SummaryWriter(log_dir=checkpoint_dir)
 
-    model = SomeNet(search_range=search_range, iters=iters).to(device)
+    model = SomeNet(search_range=search_range, iters=iters, diffeomorphic=diffeomorphic).to(device)
     step_count = 0
     if start is not None:
         model.load_state_dict(torch.load(start))
@@ -963,13 +981,12 @@ def train_stage2(
                 fixed_segmentation = data["fixed_segmentation"].to(device).float()
                 moving_segmentation = data["moving_segmentation"].to(device).float()
 
-                moved_segmentation = warp_image(flow, moving_mask)
+                moved_segmentation = warp_image(flow, moving_segmentation)
 
                 fixed_segmentation = torch.round(fixed_segmentation)
                 moved_segmentation = torch.round(moved_segmentation)
 
-                losses_dict["dice_loss"] = seg_loss_weight * DiceLoss()(
-                    fixed_segmenatation, moved_segmentation())
+                losses_dict["dice_loss"] = seg_loss_weight * DiceLoss()(fixed_segmentation, moved_segmentation)
 
             if "fixed_keypoints" in data:
                 flowin = data["flowin"].to(device)
@@ -1048,14 +1065,14 @@ def train_stage2(
                             fixed_segmentation = data["fixed_segmentation"].to(device).float()
                             moving_segmentation = data["moving_segmentation"].to(device).float()
 
-                            moved_segmentation = warp_image(flow, moving_mask)
+                            moved_segmentation = warp_image(flow, moving_segmentation)
 
                             fixed_segmentation = torch.round(fixed_segmentation)
                             moved_segmentation = torch.round(moved_segmentation)
 
                             losses_cum_dict["dice_loss"].append(
                                     seg_loss_weight
-                                    * DiceLoss()(fixed_segmenatation, moved_segmentation())
+                                    * DiceLoss()(fixed_segmentation, moved_segmentation)
                             )
 
 
@@ -1084,11 +1101,15 @@ def train_stage1(
     device: str = "cuda",
     image_loss_weight: float = 1,
     reg_loss_weight: float = 0.1,
+    seg_loss_weight: float=.1,
     kp_loss_weight: float = 1,
     log_freq: int = 5,
     save_freq: int = 50,
     val_freq: int = 50,
-    use_mask: bool=False
+    use_mask: bool=False,
+    diffeomorphic: bool=False,
+    search_range: int=3,
+    iters: int=12,
 ):
     """
     Stage1 training
@@ -1103,7 +1124,7 @@ def train_stage1(
     checkpoint_dir.mkdir(exist_ok=True)
     writer = SummaryWriter(log_dir=checkpoint_dir)
 
-    model = SomeNet().to(device)
+    model = SomeNet(search_range=search_range, iters=iters, diffeomorphic=diffeomorphic).to(device)
     step_count = 0
     if start is not None:
         model.load_state_dict(torch.load(start))
@@ -1131,6 +1152,7 @@ def train_stage1(
 
                 fixed = fixed_mask * fixed
                 moved = moved_mask * moved
+                moving = moving_mask * moving
 
             losses_dict["image_loss"] = image_loss_weight * MutualInformationLoss()(
                 moved.squeeze(), fixed.squeeze()
@@ -1150,13 +1172,13 @@ def train_stage1(
                 fixed_segmentation = data["fixed_segmentation"].to(device).float()
                 moving_segmentation = data["moving_segmentation"].to(device).float()
 
-                moved_segmentation = warp_image(flow, moving_mask)
+                moved_segmentation = warp_image(flow, moving_segmentation)
 
                 fixed_segmentation = torch.round(fixed_segmentation)
                 moved_segmentation = torch.round(moved_segmentation)
 
                 losses_dict["dice_loss"] = seg_loss_weight * DiceLoss()(
-                    fixed_segmenatation, moved_segmentation())
+                    fixed_segmentation, moved_segmentation)
 
             total_loss = sum(losses_dict.values())
             assert isinstance(total_loss, torch.Tensor)
@@ -1213,14 +1235,14 @@ def train_stage1(
                             fixed_segmentation = data["fixed_segmentation"].to(device).float()
                             moving_segmentation = data["moving_segmentation"].to(device).float()
 
-                            moved_segmentation = warp_image(flow, moving_mask)
+                            moved_segmentation = warp_image(flow, moving_segmentation)
 
                             fixed_segmentation = torch.round(fixed_segmentation)
                             moved_segmentation = torch.round(moved_segmentation)
 
                             losses_cum_dict["dice_loss"].append(
                                     seg_loss_weight
-                                    * DiceLoss()(fixed_segmenatation, moved_segmentation())
+                                    * DiceLoss()(fixed_segmentation, moved_segmentation)
                             )
 
 
