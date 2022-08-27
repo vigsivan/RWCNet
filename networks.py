@@ -158,6 +158,7 @@ class SomeNet(nn.Module):
 
     def apply_diffeomorphism(self, flow):
         scale = 1 / (2**7)
+        # flow = scale * flow
         for _ in range(7):
             flow = flow + concat_flow(flow, flow)
         return flow
@@ -188,13 +189,14 @@ class SomeNet(nn.Module):
             cost_volume = self.compute_correlation(fixed_feat, moving_feat,)
             hidden, delta_flow = self.update(cost_volume, delta_flow, hidden, inp)
             flow = flow + delta_flow
-            # TODO: test apply_diffeomorphism here
+
+            if self.diffeomorphic:
+                self.apply_diffeomorphism(flow)
+
             moving_ = warp_image(flow, moving)
             moving_feat = self.feature_extractor(moving_)
             inp = torch.cat((fixed_feat, moving_feat), dim=1)
 
-        if self.diffeomorphic:
-            self.apply_diffeomorphism(flow)
 
         return flow, hidden
 
