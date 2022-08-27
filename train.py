@@ -64,6 +64,7 @@ class PatchDatasetStage2(Dataset):
         cache_file: Path = Path("./stage2.pkl"),
         cache_patches_dir: Optional[Path] = None,
         precache: bool = False,
+        diffeomorphic: bool=False
     ):
         super().__init__()
         if res_factor not in [1, 2, 4]:
@@ -98,6 +99,8 @@ class PatchDatasetStage2(Dataset):
         self.artifacts = artifacts
         self.chan_split = chan_split
         self.check_artifacts()
+        self.diffeomorphic = diffeomorphic
+        self.split = split
 
         if not cache_file.exists():
             cache = self.get_dataset_minmax_(data_json.name)
@@ -282,7 +285,12 @@ class PatchDatasetStage2(Dataset):
         factor = rshape[-1] // flow.shape[-1]
         flow = F.interpolate(flow, rshape) * factor
         hidden = F.interpolate(hidden, rshape) * factor
-        moving = warp_image(flow, moving.unsqueeze(0)).squeeze(0)
+
+
+        if self.diffeomorphic:
+            flow = flow
+            for _ in range(7):
+                flow = flow + concat_flow(flow, flow)
 
         hidden = hidden.squeeze(0)
         flow = flow.squeeze(0)
@@ -429,7 +437,7 @@ class PatchDatasetStage2(Dataset):
             for chan_index in range(self.chan_split):
                 for patch_index in range(self.n_patches):
                     assert self.cache_patches_dir is not None
-                    cachefile = self.cache_patches_dir / f"{index}.pkl"
+                    cachefile = self.cache_patches_dir / f"{self.split}_{index}.pkl"
                     if cachefile.exists():
                         self.cached[index] = True
                         index += 1
@@ -445,7 +453,7 @@ class PatchDatasetStage2(Dataset):
 
     def __getitem__(self, index: int):
         if self.cache_patches_dir is not None and self.cached[index]:
-            with open(self.cache_patches_dir / f"{index}.pkl", "rb") as cached_file:
+            with open(self.cache_patches_dir / f"{self.split}_{index}.pkl", "rb") as cached_file:
                 ret = pickle.load(cached_file)
             return ret
 
@@ -455,7 +463,7 @@ class PatchDatasetStage2(Dataset):
         patch_data = self.get_patch_data(data, chan_index, patch_index)
 
         if self.cache_patches_dir is not None:
-            with open(self.cache_patches_dir / f"{index}.pkl", "wb") as cached_file:
+            with open(self.cache_patches_dir / f"{self.split}_{index}.pkl", "wb") as cached_file:
                 pickle.dump(patch_data, cached_file)
             self.cached[index] = True
 
@@ -918,17 +926,17 @@ def train_stage2(
         precache=False
 
     train_dataset = PatchDatasetStage2(
-        data_json, res, artifacts, patch_factor, split="train", cache_patches_dir=cache_dir, precache=precache
+            data_json, res, artifacts, patch_factor, split="train", cache_patches_dir=cache_dir, precache=precache, diffeomorphic=diffeomorphic
     )
     val_dataset = PatchDatasetStage2(
-        data_json, res, artifacts, patch_factor, split="val", cache_patches_dir=cache_dir, precache=precache
+        data_json, res, artifacts, patch_factor, split="val", cache_patches_dir=cache_dir, precache=precache, diffeomorphic=diffeomorphic
     )
 
     train_loader = DataLoader(
-        train_dataset, batch_size=1, shuffle=True, num_workers=4
+        train_dataset, batch_size=1, shuffle=True, #num_workers=4
     )
     val_loader = DataLoader(
-        val_dataset, batch_size=1, shuffle=False, num_workers=4
+        val_dataset, batch_size=1, shuffle=False, #num_workers=4
     )
 
     checkpoint_dir.mkdir(exist_ok=True)
@@ -1015,7 +1023,7 @@ def train_stage2(
                     moving_fixed_moved=(moving, fixed, moved),
                 )
 
-            if val_freq > 0 and step_count % val_freq == 0 and step_count > 0:
+            if val_freq > 0 and step_count % val_freq == 0: # and step_count > 0:
                 losses_cum_dict = defaultdict(list)
                 with torch.no_grad(), evaluating(model):
                     for data in val_loader:
