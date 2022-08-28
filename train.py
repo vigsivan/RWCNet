@@ -287,12 +287,10 @@ class PatchDatasetStage2(Dataset):
         flow = F.interpolate(flow, rshape) * factor
         hidden = F.interpolate(hidden, rshape) * factor
 
-        flow = F.avg_pool3d(flow, 3, stride=1, padding=1)
-
         if self.diffeomorphic:
-            scale = 1 / (2**14)
+            scale = 1 / (2**7)
             flow = scale * flow
-            for _ in range(14):
+            for _ in range(7):
                 flow = flow + warp_image(flow, flow)
 
         moving = warp_image(flow, moving.unsqueeze(0)).squeeze(0)
@@ -725,7 +723,7 @@ def eval_stage3(
 
             flow, _ = model(moving, fixed)
             flowin = data["flowin"].to(device)
-            flow = warp_image(flowin, flow)
+            flow = warp_image(flow, flowin)
 
             savename = (
                 f'{data["fixed_image_name"][0]}2{data["moving_image_name"][0]}.pt'
@@ -792,7 +790,7 @@ def eval_stage2(
                 savename = f'{data["moving_image_name"]}2{data["fixed_image_name"]}.pt'
                 flowin = data["flowin"]
                 assert isinstance(flowin, torch.Tensor)
-                flow = warp_image(flowin.to(device), flow)
+                flow = warp_image(flow, flowin.to(device))
 
                 flows[savename].append(
                     (data["chan_index"], data["patch_index"], flow.detach().cpu())
@@ -912,7 +910,7 @@ def train_stage2(
     reg_loss_weight: float = 0.05,
     seg_loss_weight: float = 0.1,
     kp_loss_weight: float = 1,
-    log_freq: int = 1,
+    log_freq: int = 100,
     save_freq: int = 100,
     val_freq: int = 1000,
     iters: int = 2,
@@ -1003,7 +1001,7 @@ def train_stage2(
 
             if "fixed_keypoints" in data:
                 flowin = data["flowin"].to(device)
-                flow = warp_image(flowin, flow)
+                flow = warp_image(flow, flowin)
                 losses_dict["keypoints"] = res * TotalRegistrationLoss()(
                     fixed_landmarks=data["fixed_keypoints"].squeeze(0),
                     moving_landmarks=data["moving_keypoints"].squeeze(0),
@@ -1060,7 +1058,7 @@ def train_stage2(
 
                         if "fixed_keypoints" in data:
                             flowin = data["flowin"].to(device)
-                            flow = warp_image(flowin, flow)
+                            flow = warp_image(flow, flowin)
                             losses_cum_dict["keypoints"].append(
                                 res
                                 * TotalRegistrationLoss()(
@@ -1108,6 +1106,7 @@ def train_stage1(
     data_json: Path,
     checkpoint_dir: Path,
     res: int,
+    patch_factor: int=4,
     start: Optional[Path] = None,
     steps: int = 10000,
     lr: float = 3e-4,
@@ -1128,8 +1127,8 @@ def train_stage1(
     Stage1 training
     """
 
-    train_dataset = PatchDataset(data_json, res, 4, split="train")
-    val_dataset = PatchDataset(data_json, res, 4, split="val")
+    train_dataset = PatchDataset(data_json, res, patch_factor, split="train")
+    val_dataset = PatchDataset(data_json, res, patch_factor, split="val")
 
     train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True, num_workers=4)
     val_loader = DataLoader(val_dataset, batch_size=1, shuffle=True, num_workers=4)

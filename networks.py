@@ -244,7 +244,7 @@ class SomeNetFullRes(nn.Module):
             flow = flow_predictions[-1]
             cost_volume = self.net2(torch.cat((moving_, fixed_), dim=1))
             hidden, delta_flow = self.update(cost_volume, flow, hidden, inp)
-            flow = warp_image(flow , delta_flow)
+            flow = warp_image(delta_flow, flow )
             moving_ = warp_image(flow, moving_)
             flow_predictions.append(flow)
 
