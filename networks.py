@@ -160,7 +160,7 @@ class SomeNet(nn.Module):
         scale = 1 / (2**7)
         flow = scale * flow
         for _ in range(7):
-            flow = flow + warp_image(flow, flow)
+            flow = flow + concat_flow(flow, flow)
         return flow
 
     def forward(

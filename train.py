@@ -291,7 +291,7 @@ class PatchDatasetStage2(Dataset):
             scale = 1 / (2**7)
             flow = scale * flow
             for _ in range(7):
-                flow = flow + warp_image(flow, flow)
+                flow = concat_flow(flow, flow)
 
         moving = warp_image(flow, moving.unsqueeze(0)).squeeze(0)
 
@@ -723,7 +723,7 @@ def eval_stage3(
 
             flow, _ = model(moving, fixed)
             flowin = data["flowin"].to(device)
-            flow = warp_image(flow, flowin)
+            flow = concat_flow(flow, flowin)
 
             savename = (
                 f'{data["fixed_image_name"][0]}2{data["moving_image_name"][0]}.pt'
@@ -790,7 +790,7 @@ def eval_stage2(
                 savename = f'{data["moving_image_name"]}2{data["fixed_image_name"]}.pt'
                 flowin = data["flowin"]
                 assert isinstance(flowin, torch.Tensor)
-                flow = warp_image(flow, flowin.to(device))
+                flow = concat_flow(flow, flowin.to(device))
 
                 flows[savename].append(
                     (data["chan_index"], data["patch_index"], flow.detach().cpu())
@@ -1001,7 +1001,7 @@ def train_stage2(
 
             if "fixed_keypoints" in data:
                 flowin = data["flowin"].to(device)
-                flow = warp_image(flow, flowin)
+                flow = concat_flow(flow, flowin)
                 losses_dict["keypoints"] = res * TotalRegistrationLoss()(
                     fixed_landmarks=data["fixed_keypoints"].squeeze(0),
                     moving_landmarks=data["moving_keypoints"].squeeze(0),
@@ -1058,7 +1058,7 @@ def train_stage2(
 
                         if "fixed_keypoints" in data:
                             flowin = data["flowin"].to(device)
-                            flow = warp_image(flow, flowin)
+                            flow = concat_flow(flow, flowin)
                             losses_cum_dict["keypoints"].append(
                                 res
                                 * TotalRegistrationLoss()(
