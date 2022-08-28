@@ -918,6 +918,7 @@ def train_stage2(
     cache_dir: Optional[Path] = None,
     use_mask: bool = False,
     diffeomorphic: bool=False,
+    num_workers: int=4
 ):
     """
     Stage2 training
@@ -936,10 +937,10 @@ def train_stage2(
     )
 
     train_loader = DataLoader(
-        train_dataset, batch_size=1, shuffle=True, #num_workers=4
+        train_dataset, batch_size=1, shuffle=True, num_workers=num_workers
     )
     val_loader = DataLoader(
-        val_dataset, batch_size=1, shuffle=False, #num_workers=4
+        val_dataset, batch_size=1, shuffle=False, num_workers=num_workers
     )
 
     checkpoint_dir.mkdir(exist_ok=True)
@@ -1122,6 +1123,7 @@ def train_stage1(
     diffeomorphic: bool=False,
     search_range: int=3,
     iters: int=12,
+    num_workers: int=4
 ):
     """
     Stage1 training
@@ -1130,8 +1132,8 @@ def train_stage1(
     train_dataset = PatchDataset(data_json, res, patch_factor, split="train")
     val_dataset = PatchDataset(data_json, res, patch_factor, split="val")
 
-    train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True, num_workers=4)
-    val_loader = DataLoader(val_dataset, batch_size=1, shuffle=True, num_workers=4)
+    train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True, num_workers=num_workers)
+    val_loader = DataLoader(val_dataset, batch_size=1, shuffle=True, num_workers=num_workers)
 
     checkpoint_dir.mkdir(exist_ok=True)
     writer = SummaryWriter(log_dir=checkpoint_dir)
