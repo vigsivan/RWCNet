@@ -283,14 +283,19 @@ class PatchDatasetStage2(Dataset):
         moving = F.interpolate(moving.unsqueeze(0), rshape).squeeze(0).float()
 
         factor = rshape[-1] // flow.shape[-1]
+
         flow = F.interpolate(flow, rshape) * factor
         hidden = F.interpolate(hidden, rshape) * factor
 
+        flow = F.avg_pool3d(flow, 3, stride=1, padding=1)
 
         if self.diffeomorphic:
-            flow = flow
-            for _ in range(7):
-                flow = flow + concat_flow(flow, flow)
+            scale = 1 / (2**14)
+            flow = scale * flow
+            for _ in range(14):
+                flow = flow + warp_image(flow, flow)
+
+        moving = warp_image(flow, moving.unsqueeze(0)).squeeze(0)
 
         hidden = hidden.squeeze(0)
         flow = flow.squeeze(0)
@@ -720,7 +725,7 @@ def eval_stage3(
 
             flow, _ = model(moving, fixed)
             flowin = data["flowin"].to(device)
-            flow = concat_flow(flowin, flow)
+            flow = warp_image(flowin, flow)
 
             savename = (
                 f'{data["fixed_image_name"][0]}2{data["moving_image_name"][0]}.pt'
@@ -787,7 +792,7 @@ def eval_stage2(
                 savename = f'{data["moving_image_name"]}2{data["fixed_image_name"]}.pt'
                 flowin = data["flowin"]
                 assert isinstance(flowin, torch.Tensor)
-                flow = concat_flow(flowin.to(device), flow)
+                flow = warp_image(flowin.to(device), flow)
 
                 flows[savename].append(
                     (data["chan_index"], data["patch_index"], flow.detach().cpu())
@@ -907,7 +912,7 @@ def train_stage2(
     reg_loss_weight: float = 0.05,
     seg_loss_weight: float = 0.1,
     kp_loss_weight: float = 1,
-    log_freq: int = 100,
+    log_freq: int = 1,
     save_freq: int = 100,
     val_freq: int = 1000,
     iters: int = 2,
@@ -998,7 +1003,7 @@ def train_stage2(
 
             if "fixed_keypoints" in data:
                 flowin = data["flowin"].to(device)
-                flow = concat_flow(flowin, flow)
+                flow = warp_image(flowin, flow)
                 losses_dict["keypoints"] = res * TotalRegistrationLoss()(
                     fixed_landmarks=data["fixed_keypoints"].squeeze(0),
                     moving_landmarks=data["moving_keypoints"].squeeze(0),
@@ -1023,7 +1028,7 @@ def train_stage2(
                     moving_fixed_moved=(moving, fixed, moved),
                 )
 
-            if val_freq > 0 and step_count % val_freq == 0: # and step_count > 0:
+            if val_freq > 0 and step_count % val_freq == 0 and step_count > 0:
                 losses_cum_dict = defaultdict(list)
                 with torch.no_grad(), evaluating(model):
                     for data in val_loader:
@@ -1055,7 +1060,7 @@ def train_stage2(
 
                         if "fixed_keypoints" in data:
                             flowin = data["flowin"].to(device)
-                            flow = concat_flow(flowin, flow)
+                            flow = warp_image(flowin, flow)
                             losses_cum_dict["keypoints"].append(
                                 res
                                 * TotalRegistrationLoss()(

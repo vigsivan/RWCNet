@@ -158,9 +158,9 @@ class SomeNet(nn.Module):
 
     def apply_diffeomorphism(self, flow):
         scale = 1 / (2**7)
-        # flow = scale * flow
+        flow = scale * flow
         for _ in range(7):
-            flow = flow + concat_flow(flow, flow)
+            flow = flow + warp_image(flow, flow)
         return flow
 
     def forward(
@@ -244,7 +244,7 @@ class SomeNetFullRes(nn.Module):
             flow = flow_predictions[-1]
             cost_volume = self.net2(torch.cat((moving_, fixed_), dim=1))
             hidden, delta_flow = self.update(cost_volume, flow, hidden, inp)
-            flow = concat_flow(flow , delta_flow)
+            flow = warp_image(flow , delta_flow)
             moving_ = warp_image(flow, moving_)
             flow_predictions.append(flow)
 
@@ -281,7 +281,7 @@ class SomeNetMultiRes(nn.Module):
                 res = self.resolutions[i+1]
                 hprev = F.interpolate(h, tuple(i//res for i in fixed.shape[-3:]))
             flow_prev = flow
-            flow_ret = concat_flow(flow_ret, F.interpolate(flow, flow_ret.shape[-3:]))
+            flow_ret = warp_image(flow_ret, F.interpolate(flow, flow_ret.shape[-3:]))
         if return_hidden:
             return flow_ret, hprev
 
