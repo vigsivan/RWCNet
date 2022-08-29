@@ -49,11 +49,14 @@ where train-job.sh is a bash script shown below:
 #!/bin/bash
 #SBATCH --nodes=1
 #SBATCH --gpus-per-node=v100:1
-#SBATCH --ntasks-per-node=32
-#SBATCH --mem=127000M
-#SBATCH --time=4:00:0
-module load singularity/3.7
-srun singularity exec --nv --cleanenv Some-RNN3.sif /home/bhatrana/my_singularity_script.sh
+#SBATCH --cpus-per-task=3
+#SBATCH --mem=12G
+#SBATCH --time=4-00:00
+module load arch/avx512 StdEnv/2018.3
+nvidia-smi
+module load singularity
+srun singularity exec --nv --cleanenv Some-RNN3.sif ~/my_singularity_script.sh
+
 ```
 my_singularity_script.sh should look like this 
 
