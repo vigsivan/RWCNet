@@ -74,7 +74,7 @@ def identity_grid_torch(size: Tuple[int, ...], device: str="cuda", stack_dim: in
     vectors = [torch.arange(0, s) for s in size]
     grids = torch.meshgrid(vectors, indexing="ij")
     grid = torch.stack(grids, dim=stack_dim)
-    grid = torch.unsqueeze(grid, 0).float().to(device)
+    grid = grid.unsqueeze(0).float().to(device)
 
     return grid
 
@@ -1142,13 +1142,12 @@ def data_generator(data_json: Path, *, split: str) -> Generator[Data, None, None
 
 
 def concat_flow(
-    flow1: torch.Tensor, flow2: torch.Tensor, mode: str="bilinear"
-):
-    grid = identity_grid_torch(flow1.shape[-3:]).to(flow1.device)
-    locs1 = grid + flow1
-    new_locs = grid + flow2
+    second_flow: torch.Tensor, first_flow: torch.Tensor, mode: str = "bilinear"
+) -> torch.Tensor:
+    grid = identity_grid_torch(first_flow.shape[-3:], device=first_flow.device)
+    new_locs = grid + second_flow
 
-    shape = flow2.shape[2:]
+    shape = second_flow.shape[2:]
 
     # need to normalize grid values to [-1, 1] for resampler
     for i in range(len(shape)):
@@ -1161,11 +1160,9 @@ def concat_flow(
         new_locs = new_locs.permute(0, 2, 3, 4, 1)
         new_locs = new_locs[..., [2, 1, 0]]
 
-    new_grid = torch.stack([
-        F.grid_sample(locs1[:,i,...].unsqueeze(1), new_locs,mode="bilinear").squeeze(1)
-        for i in range(3)], dim=1)
-    new_flow = new_grid - grid
-    return new_flow
+    resampled = F.grid_sample(first_flow, new_locs, align_corners=True, mode=mode) +second_flow
+    return resampled
+
 
 def warp_image(
     displacement_field: torch.Tensor, image: torch.Tensor, mode: str = "bilinear"

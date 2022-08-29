@@ -284,6 +284,9 @@ class PatchDatasetStage2(Dataset):
 
         factor = rshape[-1] // flow.shape[-1]
 
+        flow = flow.squeeze().unsqueeze(0)
+        hidden = hidden.squeeze().unsqueeze(0)
+
         flow = F.interpolate(flow, rshape) * factor
         hidden = F.interpolate(hidden, rshape) * factor
 
@@ -790,6 +793,7 @@ def eval_stage2(
                 savename = f'{data["moving_image_name"]}2{data["fixed_image_name"]}.pt'
                 flowin = data["flowin"]
                 assert isinstance(flowin, torch.Tensor)
+                flowin = flowin.squeeze().unsqueeze(0)
                 flow = concat_flow(flow, flowin.to(device))
 
                 flows[savename].append(
@@ -1099,7 +1103,7 @@ def train_stage2(
                     checkpoint_dir / f"rnn{res}x_{step_count}.pth",
                 )
 
-    torch.save(model.state_dict(), checkpoint_dir / f"rnn{res}x_{step_count+1}.pth")
+    torch.save(model.state_dict(), checkpoint_dir / f"rnn{res}x_{steps}.pth")
 
 
 @app.command()
@@ -1271,7 +1275,7 @@ def train_stage1(
                     checkpoint_dir / f"rnn{res}x_{step_count}.pth",
                 )
 
-    torch.save(model.state_dict(), checkpoint_dir / f"rnn{res}x_{step_count}.pth")
+    torch.save(model.state_dict(), checkpoint_dir / f"rnn{res}x_{steps}.pth")
 
 
 if __name__ == "__main__":
