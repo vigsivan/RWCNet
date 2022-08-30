@@ -689,6 +689,70 @@ class PatchDataset(Dataset):
         return ret
 
 
+# @app.command()
+# def eval_stage3(
+#     data_json: Path,
+#     savedir: Path,
+#     artifacts: Path,
+#     res: int,
+#     checkpoint: Path,
+#     device: str = "cuda",
+#     iters: int = 4,
+#     search_range: int = 2,
+#     split: str = "val",
+# ):
+#     """
+#     Stage3 (Final) eval
+#     """
+#
+#     dataset = PatchDatasetStage2(data_json, res, artifacts, 2, split="val", diffeomorphic=True)
+#     loader = DataLoader(dataset, batch_size=1, shuffle=False)
+#
+#     savedir.mkdir(exist_ok=True)
+#
+#     model = SomeNet(iters=iters, search_range=search_range, diffeomorphic=True).to(device)
+#     model.load_state_dict(torch.load(checkpoint))
+#
+#     with torch.no_grad(), evaluating(model):
+#         flows = defaultdict(list)
+#         for data in tqdm(loader):
+#             fixed, moving = data["fixed_image"], data["moving_image"]
+#             fixed, moving = fixed.to(device), moving.to(device)
+#             flow, _ = model(fixed, moving)
+#             savename = (
+#                 f'{data["moving_image_name"][0]}2{data["fixed_image_name"][0]}.pt'
+#             )
+#             flows[savename].append((data["patch_index"], flow.detach().cpu()))
+#
+#             flow, _ = model(moving, fixed)
+#             flowin = data["flowin"].to(device)
+#             flow = concat_flow(flow, flowin)
+#
+#             savename = (
+#                 f'{data["fixed_image_name"][0]}2{data["moving_image_name"][0]}.pt'
+#             )
+#             flows[savename].append((data["patch_index"], flow.detach().cpu()))
+#
+#         for k, v in flows.items():
+#             try:
+#                 fk = torch.stack([i[1] for i in sorted(v)], dim=-1)
+#                 pshape = fk.shape[-3:-1]
+#                 res_shape = (fk.shape[2], *[i * 4 for i in pshape])
+#                 inp = fk.squeeze(0)
+#                 inp = einops.rearrange(inp, "c h d w p -> c (h d w) p")
+#                 folded = F.fold(inp, res_shape[-2:], pshape, stride=pshape)
+#                 folded = folded.unsqueeze(0)
+#                 moving, fixed = k.split("z2")
+#                 moving = moving + "z"
+#                 fixed = ".".join(fixed.split(".")[:-1])  # remove .pt
+#                 disp_name = f"disp_{fixed[-16:-12]}_{moving[-16:-12]}"
+#                 disp_np = torch2skimage_disp(folded)
+#                 disp_nib = nib.Nifti1Image(disp_np, affine=np.eye(4))
+#                 nib.save(disp_nib, savedir / f"{disp_name}.nii.gz")
+#             except:
+#                 print(k)
+#                 continue
+
 @app.command()
 def eval_stage3(
     data_json: Path,
@@ -697,15 +761,16 @@ def eval_stage3(
     res: int,
     checkpoint: Path,
     device: str = "cuda",
-    iters: int = 4,
-    search_range: int = 2,
-    split: str = "val",
+    iters: int = 8,
+    search_range: int = 3,
+    patch_factor: int=4,
+    split="val",
 ):
     """
-    Stage3 (Final) eval
+    Stage3 eval
     """
 
-    dataset = PatchDatasetStage2(data_json, res, artifacts, 2, split="train")
+    dataset = PatchDatasetStage2(data_json, res, artifacts, patch_factor, split=split)
     loader = DataLoader(dataset, batch_size=1, shuffle=False)
 
     savedir.mkdir(exist_ok=True)
@@ -714,44 +779,75 @@ def eval_stage3(
     model.load_state_dict(torch.load(checkpoint))
 
     with torch.no_grad(), evaluating(model):
-        flows = defaultdict(list)
-        for data in tqdm(loader):
-            fixed, moving = data["fixed_image"], data["moving_image"]
-            fixed, moving = fixed.to(device), moving.to(device)
-            flow, _ = model(fixed, moving)
-            savename = (
-                f'{data["moving_image_name"][0]}2{data["fixed_image_name"][0]}.pt'
-            )
-            flows[savename].append((data["patch_index"], flow.detach().cpu()))
+        for i in trange(0, len(dataset), dataset.n_patches * dataset.chan_split):
+            flows, hiddens = defaultdict(list), defaultdict(list)
+            for j in range(i, i + (dataset.n_patches * dataset.chan_split)):
+                data = dataset[j]
+                fixed, moving = data["fixed_image"], data["moving_image"]
+                assert isinstance(fixed, torch.Tensor)
+                assert isinstance(moving, torch.Tensor)
+                fixed, moving = fixed.unsqueeze(0).to(device), moving.unsqueeze(0).to(
+                    device
+                )
+                flow, hidden = model(fixed, moving)
+                savename = f'{data["moving_image_name"]}2{data["fixed_image_name"]}.pt'
+                flowin = data["flowin"]
+                assert isinstance(flowin, torch.Tensor)
+                flowin = flowin.squeeze().unsqueeze(0)
+                flow = concat_flow(flow, flowin.to(device))
 
-            flow, _ = model(moving, fixed)
-            flowin = data["flowin"].to(device)
-            flow = concat_flow(flow, flowin)
+                flows[savename].append(
+                    (data["chan_index"], data["patch_index"], flow.detach().cpu())
+                )
+                hiddens[savename].append(
+                    (data["chan_index"], data["patch_index"], hidden.detach().cpu())
+                )
 
-            savename = (
-                f'{data["fixed_image_name"][0]}2{data["moving_image_name"][0]}.pt'
-            )
-            flows[savename].append((data["patch_index"], flow.detach().cpu()))
+            assert len(list(flows.keys())) == 1
+            for k, v in flows.items():
+                fchannels = defaultdict(list)
+                hchannels = defaultdict(list)
 
-        for k, v in flows.items():
-            try:
-                fk = torch.stack([i[1] for i in sorted(v)], dim=-1)
+                for i in v:
+                    fchannels[i[0]].append((i[1], i[2]))
+
+                ffchannels = [
+                    torch.stack(
+                        [i[1] for i in sorted(fchan, key=lambda x: x[0])], dim=-1
+                    )
+                    for fchan in fchannels.values()
+                ]
+                fk = torch.cat(ffchannels, dim=2)
+
+                hv = hiddens[k]
+                for i in hv:
+                    hchannels[i[0]].append((i[1], i[2]))
+
+                fhchannels = [
+                    torch.stack(
+                        [i[1] for i in sorted(hchan, key=lambda x: x[0])], dim=-1
+                    )
+                    for hchan in hchannels.values()
+                ]
+
+                hk = torch.cat(fhchannels, dim=2)
+
                 pshape = fk.shape[-3:-1]
-                res_shape = (fk.shape[2], *[i * 4 for i in pshape])
-                inp = fk.squeeze(0)
-                inp = einops.rearrange(inp, "c h d w p -> c (h d w) p")
-                folded = F.fold(inp, res_shape[-2:], pshape, stride=pshape)
-                folded = folded.unsqueeze(0)
+                res_shape = (fk.shape[2], *[i * 2 for i in pshape])
+
+                fk = fk.squeeze(0)
+                fk = einops.rearrange(fk, "c h d w p -> c (h d w) p")
+                folded_flow = F.fold(fk, res_shape[-2:], pshape, stride=pshape)
+
                 moving, fixed = k.split("z2")
                 moving = moving + "z"
                 fixed = ".".join(fixed.split(".")[:-1])  # remove .pt
                 disp_name = f"disp_{fixed[-16:-12]}_{moving[-16:-12]}"
-                disp_np = torch2skimage_disp(folded)
+                disp_np = torch2skimage_disp(folded_flow.unsqueeze(0))
                 disp_nib = nib.Nifti1Image(disp_np, affine=np.eye(4))
+
                 nib.save(disp_nib, savedir / f"{disp_name}.nii.gz")
-            except:
-                print(k)
-                continue
+                # nib.save(disp_nib, savedir / disp_name)
 
 
 @app.command()
@@ -764,13 +860,14 @@ def eval_stage2(
     device: str = "cuda",
     iters: int = 8,
     search_range: int = 3,
+    patch_factor: int=4,
     split="val",
 ):
     """
     Stage2 eval
     """
 
-    dataset = PatchDatasetStage2(data_json, res, artifacts, 4, split=split)
+    dataset = PatchDatasetStage2(data_json, res, artifacts, patch_factor, split=split)
     loader = DataLoader(dataset, batch_size=1, shuffle=False)
 
     savedir.mkdir(exist_ok=True)
