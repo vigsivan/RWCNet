@@ -296,6 +296,7 @@ class PatchDatasetStage2(Dataset):
             for _ in range(7):
                 flow = concat_flow(flow, flow)
 
+        moving_i = moving
         moving = warp_image(flow, moving.unsqueeze(0)).squeeze(0)
 
         hidden = hidden.squeeze(0)
@@ -345,6 +346,10 @@ class PatchDatasetStage2(Dataset):
             )
 
             moving_mask = warp_image(flow.unsqueeze(0), moving_mask.unsqueeze(0)).squeeze(0)
+
+            ret["fixed_image"] = fixed_mask * fixed_image
+            moving = moving_mask * moving_i
+            ret["moving_image"] = warp_image(flow.unsqueeze(0), moving.unsqueeze(0)).squeeze(0)
 
             ret["fixed_mask"] = fixed_mask
             ret["moving_mask"] = moving_mask
@@ -862,7 +867,6 @@ def eval_stage2(
     search_range: int = 3,
     patch_factor: int=4,
     split="val",
-    patch_factor: int = 4
 ):
     """
     Stage2 eval
