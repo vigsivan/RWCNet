@@ -94,12 +94,19 @@ def apply_instance_optimization(data_root: Path, disp_root: Path, save_directory
         fixed = (fixed - fixed.min())/(fixed.max() - fixed.min())
         moving = (moving - moving.min())/(moving.max() - moving.min())
 
+        fixed_mask = torch.from_numpy(nib.load(str(fixed_image).replace('imagesTr', 'masksTr')).get_fdata().astype('float32')).to(device)
+        moving_mask = torch.from_numpy(nib.load(str(moving_image).replace('imagesTr', 'masksTr')).get_fdata().astype('float32')).to(device)
+
+        fixed = fixed_mask * fixed
+        moving = moving_mask * moving
+
         mindssc_fix_ = MINDSSC(
             fixed.cuda(), 1, 2
         ).half()
         mindssc_mov_ = MINDSSC(
             moving.cuda(), 1, 2
         ).half()
+
 
         grid_sp = 2
         mind_fix_ = F.avg_pool3d(mindssc_fix_, grid_sp, stride=grid_sp)
