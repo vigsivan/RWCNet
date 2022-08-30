@@ -883,6 +883,7 @@ def eval_stage2(
     with torch.no_grad(), evaluating(model):
         for i in trange(0, len(dataset), dataset.n_patches * dataset.chan_split):
             flows, hiddens = defaultdict(list), defaultdict(list)
+            ffeats, mfeats = defaultdict(list), defaultdict(list)
             for j in range(i, i + (dataset.n_patches * dataset.chan_split)):
                 data = dataset[j]
                 fixed, moving = data["fixed_image"], data["moving_image"]
@@ -891,7 +892,7 @@ def eval_stage2(
                 fixed, moving = fixed.unsqueeze(0).to(device), moving.unsqueeze(0).to(
                     device
                 )
-                flow, hidden = model(fixed, moving)
+                flow, hidden, ffeat, mfeat = model(fixed, moving, ret_fmaps=True)
                 savename = f'{data["moving_image_name"]}2{data["fixed_image_name"]}.pt'
                 flowin = data["flowin"]
                 assert isinstance(flowin, torch.Tensor)
@@ -904,11 +905,21 @@ def eval_stage2(
                 hiddens[savename].append(
                     (data["chan_index"], data["patch_index"], hidden.detach().cpu())
                 )
+                ffeats[savename].append(
+                    (data["chan_index"], data["patch_index"], ffeat.detach().cpu())
+                )
+                mfeats[savename].append(
+                    (data["chan_index"], data["patch_index"], mfeat.detach().cpu())
+                )
+
 
             assert len(list(flows.keys())) == 1
             for k, v in flows.items():
                 fchannels = defaultdict(list)
                 hchannels = defaultdict(list)
+                ffeat_chans = defaultdict(list)
+                mfeat_chans = defaultdict(list)
+
 
                 for i in v:
                     fchannels[i[0]].append((i[1], i[2]))
@@ -934,6 +945,33 @@ def eval_stage2(
 
                 hk = torch.cat(fhchannels, dim=2)
 
+                ffv = ffeats[k]
+                for i in hv:
+                    ffeat_chans[i[0]].append((i[1], i[2]))
+
+                fffeat_chans = [
+                    torch.stack(
+                        [i[1] for i in sorted(fchan, key=lambda x: x[0])], dim=-1
+                    )
+                    for fchan in ffeat_chans.values()
+                ]
+
+
+                ffk = torch.cat(fffeat_chans, dim=2)
+
+                mfv = mfeats[k]
+                for i in hv:
+                    mfeat_chans[i[0]].append((i[1], i[2]))
+
+                mffeat_chans = [
+                    torch.stack(
+                        [i[1] for i in sorted(fchan, key=lambda x: x[0])], dim=-1
+                    )
+                    for fchan in mfeat_chans.values()
+                ]
+
+                mfk = torch.cat(mffeat_chans, dim=2)
+
                 pshape = fk.shape[-3:-1]
                 res_shape = (fk.shape[2], *[i * 2 for i in pshape])
 
@@ -945,8 +983,20 @@ def eval_stage2(
                 hk = einops.rearrange(hk, "c h d w p -> c (h d w) p")
                 folded_hidden = F.fold(hk, res_shape[-2:], pshape, stride=pshape)
 
+                ffk = ffk.squeeze(0)
+                ffk = einops.rearrange(ffk, "c h d w p -> c (h d w) p")
+                folded_ffeat = F.fold(ffk, res_shape[-2:], pshape, stride=pshape)
+                folded_ffeat = F.interpolate(ffk, [res*s for s in folded_feat.shape[-3:])
+
+                mfk = mfk.squeeze(0)
+                mfk = einops.rearrange(mfk, "c h d w p -> c (h d w) p")
+                folded_mfeat = F.fold(mfk, res_shape[-2:], pshape, stride=pshape)
+                folded_mfeat = F.interpolate(mfk, [res*s for s in folded_feat.shape[-3:])
+
                 torch.save(folded_flow, savedir / ("flow-" + k))
                 torch.save(folded_hidden, savedir / ("hidden-" + k))
+                torch.save(folded_ffeat, savedir / ("feat_fix-" + k))
+                torch.save(folded_mfeat, savedir / ("feat_mov-" + k))
 
 
 @app.command()
@@ -975,6 +1025,7 @@ def eval_stage1(
     with torch.no_grad(), evaluating(model):
         for i in trange(0, len(dataset), dataset.n_patches):
             flows, hiddens = defaultdict(list), defaultdict(list)
+            ffeats, mfeats = defaultdict(list), defaultdict(list)
             for j in range(i, i + dataset.n_patches):
                 data = dataset[j]
                 fixed, moving = data["fixed_image"], data["moving_image"]
@@ -983,10 +1034,13 @@ def eval_stage1(
                 fixed, moving = fixed.unsqueeze(0).to(device), moving.unsqueeze(0).to(
                     device
                 )
-                flow, hidden = model(fixed, moving)
+                flow, hidden, fixed_feat, moving_feat = model(fixed, moving, ret_fmap=True)
                 savename = f'{data["moving_image_name"]}2{data["fixed_image_name"]}.pt'
                 flows[savename].append((data["patch_index"], flow.detach().cpu()))
                 hiddens[savename].append((data["patch_index"], hidden.detach().cpu()))
+                ffeats[savename].append((data["patch_index"], fixed_feat.detach().cpu()))
+                mfeats[savename].append((data["patch_index"], moving_feat.detach().cpu()))
+
 
             assert len(flows.keys()) == 1, "Expected only one key"
             for k, v in flows.items():
@@ -994,6 +1048,14 @@ def eval_stage1(
                 hk = torch.stack(
                     [i[1] for i in sorted(hiddens[k], key=lambda x: x[0])], dim=-1
                 )
+                for feats, lab in zip((ffeats, mfeats), ("feat_fix", "feat_mov")):
+                    fek = torch.stack(
+                        [i[1] for i in sorted(feats[k], key=lambda x: x[0])], dim=-1
+                    )
+                    fek = fek[..., 0]
+                    fek = F.interpolate(fek, [s*res for s in fek.shape[-3:]])
+                    torch.save(fek, savedir / (f"{lab}-" + k))
+
                 fk = fk[..., 0]
                 hk = hk[..., 0]
                 torch.save(fk, savedir / ("flow-" + k))
@@ -1362,10 +1424,9 @@ def train_stage1(
                             moved_segmentation = torch.round(moved_segmentation)
 
                             losses_cum_dict["dice_loss"].append(
-                                    seg_loss_weight
-                                    * DiceLoss()(fixed_segmentation, moved_segmentation).item()
+                                seg_loss_weight
+                                * DiceLoss()(fixed_segmentation, moved_segmentation).item()
                             )
-
 
                 for k, v in losses_cum_dict.items():
                     writer.add_scalar(

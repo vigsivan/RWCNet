@@ -168,6 +168,7 @@ class SomeNet(nn.Module):
         fixed: torch.Tensor,
         moving: torch.Tensor,
         hidden_init: Optional[torch.Tensor]=None,
+        ret_fmap: bool=False
     ):
 
         if self.starting == None:
@@ -197,8 +198,10 @@ class SomeNet(nn.Module):
             moving_feat = self.feature_extractor(moving_)
             inp = torch.cat((fixed_feat, moving_feat), dim=1)
 
-
-        return flow, hidden
+        if not ret_fmap:
+            return flow, hidden
+        else:
+            return flow, hidden, fixed_feat, moving_feat
 
 
 class SomeNetFullRes(nn.Module):
