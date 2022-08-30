@@ -347,9 +347,9 @@ class PatchDatasetStage2(Dataset):
 
             moving_mask = warp_image(flow.unsqueeze(0), moving_mask.unsqueeze(0)).squeeze(0)
 
-            ret["fixed_image"] = fixed_mask * fixed_image
-            moving = moving_mask * moving_i
-            ret["moving_image"] = warp_image(flow.unsqueeze(0), moving.unsqueeze(0)).squeeze(0)
+            # ret["fixed_image"] = fixed_mask * fixed
+            # moving = moving_mask * moving_i
+            # ret["moving_image"] = warp_image(flow.unsqueeze(0), moving.unsqueeze(0)).squeeze(0)
 
             ret["fixed_mask"] = fixed_mask
             ret["moving_mask"] = moving_mask
