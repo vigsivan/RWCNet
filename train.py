@@ -862,6 +862,7 @@ def eval_stage2(
     search_range: int = 3,
     patch_factor: int=4,
     split="val",
+    patch_factor: int = 4
 ):
     """
     Stage2 eval
@@ -954,12 +955,13 @@ def eval_stage1(
     iters: int = 12,
     search_range: int = 3,
     split="val",
+    patch_factor: int=4
 ):
     """
     Stage1 eval
     """
 
-    dataset = PatchDataset(data_json, res, 4, split=split)
+    dataset = PatchDataset(data_json, res, patch_factor, split=split)
 
     savedir.mkdir(exist_ok=True)
 

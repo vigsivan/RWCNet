@@ -84,8 +84,16 @@ class TotalRegistrationLoss(nn.Module):
         assert fixed_landmarks.shape == moving_landmarks.shape
         fixed_landmarks_tmp = fixed_landmarks
         #fixed_landmarks = fixed_landmarks[0,:][None,...]
+        
         fcoords, ccoords = torch.floor(fixed_landmarks).long(), torch.ceil(fixed_landmarks).long()
 
+        #enforce that coords must fall inside displacement grid
+        u = torch.tensor([[displacement_field.shape[2]-1, displacement_field.shape[3]-1, displacement_field.shape[4]-1]]).to(displacement_field.device)
+        l = torch.tensor([[0, 0, 0]]).to(displacement_field.device)
+        fcoords = torch.max(torch.min(fcoords, u), l)
+        ccoords = torch.max(torch.min(ccoords, u), l)
+
+        #print(ccoords.max())
         f_displacements = displacement_field[:,:,fcoords[:,0], fcoords[:,1], fcoords[:,2]]
         c_displacements = displacement_field[:,:,ccoords[:,0], ccoords[:,1], ccoords[:,2]]
         displacements = (f_displacements + c_displacements)/2
