@@ -54,7 +54,7 @@ def get_paths(
 
     for v in data:
         img_number = v['moving_image'][-16:-12]
-        disp_name = f"disp_{img_number}_{img_number}"
+        disp_name = f"disp_{img_number}_{img_number}.nii.gz"
         disp_path = os.path.join(os.path.sep, disp_root, disp_name)
 
         yield InstanceOptData(
@@ -84,6 +84,7 @@ def apply_instance_optimization(
 ):
 
     save_directory.mkdir(exist_ok=True)
+    (save_directory / "disps").mkdir(exist_ok=True)
     device = "cuda"
 
     gen = tqdm(get_paths(data_json=data_json, split_val=split_val, disp_root=initial_disp_root))
@@ -124,8 +125,8 @@ def apply_instance_optimization(
             fixed = fixed_mask * fixed
             moving = moving_mask * moving
 
-        mindssc_fix_ = MINDSSC(fixed.cuda(), 1, 2).half()
-        mindssc_mov_ = MINDSSC(moving.cuda(), 1, 2).half()
+        mindssc_fix_ = MINDSSC(fixed.unsqueeze(0).unsqueeze(0), 1, 2).half()
+        mindssc_mov_ = MINDSSC(moving.unsqueeze(0).unsqueeze(0), 1, 2).half()
 
         grid_sp = 2
         mind_fix_ = F.avg_pool3d(mindssc_fix_, grid_sp, stride=grid_sp)
@@ -148,7 +149,13 @@ def apply_instance_optimization(
             F.avg_pool3d(net[0].weight, 3, stride=1, padding=1), 3, stride=1, padding=1
         ).permute(0, 2, 3, 4, 1)
 
-        disp_hr = disp_sample.permute(0, 4, 1, 2, 3).detach()
+        fitted_grid = disp_sample.permute(0, 4, 1, 2, 3).detach()
+        disp_hr = F.interpolate(
+            fitted_grid * grid_sp,
+            size=fixed_nib.shape,
+            mode="trilinear",
+            align_corners=False,
+        )
 
         disp_np = disp_hr.detach().cpu().numpy()
 
