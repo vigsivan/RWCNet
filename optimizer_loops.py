@@ -94,7 +94,7 @@ def swa_optimization(
                  net, grid0, optimizer,
                  mind_fixed, mind_moving,
                  lambda_weight,
-                 iterations=(total_iterations, total_iterations+iterations),
+                 iterations=range(total_iterations, total_iterations+iterations),
                  swa_start=start, swa_net=swa_net,
                  swa_scheduler=swa_scheduler, scheduler=scheduler)
 
