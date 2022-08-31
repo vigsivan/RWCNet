@@ -115,15 +115,15 @@ def apply_instance_optimization(
             fixed_mask = torch.from_numpy(nib.load(data.fixed_mask).get_fdata().astype('float32')).to(device)
             moving_mask = torch.from_numpy(nib.load(data.moving_mask).get_fdata().astype('float32')).to(device)
 
+        if use_mask and (data.fixed_mask is not None):
+            fixed = fixed_mask * fixed
+            moving = moving_mask * moving
+
         disp_rnn = initial_disp_nib.get_fdata()
         disp_torch = torch.from_numpy(einops.rearrange(disp_rnn, 'h w d N -> N h w d')).unsqueeze(0).to(device)
 
         fixed = (fixed - fixed.min())/(fixed.max() - fixed.min())
         moving = (moving - moving.min())/(moving.max() - moving.min())
-
-        if use_mask and (data.fixed_mask is not None):
-            fixed = fixed_mask * fixed
-            moving = moving_mask * moving
 
         mindssc_fix_ = MINDSSC(fixed.unsqueeze(0).unsqueeze(0), 1, 2).half()
         mindssc_mov_ = MINDSSC(moving.unsqueeze(0).unsqueeze(0), 1, 2).half()
