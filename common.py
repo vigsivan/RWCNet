@@ -66,7 +66,7 @@ def identity_grid(size: Tuple[int, ...]) -> np.ndarray:
     return grid
 
 
-@lru_cache(maxsize=None)
+# @lru_cache(maxsize=None)
 def identity_grid_torch(size: Tuple[int, ...], device: str="cuda", stack_dim: int=0) -> torch.Tensor:
     """
     Computes an identity grid for torch
@@ -897,6 +897,9 @@ class Data:
 
 
 def load_keypoints(keypoints_path: Path) -> torch.Tensor:
+    keypoints_path = Path(keypoints_path)
+    if keypoints_path.name.endswith('.nii.gz'):
+        keypoints_path = keypoints_path.parent / (keypoints_path.name.split('.')[0] + '.csv')
     with open(keypoints_path, "r") as f:
         arr = np.array(
             [[float(j) for j in i.strip().split(",")] for i in f.readlines()]
@@ -907,6 +910,10 @@ def load_keypoints(keypoints_path: Path) -> torch.Tensor:
 
 
 def load_keypoints_np(keypoints_path: Path) -> np.ndarray:
+    keypoints_path = Path(keypoints_path)
+    if keypoints_path.name.endswith('.nii.gz'):
+        keypoints_path = keypoints_path.parent / (keypoints_path.name.split('.')[0] + '.csv')
+
     with open(keypoints_path, "r") as f:
         arr = np.array(
             [[float(j) for j in i.strip().split(",")] for i in f.readlines()]
