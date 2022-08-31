@@ -64,7 +64,7 @@ class PatchDatasetStage2(Dataset):
         cache_file: Path = Path("./stage2.pkl"),
         cache_patches_dir: Optional[Path] = None,
         precache: bool = False,
-        diffeomorphic: bool=False
+        diffeomorphic: bool=True
     ):
         super().__init__()
         if res_factor not in [1, 2, 4]:
@@ -284,7 +284,7 @@ class PatchDatasetStage2(Dataset):
 
         factor = rshape[-1] // flow.shape[-1]
 
-        flow = flow.squeeze().unsqueeze(0)
+        flow = flow.squeeze().unsqueeze(0).float()
         hidden = hidden.squeeze().unsqueeze(0)
 
         flow = F.interpolate(flow, rshape) * factor
@@ -770,17 +770,22 @@ def eval_stage3(
     search_range: int = 3,
     patch_factor: int=4,
     split="val",
+    diffeomorphic: bool=True,
 ):
     """
     Stage3 eval
     """
+
+    with open(data_json, 'r') as f:
+        if split not in json.load(f):
+            return
 
     dataset = PatchDatasetStage2(data_json, res, artifacts, patch_factor, split=split)
     loader = DataLoader(dataset, batch_size=1, shuffle=False)
 
     savedir.mkdir(exist_ok=True)
 
-    model = SomeNet(iters=iters, search_range=search_range).to(device)
+    model = SomeNet(iters=iters, search_range=search_range, diffeomorphic=diffeomorphic).to(device)
     model.load_state_dict(torch.load(checkpoint))
 
     with torch.no_grad(), evaluating(model):
@@ -867,17 +872,22 @@ def eval_stage2(
     search_range: int = 3,
     patch_factor: int=4,
     split="val",
+    diffeomorphic: bool=True,
 ):
     """
     Stage2 eval
     """
+
+    with open(data_json, 'r') as f:
+        if split not in json.load(f):
+            return
 
     dataset = PatchDatasetStage2(data_json, res, artifacts, patch_factor, split=split)
     loader = DataLoader(dataset, batch_size=1, shuffle=False)
 
     savedir.mkdir(exist_ok=True)
 
-    model = SomeNet(iters=iters, search_range=search_range).to(device)
+    model = SomeNet(iters=iters, search_range=search_range, diffeomorphic=diffeomorphic).to(device)
     model.load_state_dict(torch.load(checkpoint))
 
     with torch.no_grad(), evaluating(model):
@@ -892,7 +902,7 @@ def eval_stage2(
                 fixed, moving = fixed.unsqueeze(0).to(device), moving.unsqueeze(0).to(
                     device
                 )
-                flow, hidden, ffeat, mfeat = model(fixed, moving, ret_fmaps=True)
+                flow, hidden, ffeat, mfeat = model(fixed, moving, ret_fmap=True)
                 savename = f'{data["moving_image_name"]}2{data["fixed_image_name"]}.pt'
                 flowin = data["flowin"]
                 assert isinstance(flowin, torch.Tensor)
@@ -946,7 +956,7 @@ def eval_stage2(
                 hk = torch.cat(fhchannels, dim=2)
 
                 ffv = ffeats[k]
-                for i in hv:
+                for i in ffv:
                     ffeat_chans[i[0]].append((i[1], i[2]))
 
                 fffeat_chans = [
@@ -960,7 +970,7 @@ def eval_stage2(
                 ffk = torch.cat(fffeat_chans, dim=2)
 
                 mfv = mfeats[k]
-                for i in hv:
+                for i in mfv:
                     mfeat_chans[i[0]].append((i[1], i[2]))
 
                 mffeat_chans = [
@@ -986,12 +996,13 @@ def eval_stage2(
                 ffk = ffk.squeeze(0)
                 ffk = einops.rearrange(ffk, "c h d w p -> c (h d w) p")
                 folded_ffeat = F.fold(ffk, res_shape[-2:], pshape, stride=pshape)
-                folded_ffeat = F.interpolate(ffk, [res*s for s in folded_feat.shape[-3:])
+                highres = [res*s for s in folded_ffeat.shape[-3:]]
+                folded_ffeat = F.interpolate(folded_ffeat.unsqueeze(0), highres)
 
                 mfk = mfk.squeeze(0)
                 mfk = einops.rearrange(mfk, "c h d w p -> c (h d w) p")
                 folded_mfeat = F.fold(mfk, res_shape[-2:], pshape, stride=pshape)
-                folded_mfeat = F.interpolate(mfk, [res*s for s in folded_feat.shape[-3:])
+                folded_mfeat = F.interpolate(folded_mfeat.unsqueeze(0), highres)
 
                 torch.save(folded_flow, savedir / ("flow-" + k))
                 torch.save(folded_hidden, savedir / ("hidden-" + k))
@@ -1009,17 +1020,22 @@ def eval_stage1(
     iters: int = 12,
     search_range: int = 3,
     split="val",
-    patch_factor: int=4
+    patch_factor: int=4,
+    diffeomorphic: bool=True
 ):
     """
     Stage1 eval
     """
 
+    with open(data_json, 'r') as f:
+        if split not in json.load(f):
+            return
+
     dataset = PatchDataset(data_json, res, patch_factor, split=split)
 
     savedir.mkdir(exist_ok=True)
 
-    model = SomeNet(iters=iters, search_range=search_range).to(device)
+    model = SomeNet(iters=iters, search_range=search_range, diffeomorphic=diffeomorphic).to(device)
     model.load_state_dict(torch.load(checkpoint))
 
     with torch.no_grad(), evaluating(model):
@@ -1086,7 +1102,7 @@ def train_stage2(
     search_range: int = 1,
     cache_dir: Optional[Path] = None,
     use_mask: bool = False,
-    diffeomorphic: bool=False,
+    diffeomorphic: bool=True,
     num_workers: int=4
 ):
     """
@@ -1289,7 +1305,7 @@ def train_stage1(
     save_freq: int = 50,
     val_freq: int = 50,
     use_mask: bool=False,
-    diffeomorphic: bool=False,
+    diffeomorphic: bool=True,
     search_range: int=3,
     iters: int=12,
     num_workers: int=4
@@ -1440,7 +1456,6 @@ def train_stage1(
                 )
 
     torch.save(model.state_dict(), checkpoint_dir / f"rnn{res}x_{steps}.pth")
-
 
 if __name__ == "__main__":
     app()
