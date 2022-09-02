@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from torch.optim.swa_utils import AveragedModel, SWALR
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
 from monai.losses import FocalLoss
@@ -14,13 +13,13 @@ def swa_loop(H, W, D,
              mind_fixed, mind_moving,
              lambda_weight,
              iterations,
-             swa_start, swa_net,
-             swa_scheduler, scheduler):
+             scheduler):
 
     for _ in iterations:
 
         focalloss = FocalLoss()
-        focal_loss_weight = 10 if (_ < 15 or 89 < _ < 105 or 120 < _ < 135) else 2.5
+        focal_loss_weight = 10 if (_ < 20 or 60 < _ < 100) else 2.5
+        # image_loss_weight = 3 if 100 < _ < 120 else 1
 
         optimizer.zero_grad()
 
@@ -43,10 +42,11 @@ def swa_loop(H, W, D,
             mind_moving.float(),
             grid_disp.view(1, H, W, D, 3).cuda(),
             align_corners=False,
-            mode="bilinear")
+            mode="bilinear",
+            padding_mode="border")
 
         sampled_cost = (patch_mov_sampled - mind_fixed).pow(2).mean(1) * 12
-        loss = sampled_cost.mean()
+        loss = sampled_cost.mean() # * image_loss_weight
 
         floss = focalloss(patch_mov_sampled, mind_fixed) * focal_loss_weight
 
@@ -56,10 +56,7 @@ def swa_loop(H, W, D,
 
         optimizer.step()
 
-        if _ > swa_start:
-            swa_net.update_parameters(net)
-            swa_scheduler.step()
-        else:
+        if _ > 70:
             scheduler.step()
 
 
@@ -78,23 +75,15 @@ def swa_optimization(
     net.cuda()
 
     grid0 = get_identity_affine_grid(image_shape)
-    optimizer = torch.optim.Adam(net.parameters(), lr=1)
-    swa_net = AveragedModel(net)
-    scheduler = CosineAnnealingLR(optimizer, T_max=150)
-    total_iterations = 0
+    optimizer = torch.optim.Adam(net.parameters(), lr=15)
 
-    for iterations, slr, start in zip([120, 40, 40, 30, 20], [5, 2, 1, 0.5, 0.1], [80, 120, 160, 200, 230]):
+    scheduler = CosineAnnealingLR(optimizer, T_max=200, eta_min=0.5)
 
-        swa_scheduler = SWALR(optimizer, swa_lr=slr)
-
-        swa_loop(H, W, D,
-                 net, grid0, optimizer,
-                 mind_fixed, mind_moving,
-                 lambda_weight,
-                 iterations=range(total_iterations, total_iterations+iterations),
-                 swa_start=start, swa_net=swa_net,
-                 swa_scheduler=swa_scheduler, scheduler=scheduler)
-
-        total_iterations += iterations
+    swa_loop(H, W, D,
+             net, grid0, optimizer,
+             mind_fixed, mind_moving,
+             lambda_weight,
+             iterations=range(250),
+             scheduler=scheduler)
 
     return net

@@ -129,8 +129,9 @@ def apply_instance_optimization(
         mindssc_mov_ = MINDSSC(moving.unsqueeze(0).unsqueeze(0), 1, 2).half()
 
         grid_sp = 2
-        mind_fix_ = F.avg_pool3d(mindssc_fix_, grid_sp, stride=grid_sp)
-        mind_mov_ = F.avg_pool3d(mindssc_mov_, grid_sp, stride=grid_sp)
+        with torch.no_grad():
+            mind_fix_ = F.avg_pool3d(mindssc_fix_, grid_sp, stride=grid_sp)
+            mind_mov_ = F.avg_pool3d(mindssc_mov_, grid_sp, stride=grid_sp)
 
         if half_res:
             shape = [s//2 for s in disp_torch.shape[-3:]]
@@ -164,5 +165,6 @@ def apply_instance_optimization(
 
         displacement_nib = nib.Nifti1Image(l2r_disp, affine=moving_nib.affine)
         nib.save(displacement_nib, new_disp_path)
+
 
 app()
