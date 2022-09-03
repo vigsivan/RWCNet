@@ -166,8 +166,8 @@ class NCC(nn.Module):
 
     def forward(self, y_true, y_pred):
 
-        Ii = y_true
-        Ji = y_pred
+        Ii = y_true.squeeze().unsqueeze(0).unsqueeze(0)
+        Ji = y_true.squeeze().unsqueeze(0).unsqueeze(0)
 
         # get dimension of volume
         # assumes Ii, Ji are sized [batch_size, *vol_shape, nb_feats]

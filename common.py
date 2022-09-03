@@ -766,6 +766,7 @@ def adam_optimization_teo(
         for _ in range(iterations):
             optimizer.zero_grad()
 
+            weight = net[0].weight
             disp_sample = F.avg_pool3d(
                 F.avg_pool3d(net[0].weight, 3, stride=1, padding=1), 3, stride=1, padding=1,
             ).permute(0, 2, 3, 4, 1)
@@ -798,7 +799,11 @@ def adam_optimization_teo(
             (loss + reg_loss).backward(retain_graph=True)
             optimizer.step()
 
-    return net
+    disp_sample = F.avg_pool3d(
+        F.avg_pool3d(net[0].weight, 3, stride=1, padding=1), 3, stride=1, padding=1
+    ).permute(0, 2, 3, 4, 1)
+    fitted_grid = disp_sample.permute(0, 4, 1, 2, 3).detach()
+    return fitted_grid
 
 
 
