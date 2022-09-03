@@ -1,141 +1,155 @@
-import json
-from collections import defaultdict
-from typing import Tuple
+from dataclasses import dataclass
+from typing import Optional
 from pathlib import Path
+from tqdm import tqdm
+
+import nibabel as nib
+
+import os
+import json
 import typer
 import einops
-import nibabel as nib
-import torch
-from torch import nn
-import random
-import torch.nn.functional as F
-from tqdm import tqdm, trange
-from differentiable_metrics import MutualInformationLoss, TotalRegistrationLoss
-from common import adam_optimization, MINDSSC, adam_optimization_teo, load_keypoints, swa_optimization, warp_image
 import numpy as np
+
+import torch
+import torch.nn.functional as F
+
+from common import MINDSSC
+from optimizer_loops import swa_optimization
 
 app = typer.Typer()
 
 get_spacing = lambda x: np.sqrt(np.sum(x.affine[:3, :3] * x.affine[:3, :3], axis=0))
+add_bc_dim = lambda x: einops.repeat(x, "d h w -> b c d h w", b=1, c=1).float()
 
-upsamplenet = nn.Sequential(
-    nn.Conv3d(3,3,3,1,padding='same'),
-    nn.ReLU(),
-    nn.Conv3d(3,3,3,1,padding='same'),
-)
 
-def load_corresponding_files(files_path: Path, disp_name: str) -> Tuple[Path, Path]:
-    file_names = list(files_path.iterdir()) 
-    _, fixed_id, moving_id = disp_name.split(".")[0].split("_")
-    fixed_image, moving_image = None, None
-    for f in file_names:
-        if f.name[-16:-12] == fixed_id:
-            if f.name.split(".")[0].split("_")[-1] == "0000":
-                fixed_image = f
-            else:
-                moving_image = f
+@dataclass
+class InstanceOptData:
+    fixed_image: Path
+    moving_image: Path
+    fixed_mask: Optional[Path]
+    moving_mask: Optional[Path]
+    fixed_segmentation: Optional[Path]
+    moving_segmentation: Optional[Path]
+    fixed_keypoints: Optional[Path]
+    moving_keypoints: Optional[Path]
+    fixed_landmarks: Optional[Path]
+    moving_landmarks: Optional[Path]
+    rnn_disp_path: Optional[Path]
+    disp_name: Optional[str]
 
-    if fixed_image is None or moving_image is None:
-        raise Exception
 
-    return fixed_image, moving_image
+def get_paths(
+        data_json,
+        split_val,
+        disp_root,
+):
+    with open(data_json, "r") as f:
+        data = json.load(f)[split_val]
 
-def load_corresponding_kps(files_path: Path, disp_name: str) -> Tuple[torch.Tensor, torch.Tensor]:
-    files_path = Path("/home/vsivan/scratch/NLST/keypointsTr/")
-    file_names = list(files_path.iterdir())
-    _, fixed_id, moving_id = disp_name.split(".")[0].split("_")
-    fixed_image, moving_image = None, None
-    for f in file_names:
-        if f.name[-16:-12] == fixed_id:
-            if f.name.split(".")[0].split("_")[-1] == "0000":
-                fixed_image = f
-            else:
-                moving_image = f
+    has_segs = "fixed_segmentation" in data[0]
+    has_kps = "fixed_keypoints" in data[0]
+    has_mask = "fixed_mask" in data[0]
+    has_lms = "fixed_landmarks" in data[0]
 
-    if fixed_image is None or moving_image is None:
-        raise Exception
+    for v in data:
+        img_number = v['moving_image'][-16:-12]
+        disp_name = f"disp_{img_number}_{img_number}.nii.gz"
+        disp_path = os.path.join(os.path.sep, disp_root, disp_name)
 
-    return load_keypoints(fixed_image), load_keypoints(moving_image)
+        yield InstanceOptData(
+            fixed_image=Path(v["fixed_image"]),
+            moving_image=Path(v["moving_image"]),
+            fixed_mask=Path(v["fixed_mask"]) if has_mask else None,
+            moving_mask=Path(v["moving_mask"]) if has_mask else None,
+            fixed_segmentation=Path(v["fixed_segmentation"]) if has_segs else None,
+            moving_segmentation=Path(v["moving_segmentation"]) if has_segs else None,
+            fixed_keypoints=Path(v["fixed_keypoints"]) if has_kps else None,
+            moving_keypoints=Path(v["moving_keypoints"]) if has_kps else None,
+            fixed_landmarks=Path(v["fixed_landmarks"]) if has_lms else None,
+            moving_landmarks=Path(v["fixed_landmarks"]) if has_lms else None,
+            rnn_disp_path=Path(disp_path),
+            disp_name=disp_name,
+        )
 
 
 @app.command()
-def apply_instance_optimization(data_root: Path, disp_root: Path, save_directory: Path, ext: str=".nii.gz", half_res: bool=True):
-    # files = [i for i in disp_root.iterdir() if i.name.endswith(ext)]
-    files = [i for i in disp_root.iterdir()]
-    add_bc_dim = lambda x: einops.repeat(x, "d h w -> b c d h w", b=1, c=1).float()
-    device="cuda"
+def apply_instance_optimization(
+        data_json: Path,
+        initial_disp_root: Path,
+        save_directory: Path,
+        split_val,
+        half_res: bool=True,
+        use_mask: bool=True,
+):
+
     save_directory.mkdir(exist_ok=True)
-    mind = MutualInformationLoss()
-    trl =TotalRegistrationLoss()
-    losses = defaultdict(dict)
-    kplosses = defaultdict(dict)
-    upsample = upsamplenet.to(device)
-    opt = torch.optim.Adam(upsample.parameters(), lr=.01)
-    random.shuffle(files)
-    for i, f in tqdm(enumerate(files)):
-        # disp_torch = torch.load(f)
-        # disp_torch =  disp_torch.to(device)
-        # if disp_torch.shape[-1] == 112:
-        #     print(f"skipping {f}")
-        #     continue
-        # breakpoint()
-        disp_nib = nib.load(f)
-        disp_sk = disp_nib.get_fdata()
-        disp_torch = torch.from_numpy(einops.rearrange(disp_sk, 'h w d N -> N h w d')).unsqueeze(0).to(device)
-        fixed_image, moving_image = load_corresponding_files(data_root, f.name.split('.')[0] + ".nii.gz")
-        # fkps, mkps = load_corresponding_kps(data_root, f.name.split('.')[0] + ".nii.gz")
+    (save_directory / "disps").mkdir(exist_ok=True)
+    device = "cuda"
 
-        fixed_nib = nib.load(fixed_image)
-        moving_nib = nib.load(moving_image)
+    gen = tqdm(get_paths(data_json=data_json, split_val=split_val, disp_root=initial_disp_root))
 
-        fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata())).to(device)
-        moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata())).to(device)
+    for data in gen:
+
+        fixed_nib = nib.load(data.fixed_image)
+        moving_nib = nib.load(data.moving_image)
+        initial_disp_nib = nib.load(data.rnn_disp_path)
+
+        fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata())).to(device).squeeze()
+        moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata())).to(device).squeeze()
+
+        # Un-comment if we decide to use any of these during instance opt
+        # if data.fixed_keypoints is not None:
+        #     fixed_keypoints = np.loadtxt(data.fixed_keypoints, delimiter=",")
+        #     moving_keypoints = np.loadtxt(data.moving_keypoints, delimiter=",")
+        #
+        # if data.fixed_segmentation is not None:
+        #     fixed_segmentation =np.loadtxt(data.fixed_segmentation, delimiter=",")
+        #     moving_segmentation = np.loadtxt(data.moving_segmentation, delimiter=",")
+        #
+        # if data.fixed_landmarks is not None:
+        #     fixed_landmarks =np.loadtxt(data.fixed_landmarks, delimiter=",")
+        #     moving_landmarks = np.loadtxt(data.moving_landmarks, delimiter=",")
+
+        if data.fixed_mask is not None:
+            fixed_mask = torch.from_numpy(nib.load(data.fixed_mask).get_fdata().astype('float32')).to(device)
+            moving_mask = torch.from_numpy(nib.load(data.moving_mask).get_fdata().astype('float32')).to(device)
+
+        if use_mask and (data.fixed_mask is not None):
+            fixed = fixed_mask * fixed
+            moving = moving_mask * moving
+
+        disp_rnn = initial_disp_nib.get_fdata()
+        disp_torch = torch.from_numpy(einops.rearrange(disp_rnn, 'h w d N -> N h w d')).unsqueeze(0).to(device)
 
         fixed = (fixed - fixed.min())/(fixed.max() - fixed.min())
         moving = (moving - moving.min())/(moving.max() - moving.min())
 
-        fixed_mask = torch.from_numpy(nib.load(str(fixed_image).replace('imagesTr', 'masksTr')).get_fdata().astype('float32')).to(device)
-        moving_mask = torch.from_numpy(nib.load(str(moving_image).replace('imagesTr', 'masksTr')).get_fdata().astype('float32')).to(device)
-
-        fixed = fixed_mask * fixed
-        moving = moving_mask * moving
-
-        mindssc_fix_ = MINDSSC(
-            fixed.cuda(), 1, 2
-        ).half()
-        mindssc_mov_ = MINDSSC(
-            moving.cuda(), 1, 2
-        ).half()
-
+        mindssc_fix_ = MINDSSC(fixed.unsqueeze(0).unsqueeze(0), 1, 2).half()
+        mindssc_mov_ = MINDSSC(moving.unsqueeze(0).unsqueeze(0), 1, 2).half()
 
         grid_sp = 2
-        mind_fix_ = F.avg_pool3d(mindssc_fix_, grid_sp, stride=grid_sp)
-        mind_mov_ = F.avg_pool3d(mindssc_mov_, grid_sp, stride=grid_sp)
-
-        out = warp_image(disp_torch.float(), moving)
-        before = mind(out, fixed)
-        # b4kp = trl(fkps, mkps, disp_torch, torch.from_numpy(get_spacing(fixed_nib)), torch.from_numpy(get_spacing(moving_nib)))
-
-        losses[f.name]["before"] = before.item()
+        with torch.no_grad():
+            mind_fix_ = F.avg_pool3d(mindssc_fix_, grid_sp, stride=grid_sp)
+            mind_mov_ = F.avg_pool3d(mindssc_mov_, grid_sp, stride=grid_sp)
 
         if half_res:
             shape = [s//2 for s in disp_torch.shape[-3:]]
             disp_torch = F.interpolate(disp_torch, shape)
 
-
-        net = adam_optimization_teo(
+        net = swa_optimization(
             disp=disp_torch,
             mind_fixed=mind_fix_,
             mind_moving=mind_mov_,
-            lambda_weight=0.5,
+            lambda_weight=1.25,
             image_shape=tuple(s//grid_sp for s in fixed_nib.shape),
-            iterations=100,
             norm=grid_sp
         )
 
         disp_sample = F.avg_pool3d(
             F.avg_pool3d(net[0].weight, 3, stride=1, padding=1), 3, stride=1, padding=1
         ).permute(0, 2, 3, 4, 1)
+
         fitted_grid = disp_sample.permute(0, 4, 1, 2, 3).detach()
         disp_hr = F.interpolate(
             fitted_grid * grid_sp,
@@ -143,37 +157,14 @@ def apply_instance_optimization(data_root: Path, disp_root: Path, save_directory
             mode="trilinear",
             align_corners=False,
         )
-        disp_hr = disp_hr.detach()
 
-        after = mind(warp_image(disp_hr, moving), fixed)
-        losses[f.name]["after"] = after.item()
-
-        net = adam_optimization_teo(
-            disp=disp_hr,
-            mind_fixed=mindssc_fix_,
-            mind_moving=mindssc_mov_,
-            lambda_weight=0.5,
-            image_shape=tuple(s//1 for s in fixed_nib.shape),
-            iterations=100,
-            norm=1
-        )
-
-        disp_sample = F.avg_pool3d(
-            F.avg_pool3d(net[0].weight, 3, stride=1, padding=1), 3, stride=1, padding=1
-        ).permute(0, 2, 3, 4, 1)
-        disp_hr = disp_sample.permute(0, 4, 1, 2, 3).detach()
-
-        after = mind(warp_image(disp_hr, moving), fixed)
-
-        losses[f.name]["after2"] = after.item()
         disp_np = disp_hr.detach().cpu().numpy()
 
-        # NOTE: we are using scipy's interpolate func, which does not take a batch dimension
         l2r_disp = einops.rearrange(disp_np.squeeze(), 't h w d -> h w d t')
-        disp_name = f"disp_{fixed_image.name[-16:-12]}_{moving_image.name[-16:-12]}"
+        new_disp_path = os.path.join(os.path.sep, save_directory, "disps", data.disp_name)
+
         displacement_nib = nib.Nifti1Image(l2r_disp, affine=moving_nib.affine)
-        nib.save(displacement_nib, save_directory / f"{disp_name}.nii.gz")
-    with open(save_directory/"losses_teo.json", 'w') as fp:
-        json.dump(losses, fp)
+        nib.save(displacement_nib, new_disp_path)
+
 
 app()
