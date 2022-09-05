@@ -827,7 +827,7 @@ def eval_stage3(
     ).to(device)
     model.load_state_dict(torch.load(checkpoint))
 
-    with torch.no_grad, evaluating(model):
+    with torch.no_grad(), evaluating(model):
         for i in trange(0, len(dataset), dataset.n_patches * dataset.chan_split):
             flows = defaultdict(list)
             for j in range(i, i + (dataset.n_patches * dataset.chan_split)):
@@ -844,7 +844,7 @@ def eval_stage3(
                 flowin = data["flowin"]
                 assert isinstance(flowin, torch.Tensor)
                 flowin = flowin.squeeze().unsqueeze(0)
-                flow = concat_flow(flowin, flowin.to(device))
+                flow = concat_flow(flow, flowin.to(device))
 
                 flows[savename].append(
                     (data["chan_index"], data["patch_index"], flow.detach().cpu())
@@ -881,7 +881,6 @@ def eval_stage3(
                 disp_nib = nib.Nifti1Image(disp_np, affine=np.eye(4))
 
                 nib.save(disp_nib, savedir / f"{disp_name}.nii.gz")
-                # nib.save(disp_nib, savedir / disp_name)
 
 
 @app.command()

@@ -13,6 +13,7 @@ from tqdm import tqdm
 
 from common import MINDSSC
 from train import train_stage1, train_stage2, eval_stage1, eval_stage2, eval_stage3
+from instance_optimization import apply_instance_optimization
 
 app = typer.Typer()
 
@@ -202,7 +203,7 @@ def get_split_pairs_from_hybrid_dataset(data: Dict, root: Path):
 
 
 @app.command()
-def main(dataset_json: Path, output_recipe: Optional[Path] = None):
+def main(dataset_json: Path, savedir: Optional[Path] = None, num_threads: Optional[int]=None):
     with open(dataset_json, "r") as f:
         data = json.load(f)
 
@@ -239,14 +240,18 @@ def main(dataset_json: Path, output_recipe: Optional[Path] = None):
             "Expect image dimensions to be at least multiple of 2. Please pad the inputs"
         )
 
-    data_json = Path(f"{data['name']}.json")
+    checkpointroot = Path(f"{data['name']}_checkpoints")
+    if savedir is not None:
+        savedir.mkdir(exist_ok=True)
+        checkpointroot = savedir / Path(f"{data['name']}_checkpoints")
+
+    checkpointroot.mkdir(exist_ok=True)
+
+    data_json = checkpointroot/f"{data['name']}.json"
 
     with open(data_json, "w") as f:
         json.dump(split_pairs, f)
 
-    checkpointroot = Path(f"{data['name']}_checkpoints")
-    checkpointroot.mkdir(exist_ok=True)
-    num_threads = os.cpu_count()
     if num_threads is None:
         num_threads = 4
 
@@ -255,113 +260,83 @@ def main(dataset_json: Path, output_recipe: Optional[Path] = None):
         print("Training stage 1")
         train_stage1(
             data_json=data_json,
-            checkpoint_dir=checkpointroot / "stage1_masked_ncc",
+            checkpoint_dir=checkpointroot / "stage1",
             res=4,
             patch_factor=4,
-            steps=15000,
+            steps=10000,
             num_workers=num_threads,
-            use_mask=True,
+            use_mask=False,
             diffeomorphic=True,
         )
 
         print("Generating stage 1 artifacts")
-        # eval_stage1(
-        #     data_json=data_json,
-        #     savedir=checkpointroot / "stage1_masked_artifacts",
-        #     res=4,
-        #     patch_factor=4,
-        #     checkpoint=checkpointroot / "stage1_masked" / "rnn4x_6500.pth",
-        #     diffeomorphic=True,
-        #     instance_opt=True,
-        #     split="val"
-        # )
-        # eval_stage1(
-        #     data_json=data_json,
-        #     savedir=checkpointroot / "stage1_masked_artifacts",
-        #     res=4,
-        #     patch_factor=4,
-        #     checkpoint=checkpointroot / "stage1_masked" / "rnn4x_6500.pth",
-        #     diffeomorphic=True,
-        #     instance_opt=True,
-        #     split="train"
-        # )
-        # eval_stage1(
-        #     data_json=data_json,
-        #     savedir=checkpointroot / "stage1_masked_artifacts",
-        #     res=4,
-        #     patch_factor=4,
-        #     checkpoint=checkpointroot / "stage1_masked" / "rnn4x_6500.pth",
-        #     diffeomorphic=True,
-        #     instance_opt=True,
-        #     split="test"
-        # )
+        for split in ("train", "val", "test"):
+            eval_stage1(
+                data_json=data_json,
+                savedir=checkpointroot / "stage1_artifacts",
+                res=4,
+                patch_factor=4,
+                checkpoint=checkpointroot / "stage1" / "rnn4x_10000.pth",
+                diffeomorphic=True,
+                split=split
+            )
 
         print("Training stage 2")
-        # train_stage2(
-        #     data_json=data_json,
-        #     checkpoint_dir=checkpointroot / "stage2_masked",
-        #     artifacts=checkpointroot / "stage1_masked_artifacts",
-        #     res=2,
-        #     patch_factor=4,
-        #     steps=60000,
-        #     num_workers=num_threads,
-        #     diffeomorphic=True,
-        #     use_mask=True,
-        #     start=checkpointroot / "stage2_masked" / "rnn2x_40000.pth",
-        #     iters=12,
-        #     search_range=3
-        # )
+        train_stage2(
+            data_json=data_json,
+            checkpoint_dir=checkpointroot / "stage2",
+            artifacts=checkpointroot / "stage1_artifacts",
+            res=2,
+            patch_factor=4,
+            steps=30000,
+            num_workers=num_threads,
+            diffeomorphic=True,
+            use_mask=True,
+            start= checkpointroot / "stage1" / "rnn4x_10000.pth",
+            iters=12,
+            search_range=3
+        )
 
         print("Generating stage 2 artifacts")
-        # eval_stage2(
-        #     data_json=data_json,
-        #     savedir=checkpointroot / "stage2_masked_artifacts",
-        #     artifacts=checkpointroot / "stage1_artifacts",
-        #     res=2,
-        #     patch_factor=4,
-        #     checkpoint=checkpointroot / "stage2_masked" / "rnn2x_47000.pth",
-        #     diffeomorphic=True,
-        #     instance_opt=True,
-        #     split="val"
-        # )
-        # eval_stage2(
-        #     data_json=data_json,
-        #     savedir=checkpointroot / "stage2_masked_artifacts",
-        #     artifacts=checkpointroot / "stage1_artifacts",
-        #     res=2,
-        #     patch_factor=4,
-        #     checkpoint=checkpointroot / "stage2_masked" / "rnn2x_47000.pth",
-        #     diffeomorphic=True,
-        #     instance_opt=True,
-        #     split="train"
-        # )
-        # eval_stage2(
-        #     data_json=data_json,
-        #     savedir=checkpointroot / "stage2_masked_artifacts",
-        #     artifacts=checkpointroot / "stage1_artifacts",
-        #     res=2,
-        #     patch_factor=4,
-        #     checkpoint=checkpointroot / "stage2_masked" / "rnn2x_47000.pth",
-        #     diffeomorphic=True,
-        #     instance_opt=True,
-        #     split="test"
-        # )
+        for split in ("train", "test", "val"):
+            eval_stage2(
+                data_json=data_json,
+                savedir=checkpointroot / "stage2_artifacts",
+                artifacts=checkpointroot / "stage1_artifacts",
+                res=2,
+                patch_factor=4,
+                checkpoint=checkpointroot / "stage2" / "rnn2x_30000.pth",
+                diffeomorphic=True,
+                split=split
+            )
 
         print("Training stage 3")
         train_stage2(
             data_json=data_json,
-            checkpoint_dir=checkpointroot / "stage3_masked",
-            artifacts=checkpointroot / "stage2_masked_artifacts",
+            checkpoint_dir=checkpointroot / "stage3",
+            artifacts=checkpointroot / "stage2_artifacts",
             res=1,
             patch_factor=2,
-            steps=40000,
+            steps=5000,
             num_workers=num_threads,
             diffeomorphic=True,
             iters=4,
             search_range=2,
-            use_mask=True,
-            start = Path("/home/vsivan/rnn1x_15000.pth")
         )
+
+        print("Generating stage 3 artifacts")
+        for split in ("test", "val"):
+            eval_stage3(
+                data_json=data_json,
+                savedir=checkpointroot / "stage3_artifacts",
+                artifacts=checkpointroot / "stage2_artifacts",
+                res=1,
+                patch_factor=2,
+                checkpoint=checkpointroot / "stage3" / "rnn1x_5000.pth",
+                iters=4, search_range=2,
+                diffeomorphic=True,
+                split=split
+            )
 
     else:
         print("Running 2-stage training")
@@ -376,33 +351,16 @@ def main(dataset_json: Path, output_recipe: Optional[Path] = None):
             diffeomorphic=True,
         )
         print("Generating stage 1 artifacts")
-        eval_stage1(
-            data_json=data_json,
-            savedir=checkpointroot / "stage1_artifacts",
-            res=2,
-            patch_factor=2,
-            checkpoint=checkpointroot / "stage1" / "rnn2x_15000.pth",
-            diffeomorphic=True,
-            split="val"
-        )
-        eval_stage1(
-            data_json=data_json,
-            savedir=checkpointroot / "stage1_artifacts",
-            res=2,
-            patch_factor=2,
-            checkpoint=checkpointroot / "stage1" / "rnn2x_15000.pth",
-            diffeomorphic=True,
-            split="train"
-        )
-        eval_stage1(
-            data_json=data_json,
-            savedir=checkpointroot / "stage1_artifacts",
-            res=2,
-            patch_factor=2,
-            checkpoint=checkpointroot / "stage1" / "rnn2x_15000.pth",
-            diffeomorphic=True,
-            split="test"
-        )
+        for split in ("test", "val", "train"):
+            eval_stage1(
+                data_json=data_json,
+                savedir=checkpointroot / "stage1_artifacts",
+                res=2,
+                patch_factor=2,
+                checkpoint=checkpointroot / "stage1" / "rnn2x_15000.pth",
+                diffeomorphic=True,
+                split=split
+            )
         print("Training stage 2")
         train_stage2(
             data_json=data_json,
@@ -413,8 +371,32 @@ def main(dataset_json: Path, output_recipe: Optional[Path] = None):
             steps=10000,
             num_workers=num_threads,
             diffeomorphic=True,
-            iters=1,
+            iters=4,
             search_range=2
         )
+        for split in ("test", "val"):
+            eval_stage3(
+                data_json=data_json,
+                savedir=checkpointroot / "stage3_artifacts",
+                artifacts=checkpointroot / "stage1_artifacts",
+                res=1,
+                patch_factor=2,
+                checkpoint=checkpointroot / "stage2" / "rnn1x_10000.pth",
+                iters=4,
+                search_range=2,
+                diffeomorphic=True,
+                split=split
+            )
+
+    for split in ("test", "val"):
+        if split in split_pairs:
+            apply_instance_optimization(
+                data_json,
+                checkpointroot / "stage3_artifacts",
+                checkpointroot/f"final_displacements_{split}",
+                split
+            )
+
+
 
 app()

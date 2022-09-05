@@ -55,7 +55,7 @@ def get_paths(
     for v in data:
         img_number = v['moving_image'][-16:-12]
         disp_name = f"disp_{img_number}_{img_number}.nii.gz"
-        disp_path = os.path.join(os.path.sep, disp_root, disp_name)
+        disp_path = disp_root / disp_name
 
         yield InstanceOptData(
             fixed_image=Path(v["fixed_image"]),
@@ -161,10 +161,12 @@ def apply_instance_optimization(
         disp_np = disp_hr.detach().cpu().numpy()
 
         l2r_disp = einops.rearrange(disp_np.squeeze(), 't h w d -> h w d t')
-        new_disp_path = os.path.join(os.path.sep, save_directory, "disps", data.disp_name)
+        new_disp_path = save_directory / "disps" / data.disp_name
+        new_disp_path.parent.mkdir(exist_ok=True)
 
         displacement_nib = nib.Nifti1Image(l2r_disp, affine=moving_nib.affine)
         nib.save(displacement_nib, new_disp_path)
 
 
-app()
+if __name__ == "__main__":
+    app()
