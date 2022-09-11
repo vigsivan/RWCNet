@@ -29,7 +29,7 @@ from differentiable_metrics import (
     DiceLoss,
     Grad,
     TotalRegistrationLoss,
-    NCC,
+    MutualInformationLoss,
     NCC,
 )
 from networks import SomeNet
@@ -696,13 +696,6 @@ class PatchDataset(Dataset):
             fixed_seg = torch.from_numpy(fixed_nib.get_fdata()).unsqueeze(0)
             moving_seg = torch.from_numpy(moving_nib.get_fdata()).unsqueeze(0)
 
-            fixed_seg = (fixed_seg - self.cache["min_int"]) / (
-                self.cache["max_int"] - self.cache["min_int"]
-            )
-            moving_seg = (moving_seg - self.cache["min_int"]) / (
-                self.cache["max_int"] - self.cache["min_int"]
-            )
-
             fixed_seg = F.interpolate(fixed_seg.unsqueeze(0), rshape).squeeze(0).float()
             moving_seg = F.interpolate(moving_seg.unsqueeze(0), rshape).squeeze(0).float()
 
@@ -728,7 +721,6 @@ class PatchDataset(Dataset):
             ret["moving_masked"] = moving_mask * moving
 
         return ret
-
 
 # @app.command()
 # def eval_stage3(
@@ -895,7 +887,7 @@ def eval_stage2(
     search_range: int = 3,
     patch_factor: int = 4,
     split="val",
-    instance_opt: bool=True,
+    instance_opt: bool=False,
     diffeomorphic: bool = True,
 ):
     """
@@ -1163,7 +1155,7 @@ def train_stage2(
             losses_dict: Dict[str, torch.Tensor] = {}
             losses_dict["grad"] = reg_loss_weight * Grad()(flow)
 
-            losses_dict["image_loss"] = image_loss_weight * NCC()(
+            losses_dict["image_loss"] = image_loss_weight * MutualInformationLoss()(
                 moved.squeeze(), fixed.squeeze()
             )
 
@@ -1228,7 +1220,7 @@ def train_stage2(
                         losses_cum_dict["image_loss"].append(
                             (
                                 image_loss_weight
-                                * NCC()(
+                                * MutualInformationLoss()(
                                     moved.squeeze(), fixed.squeeze()
                                 )
                             ).item()
@@ -1351,7 +1343,7 @@ def train_stage1(
 
             losses_dict: Dict[str, torch.Tensor] = {}
 
-            losses_dict["image_loss"] = image_loss_weight * NCC()(
+            losses_dict["image_loss"] = image_loss_weight * MutualInformationLoss()(
                 moved.squeeze(), fixed.squeeze()
             )
             losses_dict["grad"] = reg_loss_weight * Grad()(flow)
@@ -1406,7 +1398,7 @@ def train_stage1(
                         losses_cum_dict["image_loss"].append(
                             (
                                 image_loss_weight
-                                * NCC()( moved.squeeze(), fixed.squeeze()
+                                * MutualInformationLoss()( moved.squeeze(), fixed.squeeze()
                                 )
                             ).item()
                         )

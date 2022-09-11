@@ -17,7 +17,6 @@ from instance_optimization import apply_instance_optimization
 
 app = typer.Typer()
 
-
 def get_split_pairs_from_paired_dataset(data: Dict, root: Path):
     train_data = {}
     test_data = {}
@@ -203,7 +202,7 @@ def get_split_pairs_from_hybrid_dataset(data: Dict, root: Path):
 
 
 @app.command()
-def main(dataset_json: Path, savedir: Optional[Path] = None, num_threads: Optional[int]=None):
+def main(dataset_json: Path, savedir: Optional[Path] = None, num_threads: Optional[int]=None, steps1: int=15000, steps2: int=15000, steps3: int=5000):
     with open(dataset_json, "r") as f:
         data = json.load(f)
 
@@ -240,14 +239,14 @@ def main(dataset_json: Path, savedir: Optional[Path] = None, num_threads: Option
             "Expect image dimensions to be at least multiple of 2. Please pad the inputs"
         )
 
-    checkpointroot = Path(f"{data['name']}_checkpoints")
+    checkpointroot = Path("checkpoints")
     if savedir is not None:
         savedir.mkdir(exist_ok=True)
-        checkpointroot = savedir / Path(f"{data['name']}_checkpoints")
+        checkpointroot = savedir / Path(f"checkpoints")
 
     checkpointroot.mkdir(exist_ok=True)
 
-    data_json = checkpointroot/f"{data['name']}.json"
+    data_json = checkpointroot/f"data.json"
 
     with open(data_json, "w") as f:
         json.dump(split_pairs, f)
@@ -263,20 +262,20 @@ def main(dataset_json: Path, savedir: Optional[Path] = None, num_threads: Option
             checkpoint_dir=checkpointroot / "stage1",
             res=4,
             patch_factor=4,
-            steps=10000,
+            steps=steps1,
             num_workers=num_threads,
             use_mask=False,
             diffeomorphic=True,
         )
 
         print("Generating stage 1 artifacts")
-        for split in ("train", "val", "test"):
+        for split in ("train", "val"):
             eval_stage1(
                 data_json=data_json,
                 savedir=checkpointroot / "stage1_artifacts",
                 res=4,
                 patch_factor=4,
-                checkpoint=checkpointroot / "stage1" / "rnn4x_10000.pth",
+                checkpoint=checkpointroot / "stage1" / f"rnn4x_{steps1}.pth",
                 diffeomorphic=True,
                 split=split
             )
@@ -288,24 +287,24 @@ def main(dataset_json: Path, savedir: Optional[Path] = None, num_threads: Option
             artifacts=checkpointroot / "stage1_artifacts",
             res=2,
             patch_factor=4,
-            steps=30000,
+            steps=steps2,
             num_workers=num_threads,
             diffeomorphic=True,
             use_mask=True,
-            start= checkpointroot / "stage1" / "rnn4x_10000.pth",
+            start= checkpointroot / "stage1" / f"rnn4x_{steps1}.pth",
             iters=12,
             search_range=3
         )
 
         print("Generating stage 2 artifacts")
-        for split in ("train", "test", "val"):
+        for split in ("train", "val"):
             eval_stage2(
                 data_json=data_json,
                 savedir=checkpointroot / "stage2_artifacts",
                 artifacts=checkpointroot / "stage1_artifacts",
                 res=2,
                 patch_factor=4,
-                checkpoint=checkpointroot / "stage2" / "rnn2x_30000.pth",
+                checkpoint=checkpointroot / "stage2" / f"rnn2x_{steps2}.pth",
                 diffeomorphic=True,
                 split=split
             )
@@ -317,26 +316,12 @@ def main(dataset_json: Path, savedir: Optional[Path] = None, num_threads: Option
             artifacts=checkpointroot / "stage2_artifacts",
             res=1,
             patch_factor=2,
-            steps=5000,
+            steps=steps3,
             num_workers=num_threads,
             diffeomorphic=True,
             iters=4,
             search_range=2,
         )
-
-        print("Generating stage 3 artifacts")
-        for split in ("test", "val"):
-            eval_stage3(
-                data_json=data_json,
-                savedir=checkpointroot / "stage3_artifacts",
-                artifacts=checkpointroot / "stage2_artifacts",
-                res=1,
-                patch_factor=2,
-                checkpoint=checkpointroot / "stage3" / "rnn1x_5000.pth",
-                iters=4, search_range=2,
-                diffeomorphic=True,
-                split=split
-            )
 
     else:
         print("Running 2-stage training")
@@ -346,7 +331,7 @@ def main(dataset_json: Path, savedir: Optional[Path] = None, num_threads: Option
             checkpoint_dir=checkpointroot / "stage1",
             res=2,
             patch_factor=2,
-            steps=15000,
+            steps=steps1,
             num_workers=num_threads,
             diffeomorphic=True,
         )
@@ -357,7 +342,7 @@ def main(dataset_json: Path, savedir: Optional[Path] = None, num_threads: Option
                 savedir=checkpointroot / "stage1_artifacts",
                 res=2,
                 patch_factor=2,
-                checkpoint=checkpointroot / "stage1" / "rnn2x_15000.pth",
+                checkpoint=checkpointroot / "stage1" / f"rnn2x_{steps1}.pth",
                 diffeomorphic=True,
                 split=split
             )
@@ -368,35 +353,13 @@ def main(dataset_json: Path, savedir: Optional[Path] = None, num_threads: Option
             artifacts=checkpointroot / "stage1_artifacts",
             res=1,
             patch_factor=2,
-            steps=10000,
+            steps=steps2,
             num_workers=num_threads,
             diffeomorphic=True,
             iters=4,
             search_range=2
         )
-        for split in ("test", "val"):
-            eval_stage3(
-                data_json=data_json,
-                savedir=checkpointroot / "stage3_artifacts",
-                artifacts=checkpointroot / "stage1_artifacts",
-                res=1,
-                patch_factor=2,
-                checkpoint=checkpointroot / "stage2" / "rnn1x_10000.pth",
-                iters=4,
-                search_range=2,
-                diffeomorphic=True,
-                split=split
-            )
-
-    for split in ("test", "val"):
-        if split in split_pairs:
-            apply_instance_optimization(
-                data_json,
-                checkpointroot / "stage3_artifacts",
-                checkpointroot/f"final_displacements_{split}",
-                split
-            )
 
 
-
-app()
+if __name__ == "__main__":
+    app()

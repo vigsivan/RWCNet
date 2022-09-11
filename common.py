@@ -490,7 +490,6 @@ def pdist_squared(x):
 
 def MINDSEG(
     imseg: torch.Tensor,
-    shape: Tuple[int, ...],
     norm_weight: torch.Tensor,
     feature_weight: float = 10.0,
 ):
@@ -510,6 +509,8 @@ def MINDSEG(
     -------
     segfeats: torch.Tensor
     """
+
+    shape = imseg.shape[-3:]
 
     mindssc = (
         feature_weight
