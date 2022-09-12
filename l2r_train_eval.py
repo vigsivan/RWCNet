@@ -257,6 +257,9 @@ def main(dataset_json: Path, config_json: Path):
                 iters=stage.iters,
                 search_range=stage.search_range,
                 diffeomorphic=stage.diffeomorphic,
+                save_freq=stage.save_freq,
+                log_freq=stage.log_freq,
+                val_freq=stage.val_freq
             )
 
             last_checkpoint = (checkpointroot
@@ -287,7 +290,11 @@ def main(dataset_json: Path, config_json: Path):
                 search_range=stage.search_range,
                 diffeomorphic=stage.diffeomorphic,
                 start=( None if not stage.start_from_last
-                        else last_checkpoint)
+                        else last_checkpoint),
+                save_freq=stage.save_freq,
+                log_freq=stage.log_freq,
+                val_freq=stage.val_freq
+
             )
 
             last_checkpoint = (checkpointroot

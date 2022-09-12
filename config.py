@@ -10,6 +10,9 @@ class TrainStageConfig(BaseModel):
     search_range: int = 3
     diffeomorphic: bool = True
     start_from_last: bool =False
+    save_freq: int=100
+    log_freq: int=10
+    val_freq: int=100
 
 class TrainConfig(BaseModel):
     stages: List[TrainStageConfig]
