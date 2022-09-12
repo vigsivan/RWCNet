@@ -887,7 +887,6 @@ def eval_stage2(
     search_range: int = 3,
     patch_factor: int = 4,
     split="val",
-    instance_opt: bool=False,
     diffeomorphic: bool = True,
 ):
     """
@@ -903,9 +902,13 @@ def eval_stage2(
 
     savedir.mkdir(exist_ok=True)
 
-    model = SomeNet(
-        iters=iters, search_range=search_range, diffeomorphic=diffeomorphic
-    ).to(device)
+    if search_range == 0:
+        model = SomeNetNoCorr(iters=iters, diffeomorphic=diffeomorphic).to(device)
+    else:
+        model = SomeNet(
+            search_range=search_range, iters=iters, diffeomorphic=diffeomorphic
+        ).to(device)
+
     model.load_state_dict(torch.load(checkpoint))
 
     for i in trange(0, len(dataset), dataset.n_patches * dataset.chan_split):
@@ -920,8 +923,6 @@ def eval_stage2(
             )
             with torch.no_grad(), evaluating(model):
                 flow, hidden = model(fixed, moving)
-            if instance_opt:
-                    flow = adam_optimization_teo(flow, MINDSSC(fixed), MINDSSC(moving), .5, flow.shape[-3:], 100, res)
 
             savename = f'{data["moving_image_name"]}2{data["fixed_image_name"]}.pt'
             flowin = data["flowin"]
@@ -1001,7 +1002,6 @@ def eval_stage1(
     split="val",
     patch_factor: int = 4,
     diffeomorphic: bool = True,
-    instance_opt: bool=True,
 ):
     """
     Stage1 eval
@@ -1015,9 +1015,13 @@ def eval_stage1(
 
     savedir.mkdir(exist_ok=True)
 
-    model = SomeNet(
-        iters=iters, search_range=search_range, diffeomorphic=diffeomorphic
-    ).to(device)
+    if search_range == 0:
+        model = SomeNetNoCorr(iters=iters, diffeomorphic=diffeomorphic).to(device)
+    else:
+        model = SomeNet(
+            search_range=search_range, iters=iters, diffeomorphic=diffeomorphic
+        ).to(device)
+
     model.load_state_dict(torch.load(checkpoint))
 
     with evaluating(model):
@@ -1034,10 +1038,6 @@ def eval_stage1(
                 with torch.no_grad():
                     flow, hidden  = model(fixed, moving)
                 savename = f'{data["moving_image_name"]}2{data["fixed_image_name"]}.pt'
-
-                if instance_opt:
-                    flow = adam_optimization_teo(flow, MINDSSC(fixed), MINDSSC(moving), .5, flow.shape[-3:], 100, res)
-
 
                 flows[savename].append((data["patch_index"], flow.detach().cpu()))
                 hiddens[savename].append((data["patch_index"], hidden.detach().cpu()))
