@@ -1164,6 +1164,17 @@ def train_stage2(
                     fixed_segmentation, moved_segmentation
                 )
 
+                if step_count % log_freq == 0:
+                    slice_index = moving.shape[2] // 2
+                    triplet = [moving_segmentation.squeeze(), fixed_segmentation.squeeze(), moved_segmentation.squeeze()]
+                    writer.add_images(
+                        "(moving_seg,fixed_seg,moved_seg)",
+                        img_tensor=torch.stack(triplet)[:, :, slice_index, ...].unsqueeze(1),
+                        global_step=step_count,
+                        dataformats="nchw",
+                    )
+
+
             if "fixed_keypoints" in data:
                 flowin = data["flowin"].to(device)
                 flow = concat_flow(flow, flowin)
@@ -1364,6 +1375,16 @@ def train_stage1(
                 losses_dict["dice_loss"] = seg_loss_weight * DiceLoss()(
                     fixed_segmentation, moved_segmentation
                 )
+
+                if step_count % log_freq == 0:
+                    slice_index = moving.shape[2] // 2
+                    triplet = [moving_segmentation.squeeze(), fixed_segmentation.squeeze(), moved_segmentation.squeeze()]
+                    writer.add_images(
+                        "(moving_seg,fixed_seg,moved_seg)",
+                        img_tensor=torch.stack(triplet)[:, :, slice_index, ...].unsqueeze(1),
+                        global_step=step_count,
+                        dataformats="nchw",
+                    )
 
             total_loss = sum(losses_dict.values())
             assert isinstance(total_loss, torch.Tensor)
