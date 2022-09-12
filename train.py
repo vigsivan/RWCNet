@@ -1293,7 +1293,7 @@ def train_stage1(
     device: str = "cuda",
     image_loss_weight: float = 1,
     reg_loss_weight: float = 0.1,
-    seg_loss_weight: float = 10,
+    seg_loss_weight: float = 1,
     kp_loss_weight: float = 1,
     log_freq: int = 5,
     save_freq: int = 50,
