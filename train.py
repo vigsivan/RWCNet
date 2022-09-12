@@ -15,8 +15,6 @@ from typer import Typer
 from tqdm import trange, tqdm
 
 from common import (
-    MINDSSC,
-    adam_optimization_teo,
     concat_flow,
     identity_grid_torch,
     load_keypoints,
@@ -25,7 +23,6 @@ from common import (
     warp_image,
 )
 from differentiable_metrics import (
-    MINDLoss,
     DiceLoss,
     Grad,
     TotalRegistrationLoss,
@@ -231,8 +228,6 @@ class PatchDatasetStage2(Dataset):
         patch_index: int,
         chan_index: int,
     ):
-        r = self.res_factor
-        p = self.patch_factor
 
         assert len(tensor.shape) == 4, "Expected tensor to have four dimensions"
         tensor_ps = F.unfold(tensor, pshape[-2:], stride=pshape[-2:])
@@ -467,7 +462,7 @@ class PatchDatasetStage2(Dataset):
     def precache(self):
         print("Precaching...")
         index = 0
-        for data_index, data in tqdm(enumerate(self.data)):
+        for data_index, _ in tqdm(enumerate(self.data)):
             loaded_data = None
             for chan_index in range(self.chan_split):
                 for patch_index in range(self.n_patches):
@@ -810,7 +805,6 @@ def eval_stage3(
             return
 
     dataset = PatchDatasetStage2(data_json, res, artifacts, patch_factor, split=split)
-    loader = DataLoader(dataset, batch_size=1, shuffle=False)
 
     savedir.mkdir(exist_ok=True)
 
@@ -845,7 +839,6 @@ def eval_stage3(
             assert len(list(flows.keys())) == 1
             for k, v in flows.items():
                 fchannels = defaultdict(list)
-                hchannels = defaultdict(list)
 
                 for i in v:
                     fchannels[i[0]].append((i[1], i[2]))
@@ -898,7 +891,6 @@ def eval_stage2(
             return
 
     dataset = PatchDatasetStage2(data_json, res, artifacts, patch_factor, split=split)
-    loader = DataLoader(dataset, batch_size=1, shuffle=False)
 
     savedir.mkdir(exist_ok=True)
 
@@ -941,8 +933,6 @@ def eval_stage2(
         for k, v in flows.items():
             fchannels = defaultdict(list)
             hchannels = defaultdict(list)
-            ffeat_chans = defaultdict(list)
-            mfeat_chans = defaultdict(list)
 
             for i in v:
                 fchannels[i[0]].append((i[1], i[2]))
@@ -982,7 +972,6 @@ def eval_stage2(
             moving, fixed = k.split("z2")
             moving = moving + "z"
             fixed = ".".join(fixed.split(".")[:-1])  # remove .pt
-            disp_name = f"disp_{fixed[-16:-12]}_{moving[-16:-12]}"
 
             folded_hidden = F.fold(hk, res_shape[-2:], pshape, stride=pshape)
 
@@ -1343,7 +1332,7 @@ def train_stage1(
 
             fixed, moving = fixed.to(device), moving.to(device)
 
-            flow, hidden = model(fixed, moving)
+            flow, _ = model(fixed, moving)
 
             moved = warp_image(flow, moving)
 
@@ -1398,7 +1387,7 @@ def train_stage1(
                     for data in val_loader:
                         fixed, moving = data["fixed_image"], data["moving_image"]
                         fixed, moving = fixed.to(device), moving.to(device)
-                        flow, hidden = model(fixed, moving)
+                        flow, _ = model(fixed, moving)
                         moved = warp_image(flow, moving)
 
                         losses_cum_dict["image_loss"].append(
