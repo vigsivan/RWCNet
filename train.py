@@ -270,12 +270,8 @@ class PatchDatasetStage2(Dataset):
         rshape = tuple(i // r for i in fixed.shape[-3:])
         pshape = tuple(i // p for i in ogshape[-3:])
 
-        fixed = (fixed - self.cache["min_int"]) / (
-            self.cache["max_int"] - self.cache["min_int"]
-        )
-        moving = (moving - self.cache["min_int"]) / (
-            self.cache["max_int"] - self.cache["min_int"]
-        )
+        fixed = (fixed - fixed.min())/(fixed.max()-fixed.min())
+        moving = (moving - moving.min())/(moving.max()-moving.min())
 
         fixed = F.interpolate(fixed.unsqueeze(0), rshape).squeeze(0).float()
         moving = F.interpolate(moving.unsqueeze(0), rshape).squeeze(0).float()
@@ -361,7 +357,9 @@ class PatchDatasetStage2(Dataset):
             ).squeeze(0)
 
             ret["fixed_masked"] = fixed_mask * fixed
-            ret["moving_masked"] = warp_image(flow.unsqueeze(0), (moving_mask * moving_i).unsqueeze(0)).squeeze(0)
+            ret["moving_masked"] = warp_image(
+                flow.unsqueeze(0), (moving_mask * moving_i).unsqueeze(0)
+            ).squeeze(0)
 
             ret["fixed_mask"] = fixed_mask
             ret["moving_mask"] = moving_mask
@@ -631,12 +629,8 @@ class PatchDataset(Dataset):
         fixed = torch.from_numpy(fixed_nib.get_fdata()).unsqueeze(0)
         moving = torch.from_numpy(moving_nib.get_fdata()).unsqueeze(0)
 
-        fixed = (fixed - self.cache["min_int"]) / (
-            self.cache["max_int"] - self.cache["min_int"]
-        )
-        moving = (moving - self.cache["min_int"]) / (
-            self.cache["max_int"] - self.cache["min_int"]
-        )
+        fixed = (fixed - fixed.min()) / (fixed.max() - fixed.min())
+        moving = (moving - moving.min()) / (moving.max() - moving.min())
 
         rshape = tuple(i // r for i in fixed.shape[-3:])
         pshape = tuple(i // p for i in ogshape[-3:])
@@ -692,7 +686,9 @@ class PatchDataset(Dataset):
             moving_seg = torch.from_numpy(moving_nib.get_fdata()).unsqueeze(0)
 
             fixed_seg = F.interpolate(fixed_seg.unsqueeze(0), rshape).squeeze(0).float()
-            moving_seg = F.interpolate(moving_seg.unsqueeze(0), rshape).squeeze(0).float()
+            moving_seg = (
+                F.interpolate(moving_seg.unsqueeze(0), rshape).squeeze(0).float()
+            )
 
             ret["fixed_segmentation"] = fixed_seg
             ret["moving_segmentation"] = moving_seg
@@ -706,8 +702,12 @@ class PatchDataset(Dataset):
             fixed_mask = torch.from_numpy(fixed_nib.get_fdata()).unsqueeze(0)
             moving_mask = torch.from_numpy(moving_nib.get_fdata()).unsqueeze(0)
 
-            fixed_mask = F.interpolate(fixed_mask.unsqueeze(0), rshape).squeeze(0).float()
-            moving_mask = F.interpolate(moving_mask.unsqueeze(0), rshape).squeeze(0).float()
+            fixed_mask = (
+                F.interpolate(fixed_mask.unsqueeze(0), rshape).squeeze(0).float()
+            )
+            moving_mask = (
+                F.interpolate(moving_mask.unsqueeze(0), rshape).squeeze(0).float()
+            )
 
             ret["fixed_mask"] = fixed_mask
             ret["moving_mask"] = moving_mask
@@ -716,6 +716,7 @@ class PatchDataset(Dataset):
             ret["moving_masked"] = moving_mask * moving
 
         return ret
+
 
 # @app.command()
 # def eval_stage3(
@@ -938,9 +939,7 @@ def eval_stage2(
                 fchannels[i[0]].append((i[1], i[2]))
 
             ffchannels = [
-                torch.stack(
-                    [i[1] for i in sorted(fchan, key=lambda x: x[0])], dim=-1
-                )
+                torch.stack([i[1] for i in sorted(fchan, key=lambda x: x[0])], dim=-1)
                 for fchan in fchannels.values()
             ]
             fk = torch.cat(ffchannels, dim=2)
@@ -950,14 +949,11 @@ def eval_stage2(
                 hchannels[i[0]].append((i[1], i[2]))
 
             fhchannels = [
-                torch.stack(
-                    [i[1] for i in sorted(hchan, key=lambda x: x[0])], dim=-1
-                )
+                torch.stack([i[1] for i in sorted(hchan, key=lambda x: x[0])], dim=-1)
                 for hchan in hchannels.values()
             ]
 
             hk = torch.cat(fhchannels, dim=2)
-
 
             pshape = fk.shape[-3:-1]
             res_shape = (fk.shape[2], *[i * 2 for i in pshape])
@@ -978,6 +974,7 @@ def eval_stage2(
             # torch.save(fk, savedir / (disp_name))
             torch.save(folded_flow, savedir / ("flow-" + k))
             torch.save(folded_hidden, savedir / ("hidden-" + k))
+
 
 @app.command()
 def eval_stage1(
@@ -1025,7 +1022,7 @@ def eval_stage1(
                     device
                 )
                 with torch.no_grad():
-                    flow, hidden  = model(fixed, moving)
+                    flow, hidden = model(fixed, moving)
                 savename = f'{data["moving_image_name"]}2{data["fixed_image_name"]}.pt'
 
                 flows[savename].append((data["patch_index"], flow.detach().cpu()))
@@ -1059,7 +1056,7 @@ def train_stage2(
     device: str = "cuda",
     image_loss_weight: float = 1,
     reg_loss_weight: float = 0.05,
-    seg_loss_weight: float = 0.1,
+    seg_loss_weight: float = 1,
     kp_loss_weight: float = 1,
     log_freq: int = 100,
     save_freq: int = 100,
@@ -1166,14 +1163,18 @@ def train_stage2(
 
                 if step_count % log_freq == 0:
                     slice_index = moving.shape[2] // 2
-                    triplet = [moving_segmentation.squeeze(), fixed_segmentation.squeeze(), moved_segmentation.squeeze()]
-                    writer.add_images(
-                        "(moving_seg,fixed_seg,moved_seg)",
-                        img_tensor=torch.stack(triplet)[:, :, slice_index, ...].unsqueeze(1),
-                        global_step=step_count,
-                        dataformats="nchw",
-                    )
-
+                    triplet = [
+                        moving_segmentation.squeeze()[slice_index,...].long(),
+                        fixed_segmentation.squeeze()[slice_index,...].long(),
+                        moved_segmentation.squeeze()[slice_index,...].long(),
+                    ]
+                    for lab in fixed_segmentation.unique():
+                        writer.add_images(
+                            f"({lab}: moving_seg,fixed_seg,moved_seg)",
+                            img_tensor=torch.stack(triplet).unsqueeze(1) == lab,
+                            global_step=step_count,
+                            dataformats="nchw",
+                        )
 
             if "fixed_keypoints" in data:
                 flowin = data["flowin"].to(device)
@@ -1292,7 +1293,7 @@ def train_stage1(
     device: str = "cuda",
     image_loss_weight: float = 1,
     reg_loss_weight: float = 0.1,
-    seg_loss_weight: float = 0.1,
+    seg_loss_weight: float = 10,
     kp_loss_weight: float = 1,
     log_freq: int = 5,
     save_freq: int = 50,
@@ -1367,10 +1368,9 @@ def train_stage1(
                 fixed_segmentation = data["fixed_segmentation"].to(device).float()
                 moving_segmentation = data["moving_segmentation"].to(device).float()
 
-                moved_segmentation = warp_image(flow, moving_segmentation)
-
-                fixed_segmentation = torch.round(fixed_segmentation)
-                moved_segmentation = torch.round(moved_segmentation)
+                moved_segmentation = warp_image(
+                    flow, moving_segmentation, mode="nearest"
+                )
 
                 losses_dict["dice_loss"] = seg_loss_weight * DiceLoss()(
                     fixed_segmentation, moved_segmentation
@@ -1378,13 +1378,18 @@ def train_stage1(
 
                 if step_count % log_freq == 0:
                     slice_index = moving.shape[2] // 2
-                    triplet = [moving_segmentation.squeeze(), fixed_segmentation.squeeze(), moved_segmentation.squeeze()]
-                    writer.add_images(
-                        "(moving_seg,fixed_seg,moved_seg)",
-                        img_tensor=torch.stack(triplet)[:, :, slice_index, ...].unsqueeze(1),
-                        global_step=step_count,
-                        dataformats="nchw",
-                    )
+                    triplet = [
+                        moving_segmentation.squeeze()[slice_index,...].long(),
+                        fixed_segmentation.squeeze()[slice_index,...].long(),
+                        moved_segmentation.squeeze()[slice_index,...].long(),
+                    ]
+                    for lab in fixed_segmentation.unique():
+                        writer.add_images(
+                            f"({lab}: moving_seg,fixed_seg,moved_seg)",
+                            img_tensor=torch.stack(triplet).unsqueeze(1) == lab,
+                            global_step=step_count,
+                            dataformats="nchw",
+                        )
 
             total_loss = sum(losses_dict.values())
             assert isinstance(total_loss, torch.Tensor)
@@ -1414,7 +1419,8 @@ def train_stage1(
                         losses_cum_dict["image_loss"].append(
                             (
                                 image_loss_weight
-                                * MutualInformationLoss()( moved.squeeze(), fixed.squeeze()
+                                * MutualInformationLoss()(
+                                    moved.squeeze(), fixed.squeeze()
                                 )
                             ).item()
                         )
@@ -1444,10 +1450,7 @@ def train_stage1(
                                 data["moving_segmentation"].to(device).float()
                             )
 
-                            moved_segmentation = warp_image(flow, moving_segmentation)
-
-                            fixed_segmentation = torch.round(fixed_segmentation)
-                            moved_segmentation = torch.round(moved_segmentation)
+                            moved_segmentation = warp_image(flow, moving_segmentation, mode='nearest')
 
                             losses_cum_dict["dice_loss"].append(
                                 seg_loss_weight
