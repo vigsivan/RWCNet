@@ -256,7 +256,7 @@ def main(dataset_json: Path, config_json: Path):
                 patch_factor=stage.patch_factor,
                 iters=stage.iters,
                 search_range=stage.search_range,
-                diffeomorphic=stage.diffeomorphic,
+                diffeomorphic=config.diffeomorphic,
                 save_freq=stage.save_freq,
                 log_freq=stage.log_freq,
                 val_freq=stage.val_freq
@@ -275,7 +275,7 @@ def main(dataset_json: Path, config_json: Path):
                     search_range=stage.search_range,
                     patch_factor=stage.patch_factor,
                     checkpoint= last_checkpoint,
-                    diffeomorphic=stage.diffeomorphic,
+                    diffeomorphic=config.diffeomorphic,
                     split=split,
                 )
         else:
@@ -288,7 +288,7 @@ def main(dataset_json: Path, config_json: Path):
                 patch_factor=stage.patch_factor,
                 iters=stage.iters,
                 search_range=stage.search_range,
-                diffeomorphic=stage.diffeomorphic,
+                diffeomorphic=config.diffeomorphic,
                 start=( None if not stage.start_from_last
                         else last_checkpoint),
                 save_freq=stage.save_freq,
@@ -314,7 +314,7 @@ def main(dataset_json: Path, config_json: Path):
                         checkpoint=checkpointroot
                         / f"stage{i+1}"
                         / f"rnn{stage.res_factor}x_{stage.steps}.pth",
-                        diffeomorphic=stage.diffeomorphic,
+                        diffeomorphic=config.diffeomorphic,
                         split=split,
                     )
 

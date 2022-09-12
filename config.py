@@ -8,7 +8,6 @@ class TrainStageConfig(BaseModel):
     steps: int
     iters: int = 12
     search_range: int = 3
-    diffeomorphic: bool = True
     start_from_last: bool =False
     save_freq: int=100
     log_freq: int=10
@@ -20,6 +19,7 @@ class TrainConfig(BaseModel):
     savedir: Optional[Path]=None
     num_threads: int=4
     device: str = "cuda"
+    diffeomorphic: bool=True
 
     @validator("stages")
     def validate_cache_file(cls, val):
