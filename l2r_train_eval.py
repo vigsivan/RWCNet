@@ -4,18 +4,9 @@ from typing import Dict, Optional, List
 import sys
 import random
 from pathlib import Path
-import nibabel as nib
-import torch
-import typer
 from config import TrainConfig
-import numpy as np
-import os
-from tqdm import tqdm
 
-from common import MINDSSC
-from train import train_stage1, train_stage2, eval_stage1, eval_stage2, eval_stage3
-from instance_optimization import apply_instance_optimization
-
+from train import train_stage1, train_stage2, eval_stage1, eval_stage2
 
 def get_split_pairs_from_paired_dataset(data: Dict, root: Path):
     train_data = {}
