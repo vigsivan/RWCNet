@@ -3,20 +3,18 @@ import json
 import numpy as np
 from pathlib import Path
 from tqdm import trange
-from typing import Dict, List, Tuple, Union
 
 import einops
 import nibabel as nib
 import pickle
-from pydantic import BaseModel, validator
 import torch
 from torch.utils.data import Dataset
 import torch.nn.functional as F
 
 from common import MINDSEG, MINDSSC, concat_flow, load_keypoints, warp_image
+from config import EvalConfig
 from optimizer_loops import swa_optimization
 from networks import SomeNet
-from train import PatchDataset, PatchDatasetStage2
 from differentiable_metrics import MutualInformationLoss, TotalRegistrationLoss
 
 get_spacing = lambda x: np.sqrt(np.sum(x.affine[:3, :3] * x.affine[:3, :3], axis=0))
@@ -89,7 +87,7 @@ class EvalDataset(Dataset):
         return len(self.indexes)
 
     def __getitem__(self, index: int):
-        data_index, patch_index = self.indexes[index]
+        data_index, _ = self.indexes[index]
         data = self.data[data_index]
 
         f, m = "fixed", "moving"
@@ -98,7 +96,6 @@ class EvalDataset(Dataset):
 
         fixed_nib = nib.load(fname)
         moving_nib = nib.load(mname)
-        ogshape = fixed_nib.shape[-3:]
 
         fixed = torch.from_numpy(fixed_nib.get_fdata()).unsqueeze(0)
         moving = torch.from_numpy(moving_nib.get_fdata()).unsqueeze(0)
@@ -148,31 +145,6 @@ class EvalDataset(Dataset):
             ret["moving_segmentation"] = moving_segmentation
 
         return ret
-
-
-class StageConfig(BaseModel):
-    res_factor: int
-    patch_factor: int
-    checkpoint: Path
-    iters: int = 12
-    search_range: int = 3
-    diffeomorphic: bool = True
-
-
-class EvalConfig(BaseModel):
-    stages: List[StageConfig]
-    cache_file: Path
-    save_path: Path
-    instance_opt_res: int=2
-    eval_at_each_stage: bool=False
-    split: str = "test"
-    device: str = "cuda"
-
-    @validator("stages")
-    def validate_cache_file(cls, val):
-        if len(val) == 0:
-            raise ValueError("Expected at least one stage")
-        return val
 
 
 def get_patches(tensor: torch.Tensor, res_factor: int, patch_factor: int):
@@ -337,7 +309,6 @@ def eval(data_json: Path, eval_config: Path):
         assert flow_agg is not None
         fixed = fixed.to(config.device)
         moving = moving.to(config.device)
-        moving_post = warp_image(flow_agg, moving)
 
         fixed_features, moving_features = MINDSSC(fixed,1,2).half(), MINDSSC(moving,1,2).half()
 
