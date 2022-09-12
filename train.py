@@ -1128,7 +1128,6 @@ def train_stage2(
     step_count = 0
     if start is not None:
         model.load_state_dict(torch.load(start))
-        step_count = int(start.name.split("_")[-1].split(".")[0])
 
     opt = torch.optim.Adam(model.parameters(), lr=lr)
 

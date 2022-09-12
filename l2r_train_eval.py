@@ -7,6 +7,7 @@ from pathlib import Path
 import nibabel as nib
 import torch
 import typer
+from config import TrainConfig
 import numpy as np
 import os
 from tqdm import tqdm
@@ -15,7 +16,6 @@ from common import MINDSSC
 from train import train_stage1, train_stage2, eval_stage1, eval_stage2, eval_stage3
 from instance_optimization import apply_instance_optimization
 
-app = typer.Typer()
 
 def get_split_pairs_from_paired_dataset(data: Dict, root: Path):
     train_data = {}
@@ -201,10 +201,13 @@ def get_split_pairs_from_hybrid_dataset(data: Dict, root: Path):
     return split_data
 
 
-@app.command()
-def main(dataset_json: Path, savedir: Optional[Path] = None, num_threads: Optional[int]=None, steps1: int=15000, steps2: int=15000, steps3: int=5000):
+def main(dataset_json: Path, config_json: Path):
     with open(dataset_json, "r") as f:
         data = json.load(f)
+
+    with open(config_json, "r") as f:
+        config_dict = json.load(f)
+        config = TrainConfig(**config_dict)
 
     root = dataset_json.parent
     metadata = {}
@@ -217,7 +220,7 @@ def main(dataset_json: Path, savedir: Optional[Path] = None, num_threads: Option
 
     if len(set(data["modality"].values())) > 2:
         raise ValueError(
-            "This parse script does not support multimodal (mostly due to different parse format)."
+            "This parse script does not support L2R's multimodal JSON format(mostly due to different parse format)."
         )
 
     if data["pairings"] == "paired":
@@ -229,7 +232,7 @@ def main(dataset_json: Path, savedir: Optional[Path] = None, num_threads: Option
     elif data["pairings"] == "hybrid":
         split_pairs = get_split_pairs_from_hybrid_dataset(data, root)
     else:
-        ValueError(
+        raise ValueError(
             f"Expected pairings to be one of paired, unpaired or hybrid but it is {data['pairings']}"
         )
 
@@ -240,126 +243,84 @@ def main(dataset_json: Path, savedir: Optional[Path] = None, num_threads: Option
         )
 
     checkpointroot = Path("checkpoints")
-    if savedir is not None:
-        savedir.mkdir(exist_ok=True)
-        checkpointroot = savedir / Path(f"checkpoints")
+    if config.savedir is not None:
+        config.savedir.mkdir(exist_ok=True)
+        checkpointroot = config.savedir / Path(f"checkpoints")
 
     checkpointroot.mkdir(exist_ok=True)
 
-    data_json = checkpointroot/f"data.json"
+    data_json = checkpointroot / f"data.json"
 
     with open(data_json, "w") as f:
         json.dump(split_pairs, f)
 
-    if num_threads is None:
-        num_threads = 4
-
-    if all([s % 4 == 0 for s in image_shape]):
-        print("Running 3-stage training")
-        print("Training stage 1")
-        train_stage1(
-            data_json=data_json,
-            checkpoint_dir=checkpointroot / "stage1",
-            res=4,
-            patch_factor=4,
-            steps=steps1,
-            num_workers=num_threads,
-            use_mask=False,
-            diffeomorphic=True,
-        )
-
-        print("Generating stage 1 artifacts")
-        for split in ("train", "val"):
-            eval_stage1(
+    last_checkpoint = None
+    for i, stage in enumerate(config.stages):
+        if i == 0:
+            train_stage1(
                 data_json=data_json,
-                savedir=checkpointroot / "stage1_artifacts",
-                res=4,
-                patch_factor=4,
-                checkpoint=checkpointroot / "stage1" / f"rnn4x_{steps1}.pth",
-                diffeomorphic=True,
-                split=split
+                checkpoint_dir=checkpointroot / f"stage{i+1}",
+                steps=stage.steps,
+                res=stage.res_factor,
+                patch_factor=stage.patch_factor,
+                iters=stage.iters,
+                search_range=stage.search_range,
+                diffeomorphic=stage.diffeomorphic,
             )
 
-        print("Training stage 2")
-        train_stage2(
-            data_json=data_json,
-            checkpoint_dir=checkpointroot / "stage2",
-            artifacts=checkpointroot / "stage1_artifacts",
-            res=2,
-            patch_factor=4,
-            steps=steps2,
-            num_workers=num_threads,
-            diffeomorphic=True,
-            use_mask=True,
-            start= checkpointroot / "stage1" / f"rnn4x_{steps1}.pth",
-            iters=12,
-            search_range=3
-        )
+            last_checkpoint = (checkpointroot
+                    / f"stage{i+1}"
+                    / f"rnn{stage.res_factor}x_{stage.steps}.pth")
 
-        print("Generating stage 2 artifacts")
-        for split in ("train", "val"):
-            eval_stage2(
+            for split in ("train", "val"):
+                eval_stage1(
+                    data_json=data_json,
+                    savedir=checkpointroot / f"stage{i+1}_artifacts",
+                    res=stage.res_factor,
+                    iters=stage.iters,
+                    search_range=stage.search_range,
+                    patch_factor=stage.patch_factor,
+                    checkpoint= last_checkpoint,
+                    diffeomorphic=stage.diffeomorphic,
+                    split=split,
+                )
+        else:
+            train_stage2(
                 data_json=data_json,
-                savedir=checkpointroot / "stage2_artifacts",
-                artifacts=checkpointroot / "stage1_artifacts",
-                res=2,
-                patch_factor=4,
-                checkpoint=checkpointroot / "stage2" / f"rnn2x_{steps2}.pth",
-                diffeomorphic=True,
-                split=split
+                artifacts=checkpointroot / f"stage{i}_artifacts",
+                checkpoint_dir=checkpointroot / f"stage{i+1}",
+                steps=stage.steps,
+                res=stage.res_factor,
+                patch_factor=stage.patch_factor,
+                iters=stage.iters,
+                search_range=stage.search_range,
+                diffeomorphic=stage.diffeomorphic,
+                start=( None if not stage.start_from_last
+                        else last_checkpoint)
             )
 
-        print("Training stage 3")
-        train_stage2(
-            data_json=data_json,
-            checkpoint_dir=checkpointroot / "stage3",
-            artifacts=checkpointroot / "stage2_artifacts",
-            res=1,
-            patch_factor=2,
-            steps=steps3,
-            num_workers=num_threads,
-            diffeomorphic=True,
-            iters=4,
-            search_range=2,
-        )
+            last_checkpoint = (checkpointroot
+                    / f"stage{i+1}"
+                    / f"rnn{stage.res_factor}x_{stage.steps}.pth")
 
-    else:
-        print("Running 2-stage training")
-        print("Training stage 1")
-        train_stage1(
-            data_json=data_json,
-            checkpoint_dir=checkpointroot / "stage1",
-            res=2,
-            patch_factor=2,
-            steps=steps1,
-            num_workers=num_threads,
-            diffeomorphic=True,
-        )
-        print("Generating stage 1 artifacts")
-        for split in ("test", "val", "train"):
-            eval_stage1(
-                data_json=data_json,
-                savedir=checkpointroot / "stage1_artifacts",
-                res=2,
-                patch_factor=2,
-                checkpoint=checkpointroot / "stage1" / f"rnn2x_{steps1}.pth",
-                diffeomorphic=True,
-                split=split
-            )
-        print("Training stage 2")
-        train_stage2(
-            data_json=data_json,
-            checkpoint_dir=checkpointroot / "stage2",
-            artifacts=checkpointroot / "stage1_artifacts",
-            res=1,
-            patch_factor=2,
-            steps=steps2,
-            num_workers=num_threads,
-            diffeomorphic=True,
-            iters=4,
-            search_range=2
-        )
-
+            if i < len(config.stages)-1:
+                for split in ("train", "val"):
+                    eval_stage2(
+                        data_json=data_json,
+                        savedir=checkpointroot / f"stage{i+1}_artifacts",
+                        artifacts=checkpointroot / f"stage{i}_artifacts",
+                        res=stage.res_factor,
+                        iters=stage.iters,
+                        search_range=stage.search_range,
+                        patch_factor=stage.patch_factor,
+                        checkpoint=checkpointroot
+                        / f"stage{i+1}"
+                        / f"rnn{stage.res_factor}x_{stage.steps}.pth",
+                        diffeomorphic=stage.diffeomorphic,
+                        split=split,
+                    )
 
 if __name__ == "__main__":
-    app()
+    import sys
+    assert len(sys.argv) == 3
+    main(Path(sys.argv[1]), Path(sys.argv[2]))
