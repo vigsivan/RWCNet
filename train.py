@@ -32,7 +32,7 @@ from differentiable_metrics import (
     MutualInformationLoss,
     NCC,
 )
-from networks import SomeNet
+from networks import SomeNet, SomeNetNoCorr
 
 app = Typer()
 
@@ -1122,9 +1122,13 @@ def train_stage2(
     checkpoint_dir.mkdir(exist_ok=True)
     writer = SummaryWriter(log_dir=checkpoint_dir)
 
-    model = SomeNet(
-        search_range=search_range, iters=iters, diffeomorphic=diffeomorphic
-    ).to(device)
+    if search_range == 0:
+        model = SomeNetNoCorr(iters=iters, diffeomorphic=diffeomorphic).to(device)
+    else:
+        model = SomeNet(
+            search_range=search_range, iters=iters, diffeomorphic=diffeomorphic
+        ).to(device)
+
     step_count = 0
     if start is not None:
         model.load_state_dict(torch.load(start))
@@ -1316,9 +1320,12 @@ def train_stage1(
     checkpoint_dir.mkdir(exist_ok=True)
     writer = SummaryWriter(log_dir=checkpoint_dir)
 
-    model = SomeNet(
-        search_range=search_range, iters=iters, diffeomorphic=diffeomorphic
-    ).to(device)
+    if search_range == 0:
+        model = SomeNetNoCorr(iters=iters, diffeomorphic=diffeomorphic).to(device)
+    else:
+        model = SomeNet(
+            search_range=search_range, iters=iters, diffeomorphic=diffeomorphic
+        ).to(device)
     step_count = 0
     if start is not None:
         model.load_state_dict(torch.load(start))
