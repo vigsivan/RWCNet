@@ -6,8 +6,6 @@ class TrainStageConfig(BaseModel):
     res_factor: int
     patch_factor: int
     steps: int
-    stage_number: Optional[int]=None
-    starting_checkpont: Optional[Path]=None
     iters: int = 12
     search_range: int = 3
     start_from_last: bool =False
@@ -22,6 +20,7 @@ class TrainConfig(BaseModel):
     num_threads: int=4
     device: str = "cuda"
     diffeomorphic: bool=True
+    overwrite: bool = False
 
     @validator("stages")
     def validate_cache_file(cls, val):

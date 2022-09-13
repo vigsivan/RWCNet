@@ -1051,6 +1051,7 @@ def train_stage2(
     res: int,
     patch_factor: int = 4,
     start: Optional[Path] = None,
+    starting_step: Optional[int] = None,
     steps: int = 10000,
     lr: float = 3e-4,
     device: str = "cuda",
@@ -1118,6 +1119,9 @@ def train_stage2(
     step_count = 0
     if start is not None:
         model.load_state_dict(torch.load(start))
+
+    if starting_step is not None:
+        step_count = starting_step
 
     opt = torch.optim.Adam(model.parameters(), lr=lr)
 
@@ -1303,6 +1307,7 @@ def train_stage1(
     search_range: int = 3,
     iters: int = 12,
     num_workers: int = 4,
+    starting_step: Optional[int] = None,
 ):
     """
     Stage1 training
@@ -1330,7 +1335,9 @@ def train_stage1(
     step_count = 0
     if start is not None:
         model.load_state_dict(torch.load(start))
-        step_count = int(start.name.split("_")[-1].split(".")[0])
+
+    if starting_step is not None:
+        step_count = starting_step
 
     opt = torch.optim.Adam(model.parameters(), lr=lr)
 
