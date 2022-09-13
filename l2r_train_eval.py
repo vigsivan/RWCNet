@@ -248,7 +248,7 @@ def main(dataset_json: Path, config_json: Path):
     last_checkpoint = None
     start = 0 if config.stages[0].stage_number is None else config.stages[0].stage_number
     for i, stage in enumerate(config.stages, start=start):
-        if i == 0 and stage.stage_number is not None:
+        if i == 0:
             train_stage1(
                 data_json=data_json,
                 checkpoint_dir=checkpointroot / f"stage{i+1}",
