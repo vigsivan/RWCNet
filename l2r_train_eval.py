@@ -246,8 +246,9 @@ def main(dataset_json: Path, config_json: Path):
         json.dump(split_pairs, f)
 
     last_checkpoint = None
-    for i, stage in enumerate(config.stages):
-        if i == 0:
+    start = 0 if config.stages[0].stage_number is None else config.stages[0].stage_number
+    for i, stage in enumerate(config.stages, start=start):
+        if i == 0 and stage.stage_number is not None:
             train_stage1(
                 data_json=data_json,
                 checkpoint_dir=checkpointroot / f"stage{i+1}",
@@ -259,7 +260,8 @@ def main(dataset_json: Path, config_json: Path):
                 diffeomorphic=config.diffeomorphic,
                 save_freq=stage.save_freq,
                 log_freq=stage.log_freq,
-                val_freq=stage.val_freq
+                val_freq=stage.val_freq,
+                start=stage.starting_checkpont
             )
 
             last_checkpoint = (checkpointroot
@@ -279,6 +281,12 @@ def main(dataset_json: Path, config_json: Path):
                     split=split,
                 )
         else:
+            if stage.starting_checkpont is not None:
+                starting_checkpoint = stage.starting_checkpont
+            elif stage.start_from_last:
+                starting_checkpoint = last_checkpoint
+            else:
+                starting_checkpoint = None
             train_stage2(
                 data_json=data_json,
                 artifacts=checkpointroot / f"stage{i}_artifacts",
@@ -289,8 +297,7 @@ def main(dataset_json: Path, config_json: Path):
                 iters=stage.iters,
                 search_range=stage.search_range,
                 diffeomorphic=config.diffeomorphic,
-                start=( None if not stage.start_from_last
-                        else last_checkpoint),
+                start=starting_checkpoint,
                 save_freq=stage.save_freq,
                 log_freq=stage.log_freq,
                 val_freq=stage.val_freq
