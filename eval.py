@@ -14,7 +14,7 @@ import torch.nn.functional as F
 from common import MINDSEG, MINDSSC, concat_flow, load_keypoints, warp_image
 from config import EvalConfig
 from optimizer_loops import swa_optimization
-from networks import SomeNet
+from networks import SomeNet, SomeNetNoCorr
 from differentiable_metrics import MutualInformationLoss, TotalRegistrationLoss
 
 get_spacing = lambda x: np.sqrt(np.sum(x.affine[:3, :3] * x.affine[:3, :3], axis=0))
@@ -285,11 +285,14 @@ def eval(data_json: Path, eval_config: Path):
                 hidden = F.interpolate(hidden, res_shape)
                 moving_res = warp_image(flow_agg, moving_res)
 
-            model = SomeNet(
-                iters=stage.iters,
-                search_range=stage.search_range,
-                diffeomorphic=stage.diffeomorphic,
-            )
+            if stage.search_range == 0:
+                model = SomeNetNoCorr(iters=stage.iters, diffeomorphic=stage.diffeomorphic)
+            else:
+                model = SomeNet(
+                    iters=stage.iters,
+                    search_range=stage.search_range,
+                    diffeomorphic=stage.diffeomorphic,
+                )
             model.load_state_dict(torch.load(stage.checkpoint))
             model = model.eval().to(config.device)
             if r == p:
