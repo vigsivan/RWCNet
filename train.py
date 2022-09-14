@@ -1268,7 +1268,7 @@ def train_stage2(
 
                             losses_cum_dict["dice_loss"].append(
                                 seg_loss_weight
-                                * DiceLoss()(fixed_segmentation, moved_segmentation)
+                                * DiceLoss()(fixed_segmentation, moved_segmentation).item()
                             )
 
                 for k, v in losses_cum_dict.items():
