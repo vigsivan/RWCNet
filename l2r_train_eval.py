@@ -15,15 +15,27 @@ from train import train_stage1, train_stage2, eval_stage1, eval_stage2
 class SomeNetCheckpoint:
     stage: int
     step: int
-    checkpoint: Path
+    checkpoint: Optional[Path]
 
 def find_last_checkpoint(config: TrainConfig, checkpointroot: Path) -> SomeNetCheckpoint:
+    """
+    Find the last checkpoint
+
+    NOTE: if the config changes, i.e. previous stage number of steps has changed
+    this function won't spot it. Possible to refactor this function and retain
+    old behaviour with a flag, but its probably better to avoid the situation above
+    entirely by specifying a different save path.
+    """
     num_stages = len(config.stages)
     get_step = lambda x: int(x.split('_')[-1].split('.')[0])
     for stage in range(num_stages, 0, -1):
         stage_folder = checkpointroot / f"stage{stage}"
         if stage_folder.exists():
             checkpoints = [f.name for f in stage_folder.iterdir() if f.name.endswith('.pth')]
+            if len(checkpoints) == 0:
+                # NOTE: you cannot be sure if artifacts for the last stage were fully generated
+                # so we go the safe route and go back to the previous stage
+                continue
             last_checkpoint = max(checkpoints, key=get_step)
             return SomeNetCheckpoint(
                 stage=stage,
@@ -127,8 +139,9 @@ def get_pairs_from_list(
 
 
 def get_random_pairs_from_list(
-    data: List[Dict[str, Path]], pairs_per_image: int = 5
+    data: List[Dict[str, Path]], pairs_per_image: int = 5, seed: int=42
 ) -> List[Dict[str, Path]]:
+    random.seed(seed)
     paired_data = []
     for i, di in enumerate(data):
         others = [random.choice(data) for _ in range(pairs_per_image)]
@@ -264,8 +277,11 @@ def main(dataset_json: Path, config_json: Path):
 
     resumption_point = None
     if checkpointroot.exists() and (checkpointroot/"stage1").exists() and not config.overwrite:
-        resumption_point = find_last_checkpoint(config, checkpointroot)
-        print(f"Resuming from stage {resumption_point.stage} step {resumption_point.step}")
+        try:
+            resumption_point = find_last_checkpoint(config, checkpointroot)
+            print(f"Resuming from stage {resumption_point.stage} step {resumption_point.step}")
+        except ValueError:
+            resumption_point = None
 
     checkpointroot.mkdir(exist_ok=True)
 
@@ -278,6 +294,7 @@ def main(dataset_json: Path, config_json: Path):
     start = 0 if resumption_point is None else resumption_point.stage-1
     for i, stage in enumerate(config.stages[start:], start=start):
         if i == 0:
+            print(f"Training stage {i}")
             train_stage1(
                 data_json=data_json,
                 checkpoint_dir=checkpointroot / f"stage{i+1}",
@@ -298,6 +315,7 @@ def main(dataset_json: Path, config_json: Path):
                     / f"stage{i+1}"
                     / f"rnn{stage.res_factor}x_{stage.steps}.pth")
 
+            print(f"Evaluating stage {i}")
             for split in ("train", "val"):
                 eval_stage1(
                     data_json=data_json,
@@ -317,6 +335,7 @@ def main(dataset_json: Path, config_json: Path):
                 starting_checkpoint = last_checkpoint
             else:
                 starting_checkpoint = None
+            print(f"Training stage {i}")
             train_stage2(
                 data_json=data_json,
                 artifacts=checkpointroot / f"stage{i}_artifacts",
@@ -339,6 +358,7 @@ def main(dataset_json: Path, config_json: Path):
                     / f"rnn{stage.res_factor}x_{stage.steps}.pth")
 
             if i < len(config.stages)-1:
+                print(f"Evaluating stage {i}")
                 for split in ("train", "val"):
                     eval_stage2(
                         data_json=data_json,
