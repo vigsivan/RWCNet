@@ -326,7 +326,7 @@ class PatchDatasetStage2(Dataset):
                 .float()
             )
 
-            moving_seg = warp_image(flow.unsqueeze(0), moving_seg.unsqueeze(0)).squeeze(
+            moving_seg = warp_image(flow.unsqueeze(0), moving_seg.unsqueeze(0), mode='nearest').squeeze(
                 0
             )
 
@@ -1156,7 +1156,7 @@ def train_stage2(
                 fixed_segmentation = data["fixed_segmentation"].to(device).float()
                 moving_segmentation = data["moving_segmentation"].to(device).float()
 
-                moved_segmentation = warp_image(flow, moving_segmentation)
+                moved_segmentation = warp_image(flow, moving_segmentation, 'nearest')
 
                 fixed_segmentation = torch.round(fixed_segmentation)
                 moved_segmentation = torch.round(moved_segmentation)
@@ -1261,7 +1261,7 @@ def train_stage2(
                                 data["moving_segmentation"].to(device).float()
                             )
 
-                            moved_segmentation = warp_image(flow, moving_segmentation)
+                            moved_segmentation = warp_image(flow, moving_segmentation, 'nearest')
 
                             fixed_segmentation = torch.round(fixed_segmentation)
                             moved_segmentation = torch.round(moved_segmentation)
