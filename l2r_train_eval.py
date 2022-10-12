@@ -1,3 +1,7 @@
+"""
+This script trains the RNN for the Learn2Reg competition
+"""
+
 import torch
 from collections import defaultdict
 from dataclasses import dataclass
@@ -10,10 +14,8 @@ from pathlib import Path
 
 from config import TrainConfig
 
-from train import train_stage1, train_stage2, eval_stage1, eval_stage2
+from train import train, train_with_artifacts, eval_stage1, eval_stage2
 
-L2R_TRAIN_TIME_DATA = ["image", "mask"]
-L2R_TEST_TIME_DATA = ["label", "keypoints"]
 
 @dataclass
 class SomeNetCheckpoint:
@@ -122,6 +124,7 @@ def get_split_pairs_from_unpaired_dataset(data: Dict, root: Path):
             if image in train_data:
                 all_dat_for_image = train_data[image]
                 pair_dat.update({f"{lab}_{k}": v for k, v in all_dat_for_image.items()})
+                val_images.append(image)
             else:
                 print(f"{image} not found")
                 break
@@ -304,10 +307,12 @@ def main(dataset_json: Path, config_json: Path):
     for i, stage in enumerate(config.stages[start:], start=start):
         if i == 0:
             print(f"Training stage {i}")
-            train_stage1(
+            train(
                 data_json=data_json,
                 checkpoint_dir=checkpointroot / f"stage{i+1}",
                 steps=stage.steps,
+                dset_min=config.dset_min,
+                dset_max=config.dset_max,
                 res=stage.res_factor,
                 patch_factor=stage.patch_factor,
                 iters=stage.iters,
@@ -320,8 +325,12 @@ def main(dataset_json: Path, config_json: Path):
                 starting_step=None if resumption_point is None else resumption_point.step,
                 noisy=config.noisy,
                 noisy_v2=config.noisy_v2,
-                image_loss_fn=config.image_loss_fn,
-                image_loss_weight=config.image_loss_weight
+                image_loss_fn=stage.image_loss_fn,
+                image_loss_weight=stage.image_loss_weight,
+                seg_loss_weight=stage.seg_loss_weight,
+                lr=stage.lr,
+                reg_loss_weight=stage.reg_loss_weight
+
             )
             resumption_point = None
 
@@ -337,6 +346,8 @@ def main(dataset_json: Path, config_json: Path):
                     res=stage.res_factor,
                     iters=stage.iters,
                     search_range=stage.search_range,
+                    dset_min=config.dset_min,
+                    dset_max=config.dset_max,
                     patch_factor=stage.patch_factor,
                     checkpoint= last_checkpoint,
                     diffeomorphic=config.diffeomorphic,
@@ -344,10 +355,12 @@ def main(dataset_json: Path, config_json: Path):
                 )
         else:
             print(f"Training stage {i}")
-            train_stage2(
+            train_with_artifacts(
                 data_json=data_json,
                 artifacts=checkpointroot / f"stage{i}_artifacts",
                 checkpoint_dir=checkpointroot / f"stage{i+1}",
+                dset_min=config.dset_min,
+                dset_max=config.dset_max,
                 steps=stage.steps,
                 res=stage.res_factor,
                 patch_factor=stage.patch_factor,
@@ -361,8 +374,11 @@ def main(dataset_json: Path, config_json: Path):
                 starting_step=None if resumption_point is None else resumption_point.step,
                 noisy=config.noisy,
                 noisy_v2=config.noisy_v2,
-                image_loss_fn=config.image_loss_fn,
-                image_loss_weight=config.image_loss_weight
+                image_loss_fn=stage.image_loss_fn,
+                image_loss_weight=stage.image_loss_weight,
+                seg_loss_weight=stage.seg_loss_weight,
+                lr=stage.lr,
+                reg_loss_weight=stage.reg_loss_weight
             )
 
             resumption_point = None
@@ -381,6 +397,8 @@ def main(dataset_json: Path, config_json: Path):
                         res=stage.res_factor,
                         iters=stage.iters,
                         search_range=stage.search_range,
+                        dset_min=config.dset_min,
+                        dset_max=config.dset_max,
                         patch_factor=stage.patch_factor,
                         checkpoint=checkpointroot
                         / f"stage{i+1}"

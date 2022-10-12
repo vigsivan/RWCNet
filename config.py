@@ -11,8 +11,20 @@ class TrainStageConfig(BaseModel):
     iters: int = 12
     search_range: int = 3
     save_freq: int=100
+    seg_loss_weight: float=1
     log_freq: int=10
     val_freq: int=100
+    image_loss_fn: str="mse"
+    image_loss_weight: float=10.
+    reg_loss_weight: float=.1
+    lr: float=3e-4
+
+    @validator("image_loss_fn")
+    def validate_image_loss(cls, val):
+        losses = ("mi", "mse", "ncc")
+        if val not in losses:
+            raise ValueError(f"Expected {val} to be in {losses}")
+        return val
 
 class TrainConfig(BaseModel):
     stages: List[TrainStageConfig]
@@ -25,20 +37,14 @@ class TrainConfig(BaseModel):
     gpu_num: Optional[int]=None
     noisy: bool=False
     noisy_v2: bool=False #FIXME: refactor when you figure out which noisy is better
-    image_loss_fn: str="mse"
-    image_loss_weight: float=10.
+    use_best_validation_checkpoint: bool=True
+    dset_min: float=-4e-3
+    dset_max: float=16e3
 
     @validator("stages")
     def validate_cache_file(cls, val):
         if len(val) == 0:
             raise ValueError("Expected at least one stage")
-        return val
-
-    @validator("image_loss_fn")
-    def validate_image_loss(cls, val):
-        losses = ("mi", "mse", "ncc")
-        if val not in losses:
-            raise ValueError(f"Expected {val} to be in {losses}")
         return val
 
 class EvalStageConfig(BaseModel):

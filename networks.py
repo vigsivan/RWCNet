@@ -283,7 +283,6 @@ class SomeNetNoisy(nn.Module):
         moving: torch.Tensor,
         hidden_init: Optional[torch.Tensor]=None,
         ret_fmap: bool=False,
-        train: bool=False
     ):
         fixed_feat = self.feature_extractor(fixed)
         moving_feat = self.feature_extractor(moving)
@@ -311,7 +310,7 @@ class SomeNetNoisy(nn.Module):
             # if self.diffeomorphic:
             #     self.apply_diffeomorphism(flow)
 
-            if train and random.random() < self.noise_prob:
+            if self.training and random.random() < self.noise_prob:
                 scale = delta_flow.max() - delta_flow.min()
                 additive_noise = .5 * scale * torch.randn(1, device=scale.device)
                 delta_flow = additive_noise + delta_flow #(delta_flow * torch.rand(1, device=delta_flow.device))
@@ -366,7 +365,6 @@ class SomeNetNoisyv2(nn.Module):
         moving: torch.Tensor,
         hidden_init: Optional[torch.Tensor]=None,
         ret_fmap: bool=False,
-        train: bool=False
     ):
         fixed_feat = self.feature_extractor(fixed)
         moving_feat = self.feature_extractor(moving)
@@ -391,11 +389,7 @@ class SomeNetNoisyv2(nn.Module):
             cost_volume = self.compute_correlation(fixed_feat, moving_feat)
             hidden, delta_flow = self.update(cost_volume, delta_flow, hidden, moving_feat)
 
-
-            # if self.diffeomorphic:
-            #     self.apply_diffeomorphism(flow)
-
-            if train:
+            if self.training:
                 additive_noise = torch.max(delta_flow) * torch.randn_like(delta_flow, device=delta_flow.device)
                 noisy_delta = additive_noise + (delta_flow * torch.rand(1, device=delta_flow.device))
                 delta_flow = noisy_delta
