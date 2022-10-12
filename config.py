@@ -1,6 +1,8 @@
 from pathlib import Path
 from typing import List, Optional
 from pydantic import BaseModel, validator
+from networks import SomeNet, SomeNetNoCorr, SomeNetNoisy, SomeNetNoisyv2
+import torch
 
 class TrainStageConfig(BaseModel):
     res_factor: int
@@ -8,7 +10,6 @@ class TrainStageConfig(BaseModel):
     steps: int
     iters: int = 12
     search_range: int = 3
-    start_from_last: bool =False
     save_freq: int=100
     log_freq: int=10
     val_freq: int=100
@@ -16,16 +17,28 @@ class TrainStageConfig(BaseModel):
 class TrainConfig(BaseModel):
     stages: List[TrainStageConfig]
     cache_file: Path
-    savedir: Optional[Path]=None
+    savedir: Path
     num_threads: int=4
     device: str = "cuda"
     diffeomorphic: bool=True
     overwrite: bool = False
+    gpu_num: Optional[int]=None
+    noisy: bool=False
+    noisy_v2: bool=False #FIXME: refactor when you figure out which noisy is better
+    image_loss_fn: str="mse"
+    image_loss_weight: float=10.
 
     @validator("stages")
     def validate_cache_file(cls, val):
         if len(val) == 0:
             raise ValueError("Expected at least one stage")
+        return val
+
+    @validator("image_loss_fn")
+    def validate_image_loss(cls, val):
+        losses = ("mi", "mse", "ncc")
+        if val not in losses:
+            raise ValueError(f"Expected {val} to be in {losses}")
         return val
 
 class EvalStageConfig(BaseModel):
