@@ -222,8 +222,8 @@ def compute_interpolation_weights(zyx_warped):
     return weights, indices
 
 def correlate(
-    mind_fix: torch.Tensor,
-    mind_mov: torch.Tensor,
+    feat_fix: torch.Tensor,
+    feat_mov: torch.Tensor,
     search_radius: int,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
@@ -231,8 +231,8 @@ def correlate(
 
     Parameters
     ----------
-    mind_mov: torch.Tensor
-    mind_fix: torch.Tensor
+    feat_mov: torch.Tensor
+    feat_fix: torch.Tensor
     disp_hw: int
     grid_sp: int
     image_shape: Tuple[int, int, int]
@@ -244,35 +244,35 @@ def correlate(
     ssd_argmin: torch.Tensor
         Sum of square displacements min
     """
-    H, W, D = mind_fix.shape[-3:]
+    H, W, D = feat_fix.shape[-3:]
     torch.cuda.synchronize()
-    C_mind = mind_fix.shape[1]
+    C_feat = feat_fix.shape[1]
     with torch.no_grad():
-        mind_unfold = F.unfold(
+        feat_unfold = F.unfold(
             F.pad(
-                mind_mov, (search_radius, search_radius, search_radius, search_radius, search_radius, search_radius)
+                feat_mov, (search_radius, search_radius, search_radius, search_radius, search_radius, search_radius)
             ).squeeze(0),
             search_radius * 2 + 1,
         )
-        mind_unfold = mind_unfold.view(
-            C_mind, -1, (search_radius * 2 + 1) ** 2, W, D
+        feat_unfold = feat_unfold.view(
+            C_feat, -1, (search_radius * 2 + 1) ** 2, W, D
         )
 
     ssd = torch.zeros( 
             (search_radius * 2 + 1) ** 3,
             H, W, D,
-            dtype=mind_fix.dtype, device=mind_fix.device,)  # .cuda().half()
+            dtype=feat_fix.dtype, device=feat_fix.device,)  # .cuda().half()
     ssd_argmin = torch.zeros(H , W , D).long()
     with torch.no_grad():
         for i in range(search_radius * 2 + 1):
-            mind_sum = (
-                (mind_fix.permute(1, 2, 0, 3, 4) - mind_unfold[:, i : i + H])
+            feat_sum = (
+                (feat_fix.permute(1, 2, 0, 3, 4) - feat_unfold[:, i : i + H])
                 .abs()
                 .sum(0, keepdim=True)
             )
 
             ssd[i :: (search_radius * 2 + 1)] = F.avg_pool3d(
-                mind_sum.transpose(2, 1), 3, stride=1, padding=1
+                feat_sum.transpose(2, 1), 3, stride=1, padding=1
             ).squeeze(1)
         ssd = (
             ssd.view(
@@ -289,44 +289,6 @@ def correlate(
     torch.cuda.synchronize()
 
     return ssd, ssd_argmin
-
-
-def gumbel_softmax(logits: torch.Tensor, temperature: float = 0.8) -> torch.Tensor:
-    """
-    Implements straight through gumbel softmax
-
-    Parameters
-    ----------
-    logits: torch.Tensor
-        Log likelihood for each class with shape [*, n_class]
-    temperature: float
-        The temperature controls how much smoothing there is, between 0 and 1
-        Default=.8
-
-    Returns
-    -------
-    one_hot: torch.Tensor
-        One-hot tensor that can be used to sample discrete class tensor
-    """
-    # FIXME: what exactly is the role of temperature here
-    # FIXME: is the output always one-hot
-
-    def gumbel_softmax_sample(logits, temperature):
-        y = logits + sample_gumbel(logits.size())
-        return F.softmax(y / temperature, dim=-1)
-
-    def sample_gumbel(shape, eps=1e-20):
-        U = torch.rand(shape).cuda()
-        return -Variable(torch.log(-torch.log(U + eps) + eps))
-
-    y = gumbel_softmax_sample(logits, temperature)
-    shape = y.size()
-    _, ind = y.max(dim=-1)
-    y_hard = torch.zeros_like(y).view(-1, shape[-1])
-    y_hard.scatter_(1, ind.view(-1, 1), 1)
-    y_hard = y_hard.view(*shape)
-    return (y_hard - y).detach() + y
-
 
 
 def coupled_convex_sparse(
@@ -896,6 +858,8 @@ class Data:
 
     fixed_image: Path
     moving_image: Path
+    fixed_mask: Optional[Path]
+    moving_mask: Optional[Path]
     fixed_segmentation: Optional[Path]
     moving_segmentation: Optional[Path]
     fixed_keypoints: Optional[Path]
@@ -1140,6 +1104,7 @@ def data_generator(data_json: Path, *, split: str) -> Generator[Data, None, None
         data = json.load(f)[split]
 
     # FIXME: make this cleaner
+    masks = "fixed_mask" in data[0]
     segs = "fixed_segmentation" in data[0]
     kps = "fixed_keypoints" in data[0]
 
@@ -1149,6 +1114,9 @@ def data_generator(data_json: Path, *, split: str) -> Generator[Data, None, None
             moving_image=Path(v["moving_image"]),
             fixed_segmentation=Path(v["fixed_segmentation"]) if segs else None,
             moving_segmentation=Path(v["moving_segmentation"]) if segs else None,
+            fixed_mask=Path(v["fixed_mask"]) if masks else None,
+            moving_mask=Path(v["fixed_mask"]) if masks else None,
+
             fixed_keypoints=Path(v["fixed_keypoints"]) if kps else None,
             moving_keypoints=Path(v["moving_keypoints"]) if kps else None,
         )
