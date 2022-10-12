@@ -4,7 +4,7 @@ from functools import lru_cache
 import json
 from pathlib import Path
 import random
-from typing import Dict, Generator, List, Optional, Tuple
+from typing import Dict, Generator, List, Optional, Tuple, Union
 from torch.optim.swa_utils import AveragedModel, SWALR
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
@@ -67,7 +67,7 @@ def identity_grid(size: Tuple[int, ...]) -> np.ndarray:
 
 
 # @lru_cache(maxsize=None)
-def identity_grid_torch(size: Tuple[int, ...], device: str="cuda", stack_dim: int=0) -> torch.Tensor:
+def identity_grid_torch(size: Tuple[int, ...], device: Union[torch.device,str]="cuda", stack_dim: int=0) -> torch.Tensor:
     """
     Computes an identity grid for torch
     """
@@ -501,6 +501,7 @@ def MINDSSC(
     Parameters
     ----------
     img: torch.Tensor
+    radius: int
     """
     # kernel size
     kernel_size = radius * 2 + 1
