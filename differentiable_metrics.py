@@ -13,11 +13,37 @@ from torch import nn
 import torch.nn.functional as F
 # from monai.losses.dice import DiceLoss
 from monai.losses.image_dissimilarity import GlobalMutualInformationLoss as MutualInformationLoss
-from common import MINDSSC
+from common import MINDSSC, warp_image
 
 __all__ = ["DiceLoss", "MutualInformationLoss", "TotalRegistrationLoss", "Grad", "NCC", "MSE", "MINDLoss"]
 
+
 class DiceLoss(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, fixed_seg, moving_seg, flow):
+        labels = fixed_seg.unique()
+
+        fsegs, msegs = [], []
+
+        for i in labels:
+            if i.item() == 0:
+                continue
+            fseg, mseg = (fixed_seg == i).float(), (moving_seg == i).float()
+            fsegs.append(fseg)
+            msegs.append(mseg)
+        assert len(fsegs) != 0, "No labels found!"
+
+        fseg = torch.cat(fsegs, dim=1)
+        mseg = torch.cat(msegs, dim=1)
+
+        wseg = warp_image(flow, mseg, mode="nearest")
+        dice = _compute_dice_coefficient(fseg, wseg)
+        return 1 - dice
+
+
+class DiceLossOLD(nn.Module):
     def __init__(self):
         super().__init__()
 
@@ -26,6 +52,8 @@ class DiceLoss(nn.Module):
         count = 0
         labels = fixed.unique()
         for i in labels:
+            if i == 0:
+                continue
             dice += _compute_dice_coefficient((fixed == i), (moving_warped == i))
             count += 1
         if count == 0:
@@ -33,7 +61,16 @@ class DiceLoss(nn.Module):
         dice /= count
         return 1-dice
 
+
 def _compute_dice_coefficient(mask_gt: torch.Tensor, mask_pred: torch.Tensor) -> torch.Tensor:
+    volume_sum = mask_gt.sum() + mask_pred.sum()
+    if volume_sum == 0:
+        return torch.Tensor(0, device=mask_gt.device)
+    volume_intersect = (mask_gt * mask_pred).sum()
+    return 2 * volume_intersect / volume_sum
+
+
+def _compute_dice_coefficientOLD(mask_gt: torch.Tensor, mask_pred: torch.Tensor) -> torch.Tensor:
     """Computes soerensen-dice coefficient.
 
   compute the soerensen-dice coefficient between the ground truth mask `mask_gt`
@@ -100,6 +137,47 @@ class TotalRegistrationLoss(nn.Module):
         # assert displacements.requires_grad
         displacements = einops.rearrange(displacements, 'b n N -> (b N) n')
         return torch.linalg.norm((fixed_landmarks + displacements-moving_landmarks)*moving_spacing, dim=1).mean()
+
+
+class calc_previous_displacements(nn.Module):
+    """
+    Computes the Total Registration Loss
+
+    Which is basically the distance between the landmarks in the transformed space.
+    """
+
+    def __init__(self):
+        super().__init__()
+
+    def forward(
+        self,
+        fixed_landmarks: torch.LongTensor,
+        old_field: torch.Tensor,
+    ) -> torch.Tensor:
+
+        # verify that the order of [:,:,H,W,D] is correct for irregular shapes
+        field_shape = old_field.shape
+        H, W, D = field_shape[2], field_shape[3], field_shape[4]
+
+        fixed_landmarks = fixed_landmarks.to(old_field.device)
+
+        fcoords = torch.floor(fixed_landmarks).long()
+        ccoords = torch.ceil(fixed_landmarks).long()
+
+        fcoords.data[:, 0] = torch.clip(fcoords.data[:, 0], 0, H-1.0)
+        fcoords.data[:, 1] = torch.clip(fcoords.data[:, 1], 0, W-1.0)
+        fcoords.data[:, 2] = torch.clip(fcoords.data[:, 2], 0, D-1.0)
+        ccoords.data[:, 0] = torch.clip(ccoords.data[:, 0], 0, H - 1.0)
+        ccoords.data[:, 1] = torch.clip(ccoords.data[:, 1], 0, W - 1.0)
+        ccoords.data[:, 2] = torch.clip(ccoords.data[:, 2], 0, D - 1.0)
+
+        f_displacements = old_field[:,:,fcoords[:,0], fcoords[:,1], fcoords[:,2]]
+        c_displacements = old_field[:,:,ccoords[:,0], ccoords[:,1], ccoords[:,2]]
+        displacements = (f_displacements + c_displacements)/2
+
+        displacements = einops.rearrange(displacements, 'b n N -> (b N) n')
+        return displacements
+
 
 class MINDLoss(nn.Module):
     """
