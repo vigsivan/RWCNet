@@ -4,12 +4,17 @@ from pydantic import BaseModel, validator
 from networks import SomeNet, SomeNetNoCorr, SomeNetNoisy, SomeNetNoisyv2
 import torch
 
+class NetworkConfig(BaseModel):
+    iters: int = 12
+    search_range: int = 3
+    noisy: bool=False
+
+
 class TrainStageConfig(BaseModel):
+    network: NetworkConfig
     res_factor: int
     patch_factor: int
     steps: int
-    iters: int = 12
-    search_range: int = 3
     save_freq: int=100
     seg_loss_weight: float=1
     log_freq: int=10
@@ -35,8 +40,6 @@ class TrainConfig(BaseModel):
     diffeomorphic: bool=True
     overwrite: bool = False
     gpu_num: Optional[int]=None
-    noisy: bool=False
-    noisy_v2: bool=False #FIXME: refactor when you figure out which noisy is better
     use_best_validation_checkpoint: bool=True
     dset_min: float=-4e-3
     dset_max: float=16e3
