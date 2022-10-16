@@ -33,7 +33,7 @@ from differentiable_metrics import (
     MutualInformationLoss,
     NCC,
 )
-from networks import SomeNet, SomeNetNoCorr, SomeNetNoisy, SomeNetNoisyv2
+from networks import SomeNet, SomeNetNoCorr, SomeNetNoisy
 
 __all__ = ["train", "train_with_artifacts"]
 
@@ -986,7 +986,6 @@ def train_with_artifacts(
     diffeomorphic: bool = False,
     num_workers: int = 4,
     noisy: bool = False,
-    noisy_v2: bool = False,
 ):
 
     train_dataset = PatchDatasetWithArtifacts(
@@ -1023,8 +1022,6 @@ def train_with_artifacts(
     else:
         if noisy:
             modelclass = SomeNetNoisy
-        elif noisy_v2:
-            modelclass = SomeNetNoisyv2
         else:
             modelclass = SomeNet
 
@@ -1176,7 +1173,6 @@ def train(
     num_workers: int = 4,
     starting_step: Optional[int] = None,
     noisy: bool = False,
-    noisy_v2: bool = False,
     device: str = "cuda",
 ):
     """
@@ -1213,8 +1209,6 @@ def train(
     else:
         if noisy:
             modelclass = SomeNetNoisy
-        elif noisy_v2:
-            modelclass = SomeNetNoisyv2
         else:
             modelclass = SomeNet
 
