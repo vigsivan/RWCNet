@@ -95,7 +95,7 @@ def displacement_permutations_grid(displacement: int) -> torch.Tensor:
 
 
 @lru_cache(maxsize=None)
-def get_identity_affine_grid(size: Tuple[int, ...]) -> torch.Tensor:
+def get_identity_affine_grid(size: Tuple[int, ...], device: Optional[Union[str, torch.device]]=None) -> torch.Tensor:
     """
     Computes an identity grid for a specific size.
 
@@ -109,6 +109,8 @@ def get_identity_affine_grid(size: Tuple[int, ...]) -> torch.Tensor:
     grid0 = F.affine_grid(
         torch.eye(3, 4).unsqueeze(0).cuda(), [1, 1, H, W, D], align_corners=False,
     )
+    if device is not None:
+        return grid0.to(device)
     return grid0
 
 
@@ -780,6 +782,7 @@ def adam_optimization(
     image_shape: Tuple[int, int, int],
     iterations: int,
     norm: int = 1,
+    device: Optional[Union[torch.device, str]]=None
 ) -> nn.Module:
     """
     Instance-based optimization
@@ -798,11 +801,13 @@ def adam_optimization(
     nn.Module
     """
 
+    if device is None:
+        device = "cuda:0"
     H, W, D = image_shape
     # create optimisable displacement grid
     net = nn.Sequential(nn.Conv3d(3, 1, (H, W, D), bias=False))
     net[0].weight.data[:] = disp / norm
-    net.cuda()
+    net.to(device)
     optimizer = torch.optim.Adam(net.parameters(), lr=1)
     grid0 = get_identity_affine_grid(image_shape)
 
@@ -822,16 +827,17 @@ def adam_optimization(
         )
 
         scale = (
-            torch.tensor([(H - 1) / 2, (W - 1) / 2, (D - 1) / 2,]).cuda().unsqueeze(0)
+            torch.tensor([(H - 1) / 2, (W - 1) / 2, (D - 1) / 2,]).to(device).unsqueeze(0)
         )
         grid_disp = (
-            grid0.view(-1, 3).cuda().float()
+            grid0.view(-1, 3).to(device).float()
             + ((disp_sample.view(-1, 3)) / scale).flip(1).float()
         )
 
+        breakpoint()
         patch_mov_sampled = F.grid_sample(
             mind_moving.float(),
-            grid_disp.view(1, H, W, D, 3).cuda(),
+            grid_disp.view(1, H, W, D, 3).to(device),
             align_corners=False,
             mode="bilinear",
         )  # ,padding_mode='border')
