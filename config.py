@@ -1,26 +1,48 @@
 from pathlib import Path
 from typing import List, Optional
 from pydantic import BaseModel, validator
+from networks import SomeNet, SomeNetNoCorr, SomeNetNoisy, SomeNetNoisyv2
+import torch
+
+class NetworkConfig(BaseModel):
+    iters: int = 12
+    search_range: int = 3
+    noisy: bool=False
+
 
 class TrainStageConfig(BaseModel):
+    network: NetworkConfig
     res_factor: int
     patch_factor: int
     steps: int
-    iters: int = 12
-    search_range: int = 3
-    start_from_last: bool =False
     save_freq: int=100
+    seg_loss_weight: float=1
     log_freq: int=10
     val_freq: int=100
+    image_loss_fn: str="mse"
+    image_loss_weight: float=10.
+    reg_loss_weight: float=.1
+    lr: float=3e-4
+
+    @validator("image_loss_fn")
+    def validate_image_loss(cls, val):
+        losses = ("mi", "mse", "ncc")
+        if val not in losses:
+            raise ValueError(f"Expected {val} to be in {losses}")
+        return val
 
 class TrainConfig(BaseModel):
     stages: List[TrainStageConfig]
     cache_file: Path
-    savedir: Optional[Path]=None
+    savedir: Path
     num_threads: int=4
     device: str = "cuda"
     diffeomorphic: bool=True
     overwrite: bool = False
+    gpu_num: Optional[int]=None
+    use_best_validation_checkpoint: bool=True
+    dset_min: float=-4e-3
+    dset_max: float=16e3
 
     @validator("stages")
     def validate_cache_file(cls, val):
@@ -40,6 +62,8 @@ class EvalConfig(BaseModel):
     stages: List[EvalStageConfig]
     cache_file: Path
     save_path: Path
+    min_int: float
+    max_int: float
     instance_opt_res: int=2
     eval_at_each_stage: bool=False
     split: str = "test"

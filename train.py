@@ -1,6 +1,8 @@
+import random
 import json
 from collections import defaultdict
-from contextlib import contextmanager
+from functools import partial
+from contextlib import contextmanager, nullcontext
 from pathlib import Path
 import einops
 import pickle
@@ -12,6 +14,7 @@ import torch.nn.functional as F
 import nibabel as nib
 from torch.utils.data import Dataset, DataLoader
 from typer import Typer
+from data import InfiniteDataLoader
 from tqdm import trange, tqdm
 
 from common import (
@@ -23,18 +26,29 @@ from common import (
     warp_image,
 )
 from differentiable_metrics import (
+    MSE,
     DiceLoss,
     Grad,
     TotalRegistrationLoss,
     MutualInformationLoss,
     NCC,
 )
-from networks import SomeNet, SomeNetNoCorr
+from networks import SomeNet, SomeNetNoCorr, SomeNetNoisy
+
+__all__ = ["train", "train_with_artifacts"]
 
 app = Typer()
 
-
 get_spacing = lambda x: np.sqrt(np.sum(x.affine[:3, :3] * x.affine[:3, :3], axis=0))
+
+
+def get_loss_fn(loss_fn: str) -> Union[MutualInformationLoss, NCC, MSE]:
+    if loss_fn == "mi":
+        return MutualInformationLoss()
+    elif loss_fn == "ncc":
+        return NCC()
+    else:
+        return MSE()
 
 
 @contextmanager
@@ -49,7 +63,7 @@ def evaluating(net):
             net.train()
 
 
-class PatchDatasetStage2(Dataset):
+class PatchDatasetWithArtifacts(Dataset):
     """
     Extracts 3D `patches' at a specific resolution
     """
@@ -61,10 +75,8 @@ class PatchDatasetStage2(Dataset):
         artifacts: Path,
         patch_factor: int,
         split: str,
-        cache_file: Path = Path("./stage2.pkl"),
-        cache_patches_dir: Optional[Path] = None,
-        precache: bool = False,
-        diffeomorphic: bool = True,
+        dset_min: float,
+        dset_max: float,
     ):
         super().__init__()
         if res_factor not in [1, 2, 4]:
@@ -86,6 +98,8 @@ class PatchDatasetStage2(Dataset):
 
         chan_split = patch_factor // res_factor
 
+        self.normalize = lambda x: (x - dset_min) / (dset_max - dset_min)
+
         self.data = data
         self.indexes = [
             (i, j, k)
@@ -99,60 +113,7 @@ class PatchDatasetStage2(Dataset):
         self.artifacts = artifacts
         self.chan_split = chan_split
         self.check_artifacts()
-        self.diffeomorphic = diffeomorphic
         self.split = split
-
-        if not cache_file.exists():
-            cache = self.get_dataset_minmax_(data_json.name)
-            with open(cache_file, "wb") as f:
-                pickle.dump(cache, f)
-        else:
-            with open(cache_file, "rb") as f:
-                cache = pickle.load(f)
-            if data_json.name in cache:
-                self.min_int = cache[data_json.name]["min_int"]
-                self.max_int = cache[data_json.name]["max_int"]
-            else:
-                cache_ = self.get_dataset_minmax_(data_json.name)
-                cache.update(cache_)
-                with open(cache_file, "wb") as f:
-                    pickle.dump(cache, f)
-
-        self.cache = cache[data_json.name]
-
-        self.cache_patches_dir = cache_patches_dir
-        self.cached = []
-        if cache_patches_dir is not None:
-            cache_patches_dir.mkdir(exist_ok=True)
-            self.cached = [False] * len(self.indexes)
-            if precache:
-                self.precache()
-
-    def get_dataset_minmax_(self, json_name):
-        cache = defaultdict(dict)
-        min_int, max_int = np.inf, -1 * np.inf
-
-        f, m = "fixed", "moving"
-
-        min_int, max_int = np.inf, -1 * np.inf
-        for dat in self.data:
-            fixed_image = Path(dat[f"{f}_image"])
-            moving_image = Path(dat[f"{m}_image"])
-
-            fixed_nib = nib.load(fixed_image)
-            moving_nib = nib.load(moving_image)
-
-            mi = min(fixed_nib.get_fdata().min(), moving_nib.get_fdata().min())
-            ma = max(fixed_nib.get_fdata().max(), moving_nib.get_fdata().max())
-
-            if mi < min_int:
-                min_int = mi
-            if ma > max_int:
-                max_int = ma
-
-        cache[json_name]["min_int"] = min_int
-        cache[json_name]["max_int"] = max_int
-        return cache
 
     def __len__(self):
         return len(self.indexes)
@@ -270,8 +231,8 @@ class PatchDatasetStage2(Dataset):
         rshape = tuple(i // r for i in fixed.shape[-3:])
         pshape = tuple(i // p for i in ogshape[-3:])
 
-        fixed = (fixed - fixed.min())/(fixed.max()-fixed.min())
-        moving = (moving - moving.min())/(moving.max()-moving.min())
+        fixed = self.normalize(fixed)
+        moving = self.normalize(moving)
 
         fixed = F.interpolate(fixed.unsqueeze(0), rshape).squeeze(0).float()
         moving = F.interpolate(moving.unsqueeze(0), rshape).squeeze(0).float()
@@ -283,12 +244,6 @@ class PatchDatasetStage2(Dataset):
 
         flow = F.interpolate(flow, rshape) * factor
         hidden = F.interpolate(hidden, rshape) * factor
-
-        if self.diffeomorphic:
-            scale = 1 / (2**7)
-            flow = scale * flow
-            for _ in range(7):
-                flow = concat_flow(flow, flow)
 
         moving_i = moving
         moving = warp_image(flow, moving.unsqueeze(0)).squeeze(0)
@@ -326,9 +281,9 @@ class PatchDatasetStage2(Dataset):
                 .float()
             )
 
-            moving_seg = warp_image(flow.unsqueeze(0), moving_seg.unsqueeze(0), mode='nearest').squeeze(
-                0
-            )
+            moving_seg = warp_image(
+                flow.unsqueeze(0), moving_seg.unsqueeze(0), mode="nearest"
+            ).squeeze(0)
 
             ret["fixed_segmentation"] = fixed_seg
             ret["moving_segmentation"] = moving_seg
@@ -457,48 +412,11 @@ class PatchDatasetStage2(Dataset):
 
         return ret
 
-    def precache(self):
-        print("Precaching...")
-        index = 0
-        for data_index, _ in tqdm(enumerate(self.data)):
-            loaded_data = None
-            for chan_index in range(self.chan_split):
-                for patch_index in range(self.n_patches):
-                    assert self.cache_patches_dir is not None
-                    cachefile = self.cache_patches_dir / f"{self.split}_{index}.pkl"
-                    if cachefile.exists():
-                        self.cached[index] = True
-                        index += 1
-                        continue
-                    if loaded_data is None:
-                        loaded_data = self.load_data_(data_index)
-                    patch_data = self.get_patch_data(
-                        loaded_data, chan_index, patch_index
-                    )
-                    with open(cachefile, "wb") as f:
-                        pickle.dump(patch_data, f)
-                    self.cached[index] = True
-                    index += 1
-
     def __getitem__(self, index: int):
-        if self.cache_patches_dir is not None and self.cached[index]:
-            with open(
-                self.cache_patches_dir / f"{self.split}_{index}.pkl", "rb"
-            ) as cached_file:
-                ret = pickle.load(cached_file)
-            return ret
-
         data_index, chan_index, patch_index = self.indexes[index]
         data = self.load_data_(data_index)
 
         patch_data = self.get_patch_data(data, chan_index, patch_index)
-
-        if self.cache_patches_dir is not None:
-            with open(
-                self.cache_patches_dir / f"{self.split}_{index}.pkl", "wb"
-            ) as cached_file:
-                pickle.dump(patch_data, cached_file)
-            self.cached[index] = True
 
         return patch_data
 
@@ -515,7 +433,9 @@ class PatchDataset(Dataset):
         res_factor: int,
         patch_factor: int,
         split: str,
-        cache_file: Path = Path("./stage2.pkl"),
+        dset_min: float,
+        dset_max: float,
+        switch: bool = False,
     ):
         super().__init__()
 
@@ -528,55 +448,14 @@ class PatchDataset(Dataset):
         with open(data_json, "r") as f:
             data = json.load(f)[split]
 
+        self.normalize = lambda x: (x - dset_min) / (dset_max - dset_min)
+
         self.data = data
         self.indexes = [(i, 0) for i, _ in enumerate(data)]
         self.res_factor = res_factor
         self.patch_factor = patch_factor
         self.n_patches = 1
-
-        if not cache_file.exists():
-            cache = self.get_dataset_minmax_(data_json.name)
-            with open(cache_file, "wb") as f:
-                pickle.dump(cache, f)
-        else:
-            with open(cache_file, "rb") as f:
-                cache = pickle.load(f)
-            if data_json.name in cache:
-                self.min_int = cache[data_json.name]["min_int"]
-                self.max_int = cache[data_json.name]["max_int"]
-            else:
-                cache_ = self.get_dataset_minmax_(data_json.name)
-                cache.update(cache_)
-                with open(cache_file, "wb") as f:
-                    pickle.dump(cache, f)
-
-        self.cache = cache[data_json.name]
-
-    def get_dataset_minmax_(self, json_name):
-        cache = defaultdict(dict)
-        min_int, max_int = np.inf, -1 * np.inf
-
-        f, m = "fixed", "moving"
-
-        min_int, max_int = np.inf, -1 * np.inf
-        for dat in self.data:
-            fixed_image = Path(dat[f"{f}_image"])
-            moving_image = Path(dat[f"{m}_image"])
-
-            fixed_nib = nib.load(fixed_image)
-            moving_nib = nib.load(moving_image)
-
-            mi = min(fixed_nib.get_fdata().min(), moving_nib.get_fdata().min())
-            ma = max(fixed_nib.get_fdata().max(), moving_nib.get_fdata().max())
-
-            if mi < min_int:
-                min_int = mi
-            if ma > max_int:
-                max_int = ma
-
-        cache[json_name]["min_int"] = min_int
-        cache[json_name]["max_int"] = max_int
-        return cache
+        self.switch = switch
 
     def __len__(self):
         return len(self.indexes)
@@ -629,8 +508,8 @@ class PatchDataset(Dataset):
         fixed = torch.from_numpy(fixed_nib.get_fdata()).unsqueeze(0)
         moving = torch.from_numpy(moving_nib.get_fdata()).unsqueeze(0)
 
-        fixed = (fixed - fixed.min()) / (fixed.max() - fixed.min())
-        moving = (moving - moving.min()) / (moving.max() - moving.min())
+        fixed = self.normalize(fixed)
+        moving = self.normalize(moving)
 
         rshape = tuple(i // r for i in fixed.shape[-3:])
         pshape = tuple(i // p for i in ogshape[-3:])
@@ -715,72 +594,20 @@ class PatchDataset(Dataset):
             ret["fixed_masked"] = fixed_mask * fixed
             ret["moving_masked"] = moving_mask * moving
 
+        if self.switch and random.choice([0, 1]) == 0:
+            ret_switched = {}
+            for k, v in ret.items():
+                if "fixed" in k:
+                    new_k = k.replace("fixed", "moving")
+                elif "moving" in k:
+                    new_k = k.replace("moving", "fixed")
+                else:
+                    new_k = k
+                ret_switched[new_k] = v
+
+            ret = ret_switched
+
         return ret
-
-
-# @app.command()
-# def eval_stage3(
-#     data_json: Path,
-#     savedir: Path,
-#     artifacts: Path,
-#     res: int,
-#     checkpoint: Path,
-#     device: str = "cuda",
-#     iters: int = 4,
-#     search_range: int = 2,
-#     split: str = "val",
-# ):
-#     """
-#     Stage3 (Final) eval
-#     """
-#
-#     dataset = PatchDatasetStage2(data_json, res, artifacts, 2, split="val", diffeomorphic=True)
-#     loader = DataLoader(dataset, batch_size=1, shuffle=False)
-#
-#     savedir.mkdir(exist_ok=True)
-#
-#     model = SomeNet(iters=iters, search_range=search_range, diffeomorphic=True).to(device)
-#     model.load_state_dict(torch.load(checkpoint))
-#
-#     with torch.no_grad(), evaluating(model):
-#         flows = defaultdict(list)
-#         for data in tqdm(loader):
-#             fixed, moving = data["fixed_image"], data["moving_image"]
-#             fixed, moving = fixed.to(device), moving.to(device)
-#             flow, _ = model(fixed, moving)
-#             savename = (
-#                 f'{data["moving_image_name"][0]}2{data["fixed_image_name"][0]}.pt'
-#             )
-#             flows[savename].append((data["patch_index"], flow.detach().cpu()))
-#
-#             flow, _ = model(moving, fixed)
-#             flowin = data["flowin"].to(device)
-#             flow = concat_flow(flow, flowin)
-#
-#             savename = (
-#                 f'{data["fixed_image_name"][0]}2{data["moving_image_name"][0]}.pt'
-#             )
-#             flows[savename].append((data["patch_index"], flow.detach().cpu()))
-#
-#         for k, v in flows.items():
-#             try:
-#                 fk = torch.stack([i[1] for i in sorted(v)], dim=-1)
-#                 pshape = fk.shape[-3:-1]
-#                 res_shape = (fk.shape[2], *[i * 4 for i in pshape])
-#                 inp = fk.squeeze(0)
-#                 inp = einops.rearrange(inp, "c h d w p -> c (h d w) p")
-#                 folded = F.fold(inp, res_shape[-2:], pshape, stride=pshape)
-#                 folded = folded.unsqueeze(0)
-#                 moving, fixed = k.split("z2")
-#                 moving = moving + "z"
-#                 fixed = ".".join(fixed.split(".")[:-1])  # remove .pt
-#                 disp_name = f"disp_{fixed[-16:-12]}_{moving[-16:-12]}"
-#                 disp_np = torch2skimage_disp(folded)
-#                 disp_nib = nib.Nifti1Image(disp_np, affine=np.eye(4))
-#                 nib.save(disp_nib, savedir / f"{disp_name}.nii.gz")
-#             except:
-#                 print(k)
-#                 continue
 
 
 @app.command()
@@ -789,6 +616,8 @@ def eval_stage3(
     savedir: Path,
     artifacts: Path,
     res: int,
+    dset_min: float,
+    dset_max: float,
     checkpoint: Path,
     device: str = "cuda",
     iters: int = 8,
@@ -805,7 +634,15 @@ def eval_stage3(
         if split not in json.load(f):
             return
 
-    dataset = PatchDatasetStage2(data_json, res, artifacts, patch_factor, split=split)
+    dataset = PatchDatasetWithArtifacts(
+        data_json,
+        res,
+        artifacts,
+        patch_factor,
+        split=split,
+        dset_min=dset_min,
+        dset_max=dset_max,
+    )
 
     savedir.mkdir(exist_ok=True)
 
@@ -876,6 +713,8 @@ def eval_stage2(
     artifacts: Path,
     res: int,
     checkpoint: Path,
+    dset_min: float,
+    dset_max: float,
     device: str = "cuda",
     iters: int = 8,
     search_range: int = 3,
@@ -891,7 +730,15 @@ def eval_stage2(
         if split not in json.load(f):
             return
 
-    dataset = PatchDatasetStage2(data_json, res, artifacts, patch_factor, split=split)
+    dataset = PatchDatasetWithArtifacts(
+        data_json,
+        res,
+        artifacts,
+        patch_factor,
+        split=split,
+        dset_min=dset_min,
+        dset_max=dset_max,
+    )
 
     savedir.mkdir(exist_ok=True)
 
@@ -981,6 +828,8 @@ def eval_stage1(
     data_json: Path,
     savedir: Path,
     res: int,
+    dset_min: float,
+    dset_max: float,
     checkpoint: Path,
     device: str = "cuda",
     iters: int = 12,
@@ -997,7 +846,9 @@ def eval_stage1(
         if split not in json.load(f):
             return
 
-    dataset = PatchDataset(data_json, res, patch_factor, split=split)
+    dataset = PatchDataset(
+        data_json, res, patch_factor, split=split, dset_min=dset_min, dset_max=dset_max
+    )
 
     savedir.mkdir(exist_ok=True)
 
@@ -1043,63 +894,120 @@ def eval_stage1(
             del flows, hiddens
 
 
+def run_model_with_artifiacts_and_get_losses(
+    model,
+    data,
+    *,
+    res,
+    device,
+    image_loss,
+    image_loss_weight,
+    reg_loss_weight,
+    seg_loss_weight,
+    writer=None,
+    step=None,
+):
+    fixed, moving, hidden = (
+        data["fixed_image"],
+        data["moving_image"],
+        data["hidden"],
+    )
+
+    fixed, moving, hidden = (
+        fixed.to(device),
+        moving.to(device),
+        hidden.to(device),
+    )
+
+    flow, hidden = model(fixed, moving, hidden)
+
+    moved = warp_image(flow, moving)
+
+    losses_dict: Dict[str, torch.Tensor] = {}
+    losses_dict["grad"] = reg_loss_weight * Grad()(flow)
+
+    losses_dict["image_loss"] = image_loss_weight * image_loss(
+        moved.squeeze(), fixed.squeeze()
+    )
+
+    if "fixed_segmentation" in data:
+        fixed_segmentation = data["fixed_segmentation"].to(device).float()
+        moving_segmentation = data["moving_segmentation"].to(device).float()
+
+        losses_dict["dice_loss"] = seg_loss_weight * DiceLoss()(
+            fixed_segmentation, moving_segmentation, flow
+        )
+
+    if "fixed_keypoints" in data:
+        flowin = data["flowin"].to(device)
+        flow = concat_flow(flow, flowin)
+        losses_dict["keypoints"] = res * TotalRegistrationLoss()(
+            fixed_landmarks=data["fixed_keypoints"].squeeze(0),
+            moving_landmarks=data["moving_keypoints"].squeeze(0),
+            displacement_field=flow,
+            fixed_spacing=data["fixed_spacing"].squeeze(0),
+            moving_spacing=data["moving_spacing"].squeeze(0),
+        )
+
+    if model.training:
+        for lk, lv in losses_dict.items():
+            if not lv.requires_grad:
+                raise Exception(
+                    f"{lk} does not require gradient and will not affect learning"
+                )
+
+    return losses_dict
+
+
 @app.command()
-def train_stage2(
+def train_with_artifacts(
     data_json: Path,
     checkpoint_dir: Path,
     artifacts: Path,
+    dset_min: float,
+    dset_max: float,
     res: int,
-    patch_factor: int = 4,
+    patch_factor: int,
+    steps: int,
+    lr: float,
+    image_loss_weight: float,
+    reg_loss_weight: float,
+    seg_loss_weight: float,
+    log_freq: int,
+    save_freq: int,
+    val_freq: int,
     start: Optional[Path] = None,
     starting_step: Optional[int] = None,
-    steps: int = 10000,
-    lr: float = 3e-4,
     device: str = "cuda",
-    image_loss_weight: float = 1,
-    reg_loss_weight: float = 0.05,
-    seg_loss_weight: float = 1,
-    kp_loss_weight: float = 1,
-    log_freq: int = 100,
-    save_freq: int = 100,
-    val_freq: int = 1000,
+    image_loss_fn: str = "mse",
     iters: int = 2,
     search_range: int = 1,
-    cache_dir: Optional[Path] = None,
     use_mask: bool = False,
-    diffeomorphic: bool = True,
+    diffeomorphic: bool = False,
     num_workers: int = 4,
+    noisy: bool = False,
 ):
-    """
-    Stage2 training
-    """
 
-    if cache_dir is not None:
-        precache = True
-    else:
-        precache = False
-
-    train_dataset = PatchDatasetStage2(
+    train_dataset = PatchDatasetWithArtifacts(
         data_json,
         res,
         artifacts,
         patch_factor,
         split="train",
-        cache_patches_dir=cache_dir,
-        precache=precache,
-        diffeomorphic=diffeomorphic,
+        dset_min=dset_min,
+        dset_max=dset_max,
     )
-    val_dataset = PatchDatasetStage2(
+    val_dataset = PatchDatasetWithArtifacts(
         data_json,
         res,
         artifacts,
         patch_factor,
         split="val",
-        cache_patches_dir=cache_dir,
-        precache=precache,
-        diffeomorphic=diffeomorphic,
+        dset_min=dset_min,
+        dset_max=dset_max,
     )
 
-    train_loader = DataLoader(
+    train_loader = InfiniteDataLoader(
         train_dataset, batch_size=1, shuffle=True, num_workers=num_workers
     )
     val_loader = DataLoader(
@@ -1112,7 +1020,12 @@ def train_stage2(
     if search_range == 0:
         model = SomeNetNoCorr(iters=iters, diffeomorphic=diffeomorphic).to(device)
     else:
-        model = SomeNet(
+        if noisy:
+            modelclass = SomeNetNoisy
+        else:
+            modelclass = SomeNet
+
+        model = modelclass(
             search_range=search_range, iters=iters, diffeomorphic=diffeomorphic
         ).to(device)
 
@@ -1123,200 +1036,163 @@ def train_stage2(
     if starting_step is not None:
         step_count = starting_step
 
+    image_loss = get_loss_fn(image_loss_fn)
+
     opt = torch.optim.Adam(model.parameters(), lr=lr)
+
+    run = partial(
+        run_model_with_artifiacts_and_get_losses,
+        res=res,
+        device=device,
+        image_loss=image_loss,
+        image_loss_weight=image_loss_weight,
+        reg_loss_weight=reg_loss_weight,
+        seg_loss_weight=seg_loss_weight,
+    )
 
     print(f"Dataset size is {len(train_dataset)}")
     print(f"Starting training from step {step_count}")
-    while step_count + 1 < steps:
-        for step_count, data in zip(trange(step_count, steps), train_loader):
-            fixed, moving, hidden = (
-                data["fixed_image"],
-                data["moving_image"],
-                data["hidden"],
+    for step_count, data in zip(trange(step_count, steps), train_loader):
+        if step_count % log_freq == 0:
+            losses_dict = run(model, data, writer=writer, step=step_count)
+        else:
+            losses_dict = run(model, data)
+        total_loss = sum(losses_dict.values())
+        assert isinstance(total_loss, torch.Tensor)
+        losses_dict_log = {k: v.item() for k, v in losses_dict.items()}
+
+        opt.zero_grad()
+        total_loss.backward()
+        opt.step()
+
+        if val_freq > 0 and step_count % val_freq == 0 and step_count > 0:
+            losses_cum_dict = defaultdict(list)
+            with torch.no_grad(), evaluating(model):
+                for data in val_loader:
+                    losses = run(model, data)
+                    for k, v in losses.items():
+                        losses_cum_dict[k].append(v.item())
+
+            for k, v in losses_cum_dict.items():
+                writer.add_scalar(f"val_{k}", np.mean(v).item(), global_step=step_count)
+
+        if step_count % save_freq == 0:
+            torch.save(
+                model.state_dict(),
+                checkpoint_dir / f"rnn{res}x_{step_count}.pth",
             )
-            if "fixed_masked" in data and use_mask:
-                fixed, moving = data["fixed_masked"], data["moving_masked"]
-            fixed, moving, hidden = (
-                fixed.to(device),
-                moving.to(device),
-                hidden.to(device),
-            )
-            flow, hidden = model(fixed, moving, hidden)
-
-            moved = warp_image(flow, moving)
-
-            losses_dict: Dict[str, torch.Tensor] = {}
-            losses_dict["grad"] = reg_loss_weight * Grad()(flow)
-
-            losses_dict["image_loss"] = image_loss_weight * MutualInformationLoss()(
-                moved.squeeze(), fixed.squeeze()
-            )
-
-            if "fixed_segmentation" in data:
-                fixed_segmentation = data["fixed_segmentation"].to(device).float()
-                moving_segmentation = data["moving_segmentation"].to(device).float()
-
-                moved_segmentation = warp_image(flow, moving_segmentation, 'nearest')
-
-                fixed_segmentation = torch.round(fixed_segmentation)
-                moved_segmentation = torch.round(moved_segmentation)
-
-                losses_dict["dice_loss"] = seg_loss_weight * DiceLoss()(
-                    fixed_segmentation, moved_segmentation
-                )
-
-                if step_count % log_freq == 0:
-                    slice_index = moving.shape[2] // 2
-                    triplet = [
-                        moving_segmentation.squeeze()[slice_index,...].long(),
-                        fixed_segmentation.squeeze()[slice_index,...].long(),
-                        moved_segmentation.squeeze()[slice_index,...].long(),
-                    ]
-                    for lab in fixed_segmentation.unique():
-                        writer.add_images(
-                            f"({lab}: moving_seg,fixed_seg,moved_seg)",
-                            img_tensor=torch.stack(triplet).unsqueeze(1) == lab,
-                            global_step=step_count,
-                            dataformats="nchw",
-                        )
-
-            if "fixed_keypoints" in data:
-                flowin = data["flowin"].to(device)
-                flow = concat_flow(flow, flowin)
-                losses_dict["keypoints"] = res * TotalRegistrationLoss()(
-                    fixed_landmarks=data["fixed_keypoints"].squeeze(0),
-                    moving_landmarks=data["moving_keypoints"].squeeze(0),
-                    displacement_field=flow,
-                    fixed_spacing=data["fixed_spacing"].squeeze(0),
-                    moving_spacing=data["moving_spacing"].squeeze(0),
-                )
-
-            total_loss = sum(losses_dict.values())
-            assert isinstance(total_loss, torch.Tensor)
-            losses_dict_log = {k: v.item() for k, v in losses_dict.items()}
-
-            opt.zero_grad()
-            total_loss.backward()
-            opt.step()
-
-            if step_count % log_freq == 0:
-                tb_log(
-                    writer,
-                    losses_dict_log,
-                    step=step_count,
-                    moving_fixed_moved=(moving, fixed, moved),
-                )
-
-            if val_freq > 0 and step_count % val_freq == 0 and step_count > 0:
-                losses_cum_dict = defaultdict(list)
-                with torch.no_grad(), evaluating(model):
-                    for data in val_loader:
-                        fixed, moving = data["fixed_image"], data["moving_image"]
-                        fixed, moving = fixed.to(device), moving.to(device)
-                        flow, hidden = model(fixed, moving)
-                        moved = warp_image(flow, moving)
-
-                        if "fixed_mask" in data and use_mask:
-                            fixed_mask = data["fixed_mask"].to(device).float()
-                            moving_mask = data["moving_mask"].to(device).float()
-
-                            moved_mask = warp_image(flow, moving_mask)
-
-                            fixed = fixed_mask * fixed
-                            moved = moved_mask * moved
-
-                        losses_cum_dict["image_loss"].append(
-                            (
-                                image_loss_weight
-                                * MutualInformationLoss()(
-                                    moved.squeeze(), fixed.squeeze()
-                                )
-                            ).item()
-                        )
-                        losses_cum_dict["grad"].append(
-                            (reg_loss_weight * Grad()(flow)).item()
-                        )
-
-                        if "fixed_keypoints" in data:
-                            flowin = data["flowin"].to(device)
-                            flow = concat_flow(flow, flowin)
-                            losses_cum_dict["keypoints"].append(
-                                res
-                                * TotalRegistrationLoss()(
-                                    fixed_landmarks=data["fixed_keypoints"].squeeze(0),
-                                    moving_landmarks=data["moving_keypoints"].squeeze(
-                                        0
-                                    ),
-                                    displacement_field=flow,
-                                    fixed_spacing=data["fixed_spacing"].squeeze(0),
-                                    moving_spacing=data["moving_spacing"].squeeze(0),
-                                ).item()
-                            )
-
-                        if "fixed_segmentation" in data:
-                            fixed_segmentation = (
-                                data["fixed_segmentation"].to(device).float()
-                            )
-                            moving_segmentation = (
-                                data["moving_segmentation"].to(device).float()
-                            )
-
-                            moved_segmentation = warp_image(flow, moving_segmentation, 'nearest')
-
-                            fixed_segmentation = torch.round(fixed_segmentation)
-                            moved_segmentation = torch.round(moved_segmentation)
-
-                            losses_cum_dict["dice_loss"].append(
-                                seg_loss_weight
-                                * DiceLoss()(fixed_segmentation, moved_segmentation).item()
-                            )
-
-                for k, v in losses_cum_dict.items():
-                    writer.add_scalar(
-                        f"val_{k}", np.mean(v).item(), global_step=step_count
-                    )
-
-            if step_count % save_freq == 0:
-                torch.save(
-                    model.state_dict(),
-                    checkpoint_dir / f"rnn{res}x_{step_count}.pth",
-                )
 
     torch.save(model.state_dict(), checkpoint_dir / f"rnn{res}x_{steps}.pth")
 
 
+def run_model_and_get_losses(
+    model,
+    data,
+    *,
+    res,
+    device,
+    image_loss,
+    image_loss_weight,
+    reg_loss_weight,
+    seg_loss_weight,
+    writer=None,
+    step=None,
+):
+    losses = {}
+    fixed, moving = data["fixed_image"], data["moving_image"]
+    fixed, moving = fixed.to(device), moving.to(device)
+    flow, _ = model(fixed, moving)
+    moved = warp_image(flow, moving)
+
+    losses["image_loss"] = (
+        image_loss_weight * image_loss(moved.squeeze(), fixed.squeeze())
+    )
+    losses["grad"] = (reg_loss_weight * Grad()(flow))
+
+    if "fixed_keypoints" in data:
+        losses["keypoints"] = (
+            res
+            * TotalRegistrationLoss()(
+                fixed_landmarks=data["fixed_keypoints"].squeeze(0),
+                moving_landmarks=data["moving_keypoints"].squeeze(0),
+                displacement_field=flow,
+                fixed_spacing=data["fixed_spacing"].squeeze(0),
+                moving_spacing=data["moving_spacing"].squeeze(0),
+            )
+        )
+
+    if "fixed_segmentation" in data:
+        fixed_segmentation = data["fixed_segmentation"].to(device).float()
+        moving_segmentation = data["moving_segmentation"].to(device).float()
+
+        losses["dice_loss"] = (
+            seg_loss_weight * DiceLoss()(fixed_segmentation, moving_segmentation, flow)
+        )
+
+
+    if model.training:
+        for lk, lv in losses.items():
+            if not lv.requires_grad:
+                raise Exception(
+                    f"{lk} does not require gradient and will not affect learning"
+                )
+
+    if writer != None and step != None:
+        tb_log(
+            writer,
+            losses,
+            step=step,
+            moving_fixed_moved=(moving, fixed, moved),
+        )
+
+    return losses
+
+
 @app.command()
-def train_stage1(
+def train(
     data_json: Path,
     checkpoint_dir: Path,
     res: int,
-    patch_factor: int = 4,
+    patch_factor: int,
+    iters: int,
+    steps: int,
+    dset_min: float,
+    dset_max: float,
+    lr: float,
+    image_loss_fn: str,
+    image_loss_weight: float,
+    reg_loss_weight: float,
+    seg_loss_weight: float,
+    log_freq: int,
+    save_freq: int,
+    val_freq: int,
     start: Optional[Path] = None,
-    steps: int = 10000,
-    lr: float = 3e-4,
-    device: str = "cuda",
-    image_loss_weight: float = 1,
-    reg_loss_weight: float = 0.1,
-    seg_loss_weight: float = 1,
-    kp_loss_weight: float = 1,
-    log_freq: int = 5,
-    save_freq: int = 50,
-    val_freq: int = 50,
     use_mask: bool = False,
     diffeomorphic: bool = True,
     search_range: int = 3,
-    iters: int = 12,
     num_workers: int = 4,
     starting_step: Optional[int] = None,
+    noisy: bool = False,
+    device: str = "cuda",
 ):
     """
-    Stage1 training
+    Trains the model at a specific resolution without any artifacts
     """
 
-    train_dataset = PatchDataset(data_json, res, patch_factor, split="train")
-    val_dataset = PatchDataset(data_json, res, patch_factor, split="val")
+    train_dataset = PatchDataset(
+        data_json,
+        res,
+        patch_factor,
+        split="train",
+        switch=True,
+        dset_min=dset_min,
+        dset_max=dset_max,
+    )
+    val_dataset = PatchDataset(
+        data_json, res, patch_factor, split="val", dset_min=dset_min, dset_max=dset_max
+    )
 
-    train_loader = DataLoader(
+    train_loader = InfiniteDataLoader(
         train_dataset, batch_size=1, shuffle=True, num_workers=num_workers
     )
     val_loader = DataLoader(
@@ -1326,10 +1202,17 @@ def train_stage1(
     checkpoint_dir.mkdir(exist_ok=True)
     writer = SummaryWriter(log_dir=checkpoint_dir)
 
+    image_loss = get_loss_fn(image_loss_fn)
+
     if search_range == 0:
         model = SomeNetNoCorr(iters=iters, diffeomorphic=diffeomorphic).to(device)
     else:
-        model = SomeNet(
+        if noisy:
+            modelclass = SomeNetNoisy
+        else:
+            modelclass = SomeNet
+
+        model = modelclass(
             search_range=search_range, iters=iters, diffeomorphic=diffeomorphic
         ).to(device)
     step_count = 0
@@ -1341,141 +1224,47 @@ def train_stage1(
 
     opt = torch.optim.Adam(model.parameters(), lr=lr)
 
+    run = partial(
+        run_model_and_get_losses,
+        res=res,
+        device=device,
+        image_loss=image_loss,
+        image_loss_weight=image_loss_weight,
+        reg_loss_weight=reg_loss_weight,
+        seg_loss_weight=seg_loss_weight,
+    )
+
     print(f"Starting training from step {step_count}")
-    while step_count + 1 < steps:
-        for step_count, data in zip(trange(step_count, steps), train_loader):
+    for step_count, data in zip(trange(step_count, steps), train_loader):
+        if step_count % log_freq == 0:
+            losses_dict = run(model, data, writer=writer, step=step_count)
+        else:
+            losses_dict = run(model, data)
 
-            fixed, moving = data["fixed_image"], data["moving_image"]
-            if "fixed_mask" in data and use_mask:
-                fixed, moving = data["fixed_masked"], data["moving_masked"]
+        total_loss = sum(losses_dict.values())
+        assert isinstance(total_loss, torch.Tensor)
+        losses_dict_log = {k: v.item() for k, v in losses_dict.items()}
 
-            fixed, moving = fixed.to(device), moving.to(device)
+        opt.zero_grad()
+        total_loss.backward()
+        opt.step()
 
-            flow, _ = model(fixed, moving)
+        if val_freq > 0 and step_count % val_freq == 0:
+            losses_cum_dict = defaultdict(list)
+            with torch.no_grad(), evaluating(model):
+                for data in val_loader:
+                    losses = run(model, data)
+                    for k, v in losses.items():
+                        losses_cum_dict[k].append(v.item())
 
-            moved = warp_image(flow, moving)
+            for k, v in losses_cum_dict.items():
+                writer.add_scalar(f"val_{k}", np.mean(v).item(), global_step=step_count)
 
-            losses_dict: Dict[str, torch.Tensor] = {}
-
-            losses_dict["image_loss"] = image_loss_weight * MutualInformationLoss()(
-                moved.squeeze(), fixed.squeeze()
+        if step_count % save_freq == 0:
+            torch.save(
+                model.state_dict(),
+                checkpoint_dir / f"rnn{res}x_{step_count}.pth",
             )
-            losses_dict["grad"] = reg_loss_weight * Grad()(flow)
-
-            if "fixed_keypoints" in data:
-                losses_dict["keypoints"] = res * TotalRegistrationLoss()(
-                    fixed_landmarks=data["fixed_keypoints"].squeeze(0),
-                    moving_landmarks=data["moving_keypoints"].squeeze(0),
-                    displacement_field=flow,
-                    fixed_spacing=data["fixed_spacing"].squeeze(0),
-                    moving_spacing=data["moving_spacing"].squeeze(0),
-                )
-
-            if "fixed_segmentation" in data:
-                fixed_segmentation = data["fixed_segmentation"].to(device).float()
-                moving_segmentation = data["moving_segmentation"].to(device).float()
-
-                moved_segmentation = warp_image(
-                    flow, moving_segmentation, mode="nearest"
-                )
-
-                losses_dict["dice_loss"] = seg_loss_weight * DiceLoss()(
-                    fixed_segmentation, moved_segmentation
-                )
-
-                if step_count % log_freq == 0:
-                    slice_index = moving.shape[2] // 2
-                    triplet = [
-                        moving_segmentation.squeeze()[slice_index,...].long(),
-                        fixed_segmentation.squeeze()[slice_index,...].long(),
-                        moved_segmentation.squeeze()[slice_index,...].long(),
-                    ]
-                    for lab in fixed_segmentation.unique():
-                        writer.add_images(
-                            f"({lab}: moving_seg,fixed_seg,moved_seg)",
-                            img_tensor=torch.stack(triplet).unsqueeze(1) == lab,
-                            global_step=step_count,
-                            dataformats="nchw",
-                        )
-
-            total_loss = sum(losses_dict.values())
-            assert isinstance(total_loss, torch.Tensor)
-            losses_dict_log = {k: v.item() for k, v in losses_dict.items()}
-
-            opt.zero_grad()
-            total_loss.backward()
-            opt.step()
-
-            if step_count % log_freq == 0:
-                tb_log(
-                    writer,
-                    losses_dict_log,
-                    step=step_count,
-                    moving_fixed_moved=(moving, fixed, moved),
-                )
-
-            if val_freq > 0 and step_count % val_freq == 0:
-                losses_cum_dict = defaultdict(list)
-                with torch.no_grad(), evaluating(model):
-                    for data in val_loader:
-                        fixed, moving = data["fixed_image"], data["moving_image"]
-                        fixed, moving = fixed.to(device), moving.to(device)
-                        flow, _ = model(fixed, moving)
-                        moved = warp_image(flow, moving)
-
-                        losses_cum_dict["image_loss"].append(
-                            (
-                                image_loss_weight
-                                * MutualInformationLoss()(
-                                    moved.squeeze(), fixed.squeeze()
-                                )
-                            ).item()
-                        )
-                        losses_cum_dict["grad"].append(
-                            (reg_loss_weight * Grad()(flow)).item()
-                        )
-
-                        if "fixed_keypoints" in data:
-                            losses_cum_dict["keypoints"].append(
-                                res
-                                * TotalRegistrationLoss()(
-                                    fixed_landmarks=data["fixed_keypoints"].squeeze(0),
-                                    moving_landmarks=data["moving_keypoints"].squeeze(
-                                        0
-                                    ),
-                                    displacement_field=flow,
-                                    fixed_spacing=data["fixed_spacing"].squeeze(0),
-                                    moving_spacing=data["moving_spacing"].squeeze(0),
-                                ).item()
-                            )
-
-                        if "fixed_segmentation" in data:
-                            fixed_segmentation = (
-                                data["fixed_segmentation"].to(device).float()
-                            )
-                            moving_segmentation = (
-                                data["moving_segmentation"].to(device).float()
-                            )
-
-                            moved_segmentation = warp_image(flow, moving_segmentation, mode='nearest')
-
-                            losses_cum_dict["dice_loss"].append(
-                                seg_loss_weight
-                                * DiceLoss()(
-                                    fixed_segmentation, moved_segmentation
-                                ).item()
-                            )
-
-                for k, v in losses_cum_dict.items():
-                    writer.add_scalar(
-                        f"val_{k}", np.mean(v).item(), global_step=step_count
-                    )
-
-            if step_count % save_freq == 0:
-                torch.save(
-                    model.state_dict(),
-                    checkpoint_dir / f"rnn{res}x_{step_count}.pth",
-                )
 
     torch.save(model.state_dict(), checkpoint_dir / f"rnn{res}x_{steps}.pth")
 

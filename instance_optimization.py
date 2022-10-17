@@ -139,8 +139,8 @@ def apply_instance_optimization(
 
         net = swa_optimization(
             disp=disp_torch,
-            mind_fixed=mind_fix_,
-            mind_moving=mind_mov_,
+            feat_fixed=mind_fix_,
+            feat_moving=mind_mov_,
             lambda_weight=1.25,
             image_shape=tuple(s//grid_sp for s in fixed_nib.shape),
             norm=grid_sp

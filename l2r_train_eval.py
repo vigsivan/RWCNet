@@ -1,3 +1,8 @@
+"""
+This script trains the RNN for the Learn2Reg competition
+"""
+
+import torch
 from collections import defaultdict
 from dataclasses import dataclass
 import numpy as np
@@ -9,7 +14,8 @@ from pathlib import Path
 
 from config import TrainConfig
 
-from train import train_stage1, train_stage2, eval_stage1, eval_stage2
+from train import train, train_with_artifacts, eval_stage1, eval_stage2
+
 
 @dataclass
 class SomeNetCheckpoint:
@@ -22,7 +28,7 @@ def find_last_checkpoint(config: TrainConfig, checkpointroot: Path) -> SomeNetCh
     Find the last checkpoint
 
     NOTE: if the config changes, i.e. previous stage number of steps has changed
-    this function won't spot it. Possible to refactor this function and retain
+    this function won't spot it. Possible to implement this function and retain
     old behaviour with a flag, but its probably better to avoid the situation above
     entirely by specifying a different save path.
     """
@@ -33,9 +39,14 @@ def find_last_checkpoint(config: TrainConfig, checkpointroot: Path) -> SomeNetCh
         if stage_folder.exists():
             checkpoints = [f.name for f in stage_folder.iterdir() if f.name.endswith('.pth')]
             if len(checkpoints) == 0:
-                # NOTE: you cannot be sure if artifacts for the last stage were fully generated
-                # so we go the safe route and go back to the previous stage
-                continue
+                # NOTE: we assume that the checkpoints from the previous stage were generated
+                return SomeNetCheckpoint(
+                    stage=stage,
+                    step=0,
+                    checkpoint=None
+                )
+
+                # continue
             last_checkpoint = max(checkpoints, key=get_step)
             return SomeNetCheckpoint(
                 stage=stage,
@@ -62,11 +73,11 @@ def get_split_pairs_from_paired_dataset(data: Dict, root: Path):
 
     val_fixeds = [dat["fixed"] for dat in data["registration_val"]]
 
-    for split_p in ("training", "test"):
+    for split_p in ["training"]:
         for dat in data[f"{split_p}_paired_images"]:
             split = "val" if dat["fixed"] in val_fixeds else "train"
             pair_dat = {}
-            for lab in ("fixed", "moving"):
+            for lab in ["fixed", "moving"]:
                 image = dat[lab]
                 if image in train_data:
                     all_dat_for_image = train_data[image]
@@ -74,26 +85,33 @@ def get_split_pairs_from_paired_dataset(data: Dict, root: Path):
                         {f"{lab}_{k}": v for k, v in all_dat_for_image.items()}
                     )
                 else:
-                    print(f"{image} not found")
-                    break
+                    raise ValueError(f"{image} not found")
             else:
                 split_data[split].append(pair_dat)
+
+    # FIXME: their test specification is a mess
+    # for dat in data[f"test_paired_images"]:
+    #     pair_dat = {}
+    #     for lab in ("fixed", "moving"):
+    #         image = dat[lab]
+    #         if image in train_data:
+    #             all_dat_for_image = train_data[image]
+    #             pair_dat.update(
+    #                 {f"{lab}_{k}": v for k, v in all_dat_for_image.items()}
+    #             )
+    #         else:
+    #             raise ValueError(f"{image} not found")
+    #     else:
+    #         split_data["test"].append(pair_dat)
 
     return split_data
 
 
 def get_split_pairs_from_unpaired_dataset(data: Dict, root: Path):
     train_data = {}
-    test_data = {}
     split_data = defaultdict(list)
     for dat in data["training"]:
         train_data[dat["image"]] = {
-            (k if k != "label" else "segmentation"): str(root / v)
-            for k, v in dat.items()
-        }
-
-    for dat in data["test"]:
-        test_data[dat["image"]] = {
             (k if k != "label" else "segmentation"): str(root / v)
             for k, v in dat.items()
         }
@@ -106,6 +124,7 @@ def get_split_pairs_from_unpaired_dataset(data: Dict, root: Path):
             if image in train_data:
                 all_dat_for_image = train_data[image]
                 pair_dat.update({f"{lab}_{k}": v for k, v in all_dat_for_image.items()})
+                val_images.append(image)
             else:
                 print(f"{image} not found")
                 break
@@ -120,20 +139,11 @@ def get_split_pairs_from_unpaired_dataset(data: Dict, root: Path):
         pair_dat = {}
         for lab in ("fixed", "moving"):
             image = dat[lab]
-            if image in train_data:
-                all_dat_for_image = train_data[image]
-                pair_dat.update({f"{lab}_{k}": v for k, v in all_dat_for_image.items()})
-            else:
-                print(f"{image} not found")
-                break
-        else:
-            split_data["test"].append(pair_dat)
 
     return split_data
 
-
 def get_pairs_from_list(
-    data: List[Dict[str, Path]], pairs_per_image: int = 5, root: Optional[Path] = None
+    data: List[Dict[str, Path]], pairs_per_image: int = 1, root: Optional[Path] = None
 ) -> List[Dict[str, Path]]:
     return get_random_pairs_from_list(data, pairs_per_image)
 
@@ -237,6 +247,8 @@ def main(dataset_json: Path, config_json: Path):
         config_dict = json.load(f)
         config = TrainConfig(**config_dict)
 
+    if config.gpu_num is not None:
+        torch.cuda.set_device(config.gpu_num)
     root = dataset_json.parent
     metadata = {}
     training_recipe = {}
@@ -275,11 +287,11 @@ def main(dataset_json: Path, config_json: Path):
         config.savedir.mkdir(exist_ok=True)
         checkpointroot = config.savedir / Path(f"checkpoints")
 
-    resumption_point = None
+    resumption_point: Optional[SomeNetCheckpoint] = None
     if checkpointroot.exists() and (checkpointroot/"stage1").exists() and not config.overwrite:
         try:
             resumption_point = find_last_checkpoint(config, checkpointroot)
-            print(f"Resuming from stage {resumption_point.stage} step {resumption_point.step}")
+            print(f"Resuming from stage {resumption_point.stage-1} step {resumption_point.step}")
         except ValueError:
             resumption_point = None
 
@@ -287,29 +299,39 @@ def main(dataset_json: Path, config_json: Path):
 
     data_json = checkpointroot / f"data.json"
 
-    with open(data_json, "w") as f:
-        json.dump(split_pairs, f)
+    if not data_json.exists():
+        with open(data_json, "w") as f:
+            json.dump(split_pairs, f)
 
-    last_checkpoint = None
     start = 0 if resumption_point is None else resumption_point.stage-1
     for i, stage in enumerate(config.stages[start:], start=start):
         if i == 0:
             print(f"Training stage {i}")
-            train_stage1(
+            train(
                 data_json=data_json,
                 checkpoint_dir=checkpointroot / f"stage{i+1}",
                 steps=stage.steps,
+                dset_min=config.dset_min,
+                dset_max=config.dset_max,
                 res=stage.res_factor,
                 patch_factor=stage.patch_factor,
-                iters=stage.iters,
-                search_range=stage.search_range,
+                iters=stage.network.iters,
+                search_range=stage.network.search_range,
                 diffeomorphic=config.diffeomorphic,
                 save_freq=stage.save_freq,
                 log_freq=stage.log_freq,
                 val_freq=stage.val_freq,
                 start=None if resumption_point is None else resumption_point.checkpoint,
-                starting_step=None if resumption_point is None else resumption_point.step
+                starting_step=None if resumption_point is None else resumption_point.step,
+                noisy=stage.network.noisy,
+                image_loss_fn=stage.image_loss_fn,
+                image_loss_weight=stage.image_loss_weight,
+                seg_loss_weight=stage.seg_loss_weight,
+                lr=stage.lr,
+                reg_loss_weight=stage.reg_loss_weight
+
             )
+            resumption_point = None
 
             last_checkpoint = (checkpointroot
                     / f"stage{i+1}"
@@ -321,37 +343,43 @@ def main(dataset_json: Path, config_json: Path):
                     data_json=data_json,
                     savedir=checkpointroot / f"stage{i+1}_artifacts",
                     res=stage.res_factor,
-                    iters=stage.iters,
-                    search_range=stage.search_range,
+                    iters=stage.network.iters,
+                    search_range=stage.network.search_range,
+                    dset_min=config.dset_min,
+                    dset_max=config.dset_max,
                     patch_factor=stage.patch_factor,
                     checkpoint= last_checkpoint,
                     diffeomorphic=config.diffeomorphic,
                     split=split,
                 )
         else:
-            if resumption_point is not None:
-                starting_checkpoint = resumption_point.checkpoint
-            elif stage.start_from_last:
-                starting_checkpoint = last_checkpoint
-            else:
-                starting_checkpoint = None
             print(f"Training stage {i}")
-            train_stage2(
+            train_with_artifacts(
                 data_json=data_json,
                 artifacts=checkpointroot / f"stage{i}_artifacts",
                 checkpoint_dir=checkpointroot / f"stage{i+1}",
+                dset_min=config.dset_min,
+                dset_max=config.dset_max,
                 steps=stage.steps,
                 res=stage.res_factor,
                 patch_factor=stage.patch_factor,
-                iters=stage.iters,
-                search_range=stage.search_range,
+                iters=stage.network.iters,
+                search_range=stage.network.search_range,
                 diffeomorphic=config.diffeomorphic,
-                start=starting_checkpoint,
+                start=None if resumption_point is None else resumption_point.checkpoint,
                 save_freq=stage.save_freq,
                 log_freq=stage.log_freq,
                 val_freq=stage.val_freq,
-                starting_step=None if resumption_point is None else resumption_point.step
+                starting_step=None if resumption_point is None else resumption_point.step,
+                noisy=stage.network.noisy,
+                image_loss_fn=stage.image_loss_fn,
+                image_loss_weight=stage.image_loss_weight,
+                seg_loss_weight=stage.seg_loss_weight,
+                lr=stage.lr,
+                reg_loss_weight=stage.reg_loss_weight
             )
+
+            resumption_point = None
 
             last_checkpoint = (checkpointroot
                     / f"stage{i+1}"
@@ -365,8 +393,10 @@ def main(dataset_json: Path, config_json: Path):
                         savedir=checkpointroot / f"stage{i+1}_artifacts",
                         artifacts=checkpointroot / f"stage{i}_artifacts",
                         res=stage.res_factor,
-                        iters=stage.iters,
-                        search_range=stage.search_range,
+                        iters=stage.network.iters,
+                        search_range=stage.network.search_range,
+                        dset_min=config.dset_min,
+                        dset_max=config.dset_max,
                         patch_factor=stage.patch_factor,
                         checkpoint=checkpointroot
                         / f"stage{i+1}"

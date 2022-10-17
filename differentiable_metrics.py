@@ -13,24 +13,38 @@ from torch import nn
 import torch.nn.functional as F
 # from monai.losses.dice import DiceLoss
 from monai.losses.image_dissimilarity import GlobalMutualInformationLoss as MutualInformationLoss
-from common import MINDSSC
+from common import MINDSSC, warp_image
 
 __all__ = ["DiceLoss", "MutualInformationLoss", "TotalRegistrationLoss", "Grad", "NCC", "MSE", "MINDLoss"]
 
 class DiceLoss(nn.Module):
+    """
+    Computes the dice loss
+    Note: This function does not include the background (assumed to be 0)
+    """
     def __init__(self):
         super().__init__()
 
-    def forward(self, fixed: torch.Tensor, moving_warped: torch.Tensor):
-        dice = 0
-        count = 0
-        labels = fixed.unique()
+    def forward(self, fixed_seg: torch.Tensor, moving_seg: torch.Tensor, flow: torch.Tensor):
+        labels = fixed_seg.unique()
+
+        fsegs, msegs = [], []
+
         for i in labels:
-            dice += _compute_dice_coefficient((fixed == i), (moving_warped == i))
-            count += 1
-        if count == 0:
-            return 1
-        dice /= count
+            # NOTE: we assume background is label 0
+            if i.item() == 0:
+                continue
+            fseg, mseg = (fixed_seg == i).float(), (moving_seg == i).float()
+            fsegs.append(fseg)
+            msegs.append(mseg)
+
+        assert len(fsegs) != 0, "No labels found!"
+
+        fseg = torch.cat(fsegs, dim=1)
+        mseg = torch.cat(msegs, dim=1)
+
+        wseg = warp_image(flow, mseg, "nearest")
+        dice = _compute_dice_coefficient(fseg, wseg)
         return 1-dice
 
 def _compute_dice_coefficient(mask_gt: torch.Tensor, mask_pred: torch.Tensor) -> torch.Tensor:
@@ -48,8 +62,8 @@ def _compute_dice_coefficient(mask_gt: torch.Tensor, mask_pred: torch.Tensor) ->
   """
     volume_sum = mask_gt.sum() + mask_pred.sum()
     if volume_sum == 0:
-        return torch.Tensor(0)
-    volume_intersect = (mask_gt & mask_pred).sum()
+        return torch.Tensor(0, device=mask_gt.device)
+    volume_intersect = (mask_gt * mask_pred).sum()
     return 2 * volume_intersect / volume_sum
 
 
