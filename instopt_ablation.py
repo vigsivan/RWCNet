@@ -25,7 +25,7 @@ app = typer.Typer()
 get_spacing = lambda x: np.sqrt(np.sum(x.affine[:3, :3] * x.affine[:3, :3], axis=0))
 add_bc_dim = lambda x: einops.repeat(x, "d h w -> b c d h w", b=1, c=1).float()
 
-GPU_iden = 1
+GPU_iden = 0
 torch.cuda.set_device(GPU_iden)
 
 @dataclass
@@ -87,10 +87,10 @@ rnn_path = './eval_0929/'
 def apply_instance_optimization(
         data_json: Path = Path("OASIS_0711.json"),
         initial_disp_root: Path = Path(k_path),
-        save_directory: Path = Path("./oasis_uselabel_dsconly/"),
+        save_directory: Path = Path("./oasis_start_noise/"),
         split_val: str = "train",
         half_res: bool = False,
-        use_mask: bool = False,
+        use_mask: bool = True,
 ):
 
     save_directory.mkdir(exist_ok=True)
@@ -107,6 +107,7 @@ def apply_instance_optimization(
     gen = tqdm(get_paths(data_json=data_json, split_val=split_val, disp_root=initial_disp_root))
 
     for data in gen:
+        # gaussian_noise = (0.9 ** 0.5) * torch.randn((160, 224, 192)).to(device)
         image_name = data.fixed_image.name[-16:-12]
 
         fixed_nib = nib.load(data.fixed_image)
@@ -132,9 +133,11 @@ def apply_instance_optimization(
         if data.fixed_segmentation is not None:
             fixed_seg = (nib.load(data.fixed_segmentation)).get_fdata().astype("float")
             moving_seg = (nib.load(data.moving_segmentation)).get_fdata().astype("float")
+
             label_list = get_labels(torch.tensor(fixed_seg), torch.tensor(moving_seg))
-            fixed_segt = torch.tensor(fixed_seg, requires_grad=True).to(device).unsqueeze(0).unsqueeze(0)
-            moving_segt = torch.tensor(moving_seg, requires_grad=True).to(device).unsqueeze(0).unsqueeze(0)
+
+            fixed_segt = torch.tensor(fixed_seg).to(device).unsqueeze(0).unsqueeze(0)
+            moving_segt = torch.tensor(moving_seg).to(device).unsqueeze(0).unsqueeze(0)
 
         # disp_rnn = initial_disp_nib.get_fdata()
         # disp_torch = torch.from_numpy(einops.rearrange(disp_rnn, 'h w d N -> N h w d')).unsqueeze(0).to(device)
@@ -151,8 +154,8 @@ def apply_instance_optimization(
             mind_mov_ = F.avg_pool3d(mindssc_mov_, grid_sp, stride=grid_sp)
 
         if half_res:
-            fixed_segt = F.avg_pool3d(torch.tensor(fixed_seg, requires_grad=True).to(device).unsqueeze(0).unsqueeze(0), grid_sp, stride=grid_sp)
-            moving_segt = F.avg_pool3d(torch.tensor(moving_seg, requires_grad=True).to(device).unsqueeze(0).unsqueeze(0), grid_sp, stride=grid_sp)
+            fixed_segt = F.avg_pool3d(fixed_segt, grid_sp, stride=grid_sp)
+            moving_segt = F.avg_pool3d(moving_segt, grid_sp, stride=grid_sp)
 
         net = inst_optimization(
             disp=None,
@@ -165,7 +168,7 @@ def apply_instance_optimization(
             fs=None, checkpoint_dir=checkpoint_dir, grid0=grid0,
             fsegt=fixed_segt,
             msegt=moving_segt,
-            labels=label_list,
+            labels=None,
         )
 
         disp_sample = F.avg_pool3d(
@@ -210,17 +213,17 @@ def apply_instance_optimization(
             measurements[data.disp_name]["dice"] = dice
             print(dice)
 
-        if data.fixed_keypoints is not None:
-
-            tre_np = compute_total_registration_error(
-                fixed_keypoints, moving_keypoints, l2r_disp, fs, fs
-            )
-
-            fixed_keypoints = torch.from_numpy(fixed_keypoints)
-            moving_keypoints = torch.from_numpy(moving_keypoints)
-
-            measurements[data.disp_name]["tre"] = tre_np
-            print(tre_np)
+        # if data.fixed_keypoints is not None:
+        #
+        #     tre_np = compute_total_registration_error(
+        #         fixed_keypoints, moving_keypoints, l2r_disp, fs, fs
+        #     )
+        #
+        #     fixed_keypoints = torch.from_numpy(fixed_keypoints)
+        #     moving_keypoints = torch.from_numpy(moving_keypoints)
+        #
+        #     measurements[data.disp_name]["tre"] = tre_np
+        #     print(tre_np)
 
         # displacement_nib = nib.Nifti1Image(l2r_disp, affine=moving_nib.affine)
         # nib.save(displacement_nib, new_disp_path)

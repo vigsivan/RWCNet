@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Dict
 
 from monai.losses import FocalLoss
+from monai.losses.dice import DiceLoss as monaiDice
 
 from common import apply_displacement_field, warp_image
 from differentiable_metrics import TotalRegistrationLoss, DiceLoss
@@ -27,7 +28,7 @@ def tb_optimizer(
 
 trl = TotalRegistrationLoss()
 calc_dice = DiceLoss()
-
+monaidice = monaiDice(include_background=False)
 
 def caLR_loop(H, W, D,
              net, grid0, optimizer,
@@ -69,7 +70,6 @@ def caLR_loop(H, W, D,
 
         if fsegt is not None and msegt is not None:
             dice = calc_dice(fsegt, msegt, disp_hr)
-            print(dice.item())
             iteration_losses["dice"] = dice.item()
 
         # if (int(img_name) < 101) and (fixed_keypoints is not None):
@@ -81,7 +81,7 @@ def caLR_loop(H, W, D,
         #         fixed_spacing,
         #         moving_spacing
         #     )
-        #     print(tre)
+        #     print(tre.item())
         #     iteration_losses["tre"] = tre.item()
 
         scale = (torch.tensor([(H - 1) / 2, (W - 1) / 2, (D - 1) / 2, ]).cuda().unsqueeze(0))
@@ -96,12 +96,9 @@ def caLR_loop(H, W, D,
             padding_mode="border")
 
         sampled_cost = (patch_mov_sampled - mind_fixed).pow(2).mean(1) * 12
-        loss = sampled_cost.mean() # * image_loss_weight
+        loss = sampled_cost.mean()
 
-        # floss = focalloss(patch_mov_sampled, mind_fixed) * focal_loss_weight
-
-        total_loss = loss + reg_loss #+ floss
-        # total_loss += dice
+        total_loss = loss + reg_loss # + dice  #+ floss
 
         iteration_losses["loss"] = loss.item()
         iteration_losses["reg_loss"] = reg_loss.item()
@@ -110,12 +107,12 @@ def caLR_loop(H, W, D,
 
         tb_optimizer(writer=writer, losses_dict=iteration_losses, step=_)
 
-        # total_loss.backward(retain_graph=True)
-        (dice * 10000).backward()
+        total_loss.backward(retain_graph=True)
 
         optimizer.step()
 
         if _ > 70:
+            # schedulera.step()
             if 180<_<250:
                 schedulerb.step()
             else:
