@@ -159,7 +159,7 @@ def compute_dice(
     dice = 0
     count = 0
     for i in labels:
-        if ((fixed == i).sum() == 0) or ((moving == i).sum() == 0):
+        if ((fixed == i).sum() == 0) or ((moving == i).sum() == 0) or (i == 0):
             continue
         computed_dice = _compute_dice_coefficient((fixed == i), (moving_warped == i))
         dice += computed_dice

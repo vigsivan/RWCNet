@@ -25,7 +25,7 @@ app = typer.Typer()
 get_spacing = lambda x: np.sqrt(np.sum(x.affine[:3, :3] * x.affine[:3, :3], axis=0))
 add_bc_dim = lambda x: einops.repeat(x, "d h w -> b c d h w", b=1, c=1).float()
 
-GPU_iden = 0
+GPU_iden = 1
 torch.cuda.set_device(GPU_iden)
 
 @dataclass
@@ -60,8 +60,9 @@ def get_paths(
 
     for v in data:
         img_number = v['moving_image'][-16:-12]
+        fix_number = v['fixed_image'][-16:-12]
         moving_name = f"disp_{img_number}_0001.nii.gz"
-        disp_name = f"disp_{img_number}_{img_number}.nii.gz"
+        disp_name = f"disp_{fix_number}_{img_number}.nii.gz"
         disp_path = disp_root / disp_name
 
         yield InstanceOptData(
@@ -82,15 +83,17 @@ def get_paths(
 
 k_path = "/home/tvujovic/repos/instance_opt/optimization-based-registration/outputs/rnn_45000/disps/"
 rnn_path = './eval_0929/'
+oasis_pred = "./oasis_1018"
 
 @app.command()
 def apply_instance_optimization(
         data_json: Path = Path("OASIS_0711.json"),
-        initial_disp_root: Path = Path(k_path),
-        save_directory: Path = Path("./oasis_start_noise/"),
+        initial_disp_root: Path = Path(oasis_pred),
+        save_directory: Path = Path("./oasis_dice/"),
+        img_shape=(160, 224, 192),
         split_val: str = "train",
         half_res: bool = False,
-        use_mask: bool = True,
+        use_mask: bool = False,
 ):
 
     save_directory.mkdir(exist_ok=True)
@@ -101,8 +104,9 @@ def apply_instance_optimization(
     checkpoint_dir.mkdir(exist_ok=True)
     measurements = defaultdict(dict)
 
-    img_shape = (80, 112, 96)
     grid0 = get_identity_affine_grid(img_shape)
+
+    H, W, D = img_shape
 
     gen = tqdm(get_paths(data_json=data_json, split_val=split_val, disp_root=initial_disp_root))
 
@@ -162,26 +166,25 @@ def apply_instance_optimization(
             mind_fixed=mind_fix_,
             mind_moving=mind_mov_,
             lambda_weight=1.25,
-            image_shape=tuple(s//grid_sp for s in fixed_nib.shape),
+            image_shape=tuple(s//grid_sp for s in img_shape),
             norm=grid_sp,
             img_name=image_name, fkp=None, mkp=None,
             fs=None, checkpoint_dir=checkpoint_dir, grid0=grid0,
             fsegt=fixed_segt,
             msegt=moving_segt,
-            labels=None,
         )
 
         disp_sample = F.avg_pool3d(
             F.avg_pool3d(net[0].weight, 3, stride=1, padding=1), 3, stride=1, padding=1
         ).permute(0, 2, 3, 4, 1)
 
-        scale = (torch.tensor([(160 - 1) / 2, (224 - 1) / 2, (192 - 1) / 2, ]).cuda().unsqueeze(0))
+        scale = (torch.tensor([(H - 1) / 2, (W - 1) / 2, (D - 1) / 2, ]).cuda().unsqueeze(0))
         grid_disp = (grid0.view(-1, 3).cuda().float()
                      + ((disp_sample.view(-1, 3)) / scale).flip(1).float())
 
         patch_mov_sampled = F.grid_sample(
             mind_mov_.float(),
-            grid_disp.view(1, 80, 112, 96, 3).cuda(),
+            grid_disp.view(1, (H // 2), (W // 2), (D // 2), 3).cuda(),
             align_corners=False,
             mode="bilinear",
             padding_mode="border")

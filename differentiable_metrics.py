@@ -11,7 +11,7 @@ import torch
 import numpy as np
 from torch import nn
 import torch.nn.functional as F
-# from monai.losses.dice import DiceLoss
+# from monai.losses.dice import DiceLoss as monaiDice
 from monai.losses.image_dissimilarity import GlobalMutualInformationLoss as MutualInformationLoss
 from common import MINDSSC, warp_image
 
@@ -22,21 +22,21 @@ class DiceLoss(nn.Module):
     def __init__(self):
         super().__init__()
 
-    def forward(self, fixed_seg, moving_seg, flow):
-        labels = fixed_seg.unique()
-
-        fsegs, msegs = [], []
-
-        for i in labels:
-            if i.item() == 0:
-                continue
-            fseg, mseg = (fixed_seg == i).float(), (moving_seg == i).float()
-            fsegs.append(fseg)
-            msegs.append(mseg)
-        assert len(fsegs) != 0, "No labels found!"
-
-        fseg = torch.cat(fsegs, dim=1)
-        mseg = torch.cat(msegs, dim=1)
+    def forward(self, fseg, mseg, flow):
+        # labels = fixed_seg.unique()
+        #
+        # fsegs, msegs = [], []
+        #
+        # for i in labels:
+        #     if i.item() == 0:
+        #         continue
+        #     fseg, mseg = (fixed_seg == i).float(), (moving_seg == i).float()
+        #     fsegs.append(fseg)
+        #     msegs.append(mseg)
+        # assert len(fsegs) != 0, "No labels found!"
+        #
+        # fseg = torch.cat(fsegs, dim=1)
+        # mseg = torch.cat(msegs, dim=1)
 
         wseg = warp_image(flow, mseg, mode="nearest")
         dice = _compute_dice_coefficient(fseg, wseg)

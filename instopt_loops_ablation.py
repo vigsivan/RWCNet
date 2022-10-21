@@ -11,6 +11,7 @@ from typing import Dict
 
 from monai.losses import FocalLoss
 from monai.losses.dice import DiceLoss as monaiDice
+from torch.nn import BCELoss
 
 from common import apply_displacement_field, warp_image
 from differentiable_metrics import TotalRegistrationLoss, DiceLoss
@@ -28,6 +29,7 @@ def tb_optimizer(
 
 trl = TotalRegistrationLoss()
 calc_dice = DiceLoss()
+bce_loss = BCELoss(reduction="mean")
 monaidice = monaiDice(include_background=False)
 
 def caLR_loop(H, W, D,
@@ -48,6 +50,7 @@ def caLR_loop(H, W, D,
 
         disp_sample = F.avg_pool3d(F.avg_pool3d(net[0].weight, 3, stride=1, padding=1), 3, stride=1, padding=1)\
             .permute(0, 2, 3, 4, 1)
+        # disp_sample.retain_grad()
 
         reg_loss = (
                 lambda_weight
@@ -57,20 +60,29 @@ def caLR_loop(H, W, D,
                 + lambda_weight
                 * ((disp_sample[0, :, :, 1:] - disp_sample[0, :, :, :-1]) ** 2).mean())
 
-        fitted_grid = disp_sample.permute(0, 4, 1, 2, 3).cuda()
-
-        disp_hr = F.interpolate(
-            fitted_grid * 2,
-            size=(160, 224, 192),
-            mode="trilinear",
-            align_corners=False,
-        )
+        # fitted_grid = disp_sample.permute(0, 4, 1, 2, 3)
+        #
+        # disp_hr = F.interpolate(
+        #     fitted_grid * 2,
+        #     size=(160, 224, 192),
+        #     mode="trilinear",
+        #     align_corners=False,
+        # )
+        # disp_hr.retain_grad()
 
         # disp_sample_full = einops.rearrange(disp_hr, "b c d h w -> (b c) d h w")
 
         if fsegt is not None and msegt is not None:
-            dice = calc_dice(fsegt, msegt, disp_hr)
+            dice = calc_dice(fsegt, msegt, disp_sample.permute(0, 4, 1, 2, 3))
+            # dice.retain_grad()
             iteration_losses["dice"] = dice.item()
+            print(dice.item())
+
+            # wsegt = warp_image(disp_sample.permute(0, 4, 1, 2, 3), msegt, mode="nearest")
+            # bce = bce_loss(fsegt, wsegt)
+            # bce.retain_grad()
+            # iteration_losses["bce"] = bce.item()
+            # print(bce.item())
 
         # if (int(img_name) < 101) and (fixed_keypoints is not None):
         #
@@ -106,8 +118,8 @@ def caLR_loop(H, W, D,
         # iteration_losses["floss"] = floss.item()
 
         tb_optimizer(writer=writer, losses_dict=iteration_losses, step=_)
-
         total_loss.backward(retain_graph=True)
+        # bce.backward()
 
         optimizer.step()
 
@@ -127,7 +139,7 @@ def inst_optimization(
         image_shape,
         norm,
         img_name, fkp, mkp, fs, checkpoint_dir, grid0,
-        fsegt, msegt, labels,
+        fsegt, msegt, labels=None,
 ):
     H, W, D = image_shape
 
@@ -143,6 +155,26 @@ def inst_optimization(
     schedulera = CosineAnnealingLR(optimizer, T_max=200, eta_min=0.1)
     schedulerb = LinearLR(optimizer, start_factor=0.999, end_factor=0.1, total_iters=70)
 
+    labels = fsegt.unique()
+
+    fsegs, msegs = [], []
+
+    for i in labels:
+        if i == 0:
+        # if not (i.item() in [1,2,3]):
+            # if i.item() in [0, 16, 18, 32, 34]:
+            continue
+        fseginter, mseginter = (fsegt == i).float(), (msegt == i).float()
+        fsegs.append(fseginter)
+        msegs.append(mseginter)
+    assert len(fsegs) != 0, "No labels found!"
+
+    fseg = torch.cat(fsegs, dim=1)
+    mseg = torch.cat(msegs, dim=1)
+
+    # fseg = (fsegt==1).float()
+    # mseg = (msegt==1).float()
+
     caLR_loop(H, W, D,
              net, grid0, optimizer,
              mind_fixed, mind_moving,
@@ -151,6 +183,6 @@ def inst_optimization(
              schedulera=schedulera, schedulerb=schedulerb,
              writer=writer, img_name=img_name, fixed_keypoints=fkp, moving_keypoints=mkp,
              fixed_spacing=fs, moving_spacing=fs,
-            fsegt=fsegt, msegt=msegt, labels=labels)
+            fsegt=fseg, msegt=mseg, labels=None)
 
     return net
