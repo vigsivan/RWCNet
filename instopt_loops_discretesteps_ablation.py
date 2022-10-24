@@ -158,6 +158,7 @@ def lr_step_optimization(
         mseg = torch.cat(msegs, dim=1)
 
     net = nn.Sequential(nn.Conv3d(3,1,(H, W, D)))
+    net[0].weight.data[:] = disp / norm # comment out if not setting initial weights of network to anything
     net.cuda()
 
     optimizer = torch.optim.Adam(net.parameters(), lr=1)

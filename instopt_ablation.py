@@ -62,7 +62,7 @@ def get_paths(
     for v in data:
         img_number = v['moving_image'][-16:-12]
         fix_number = v['fixed_image'][-16:-12]
-        moving_name = f"disp_{img_number}_0001.nii.gz"
+        moving_name = f"disp_{img_number}_0001.nii.gz" # NLST specific
         disp_name = f"disp_{fix_number}_{img_number}.nii.gz"
         disp_path = disp_root / disp_name
 
@@ -88,7 +88,7 @@ def get_paths(
 
 def apply_instance_optimization(
         data_json: Path = Path("./pth0929/NLST.json"),
-        initial_disp_root: Path = Path("/home/tvujovic/scratch/NLST_1024/"),
+        initial_disp_root: Path = Path("/home/tvujovic/scratch/NLST_1024/mrpink_outputs"),
         save_directory: Path = Path("/home/tvujovic/scratch/NLST_1024/io_steps_1521/"),
         img_shape = (224,192,224),
         split_val: str = "train",
@@ -116,7 +116,7 @@ def apply_instance_optimization(
 
         fixed_nib = nib.load(data.fixed_image)
         moving_nib = nib.load(data.moving_image)
-        # initial_disp_nib = nib.load(data.rnn_disp_path)
+        initial_disp_nib = nib.load(data.rnn_disp_path)
 
         fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata())).to(device).squeeze()
         moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata())).to(device).squeeze()
@@ -143,8 +143,9 @@ def apply_instance_optimization(
         #     fixed_segt = torch.tensor(fixed_seg).to(device).unsqueeze(0).unsqueeze(0)
         #     moving_segt = torch.tensor(moving_seg).to(device).unsqueeze(0).unsqueeze(0)
 
-        # disp_rnn = initial_disp_nib.get_fdata()
-        # disp_torch = torch.from_numpy(einops.rearrange(disp_rnn, 'h w d N -> N h w d')).unsqueeze(0).to(device)
+        disp_rnn = initial_disp_nib.get_fdata()
+        disp_torch = torch.from_numpy(einops.rearrange(disp_rnn, 'h w d N -> N h w d')).unsqueeze(0).to(device)
+        disp_half = F.interpolate(disp_torch, (H//2, W//2, D//2))
 
         fixed = (fixed - fixed.min())/(fixed.max() - fixed.min())
         moving = (moving - moving.min())/(moving.max() - moving.min())
@@ -162,12 +163,12 @@ def apply_instance_optimization(
             moving_segt = F.avg_pool3d(moving_segt, grid_sp, stride=grid_sp)
 
         net = lr_step_optimization(
-            disp=None,
+            disp=disp_half,
             mind_fixed=mind_fix_,
             mind_moving=mind_mov_,
             lambda_weight=1.25,
             image_shape=tuple(s//grid_sp for s in img_shape),
-            img_name=image_name,
+            img_name=image_name, norm=grid_sp,
             fkp=torch.tensor(fixed_keypoints) if data.fixed_keypoints is not None else None,
             mkp=torch.tensor(moving_keypoints) if data.fixed_keypoints is not None else None,
             fs=torch.tensor(fs) if data.fixed_keypoints is not None else None,
