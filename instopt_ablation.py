@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Tuple
 from pathlib import Path
 from tqdm import tqdm
 from collections import defaultdict
@@ -15,18 +15,19 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from common import MINDSSC, get_identity_affine_grid, apply_displacement_field, get_labels
+from common import MINDSSC, get_identity_affine_grid #, apply_displacement_field, get_labels
 from metrics import compute_total_registration_error, compute_dice
-from instopt_loops_ablation import inst_optimization
-from ioa_swa_loops import swa_optimization
+# from instopt_loops_ablation import inst_optimization
+from instopt_loops_discretesteps_ablation import lr_step_optimization
+# from ioa_swa_loops import swa_optimization
 
 app = typer.Typer()
 
 get_spacing = lambda x: np.sqrt(np.sum(x.affine[:3, :3] * x.affine[:3, :3], axis=0))
 add_bc_dim = lambda x: einops.repeat(x, "d h w -> b c d h w", b=1, c=1).float()
 
-GPU_iden = 1
-torch.cuda.set_device(GPU_iden)
+# GPU_iden = 1
+# torch.cuda.set_device(GPU_iden)
 
 @dataclass
 class InstanceOptData:
@@ -81,21 +82,21 @@ def get_paths(
             moving_name=moving_name,
         )
 
-k_path = "/home/tvujovic/repos/instance_opt/optimization-based-registration/outputs/rnn_45000/disps/"
-rnn_path = './eval_0929/'
-oasis_pred = "./oasis_1018"
+# k_path = "/home/tvujovic/repos/instance_opt/optimization-based-registration/outputs/rnn_45000/disps/"
+# rnn_path = './eval_0929/'
+# oasis_pred = "./oasis_1018"
 
-@app.command()
 def apply_instance_optimization(
-        data_json: Path = Path("OASIS_0711.json"),
-        initial_disp_root: Path = Path(oasis_pred),
-        save_directory: Path = Path("./oasis_dice/"),
-        img_shape=(160, 224, 192),
+        data_json: Path = Path("./pth0929/NLST.json"),
+        initial_disp_root: Path = Path("/home/tvujovic/scratch/NLST_1024/"),
+        save_directory: Path = Path("/home/tvujovic/scratch/NLST_1024/io_steps_1521/"),
+        img_shape = (224,192,224),
         split_val: str = "train",
         half_res: bool = False,
-        use_mask: bool = False,
+        use_mask: bool = True,
 ):
 
+    # img_shape = (160,224,192)
     save_directory.mkdir(exist_ok=True)
     (save_directory / "disps").mkdir(exist_ok=True)
     device = "cuda"
@@ -104,9 +105,8 @@ def apply_instance_optimization(
     checkpoint_dir.mkdir(exist_ok=True)
     measurements = defaultdict(dict)
 
-    grid0 = get_identity_affine_grid(img_shape)
-
     H, W, D = img_shape
+    grid0 = get_identity_affine_grid((H//2, W //2, D //2))
 
     gen = tqdm(get_paths(data_json=data_json, split_val=split_val, disp_root=initial_disp_root))
 
@@ -134,14 +134,14 @@ def apply_instance_optimization(
             fixed = fixed_mask * fixed
             moving = moving_mask * moving
 
-        if data.fixed_segmentation is not None:
-            fixed_seg = (nib.load(data.fixed_segmentation)).get_fdata().astype("float")
-            moving_seg = (nib.load(data.moving_segmentation)).get_fdata().astype("float")
-
-            label_list = get_labels(torch.tensor(fixed_seg), torch.tensor(moving_seg))
-
-            fixed_segt = torch.tensor(fixed_seg).to(device).unsqueeze(0).unsqueeze(0)
-            moving_segt = torch.tensor(moving_seg).to(device).unsqueeze(0).unsqueeze(0)
+        # if data.fixed_segmentation is not None:
+        #     fixed_seg = (nib.load(data.fixed_segmentation)).get_fdata().astype("float")
+        #     moving_seg = (nib.load(data.moving_segmentation)).get_fdata().astype("float")
+        #
+        #     label_list = get_labels(torch.tensor(fixed_seg), torch.tensor(moving_seg))
+        #
+        #     fixed_segt = torch.tensor(fixed_seg).to(device).unsqueeze(0).unsqueeze(0)
+        #     moving_segt = torch.tensor(moving_seg).to(device).unsqueeze(0).unsqueeze(0)
 
         # disp_rnn = initial_disp_nib.get_fdata()
         # disp_torch = torch.from_numpy(einops.rearrange(disp_rnn, 'h w d N -> N h w d')).unsqueeze(0).to(device)
@@ -157,21 +157,23 @@ def apply_instance_optimization(
             mind_fix_ = F.avg_pool3d(mindssc_fix_, grid_sp, stride=grid_sp)
             mind_mov_ = F.avg_pool3d(mindssc_mov_, grid_sp, stride=grid_sp)
 
-        if half_res:
+        if half_res and data.fixed_segmentation is not None:
             fixed_segt = F.avg_pool3d(fixed_segt, grid_sp, stride=grid_sp)
             moving_segt = F.avg_pool3d(moving_segt, grid_sp, stride=grid_sp)
 
-        net = inst_optimization(
+        net = lr_step_optimization(
             disp=None,
             mind_fixed=mind_fix_,
             mind_moving=mind_mov_,
             lambda_weight=1.25,
             image_shape=tuple(s//grid_sp for s in img_shape),
-            norm=grid_sp,
-            img_name=image_name, fkp=None, mkp=None,
-            fs=None, checkpoint_dir=checkpoint_dir, grid0=grid0,
-            fsegt=fixed_segt,
-            msegt=moving_segt,
+            img_name=image_name,
+            fkp=torch.tensor(fixed_keypoints) if data.fixed_keypoints is not None else None,
+            mkp=torch.tensor(moving_keypoints) if data.fixed_keypoints is not None else None,
+            fs=torch.tensor(fs) if data.fixed_keypoints is not None else None,
+            checkpoint_dir=checkpoint_dir, grid0=grid0,
+            fsegt=fixed_segt if data.fixed_segmentation is not None else None,
+            msegt=moving_segt if data.fixed_segmentation is not None else None,
         )
 
         disp_sample = F.avg_pool3d(
@@ -207,26 +209,26 @@ def apply_instance_optimization(
         new_disp_path = save_directory / "disps" / data.disp_name
         new_disp_path.parent.mkdir(exist_ok=True)
 
-        if data.fixed_segmentation is not None:
-            moved_seg = apply_displacement_field(disp_np, moving_seg, order=0)
-
-            dice = compute_dice(
-                fixed_seg, moving_seg, moved_seg, labels=label_list #type: ignore
-            )
-            measurements[data.disp_name]["dice"] = dice
-            print(dice)
-
-        # if data.fixed_keypoints is not None:
+        # if data.fixed_segmentation is not None:
+        #     moved_seg = apply_displacement_field(disp_np, moving_seg, order=0)
         #
-        #     tre_np = compute_total_registration_error(
-        #         fixed_keypoints, moving_keypoints, l2r_disp, fs, fs
+        #     dice = compute_dice(
+        #         fixed_seg, moving_seg, moved_seg, labels=label_list #type: ignore
         #     )
-        #
-        #     fixed_keypoints = torch.from_numpy(fixed_keypoints)
-        #     moving_keypoints = torch.from_numpy(moving_keypoints)
-        #
-        #     measurements[data.disp_name]["tre"] = tre_np
-        #     print(tre_np)
+        #     measurements[data.disp_name]["dice"] = dice
+        #     print(dice)
+
+        if data.fixed_keypoints is not None:
+
+            tre_np = compute_total_registration_error(
+                fixed_keypoints, moving_keypoints, l2r_disp, fs, fs
+            )
+
+            fixed_keypoints = torch.from_numpy(fixed_keypoints)
+            moving_keypoints = torch.from_numpy(moving_keypoints)
+
+            measurements[data.disp_name]["tre"] = tre_np
+            print(tre_np)
 
         # displacement_nib = nib.Nifti1Image(l2r_disp, affine=moving_nib.affine)
         # nib.save(displacement_nib, new_disp_path)
@@ -242,5 +244,6 @@ def apply_instance_optimization(
     with open(save_directory / "measurements.json", "w") as f:
         json.dump(measurements, f)
 
-if __name__ == "__main__":
-    app()
+
+apply_instance_optimization()
+
