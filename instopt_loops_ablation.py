@@ -16,6 +16,7 @@ from torch.nn import BCELoss
 from common import apply_displacement_field, warp_image
 from differentiable_metrics import TotalRegistrationLoss, DiceLoss
 from metrics import compute_dice
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 
 def tb_optimizer(
@@ -60,41 +61,40 @@ def caLR_loop(H, W, D,
                 + lambda_weight
                 * ((disp_sample[0, :, :, 1:] - disp_sample[0, :, :, :-1]) ** 2).mean())
 
-        # fitted_grid = disp_sample.permute(0, 4, 1, 2, 3)
+        # if fsegt is not None and msegt is not None:
+        #     dice = calc_dice(fsegt, msegt, disp_sample.permute(0, 4, 1, 2, 3))
+        #     # dice.retain_grad()
+        #     iteration_losses["dice"] = dice.item()
+        #     print(dice.item())
         #
-        # disp_hr = F.interpolate(
-        #     fitted_grid * 2,
-        #     size=(160, 224, 192),
-        #     mode="trilinear",
-        #     align_corners=False,
-        # )
-        # disp_hr.retain_grad()
+        #     # wsegt = warp_image(disp_sample.permute(0, 4, 1, 2, 3), msegt, mode="nearest")
+        #     # bce = bce_loss(fsegt, wsegt)
+        #     # bce.retain_grad()
+        #     # iteration_losses["bce"] = bce.item()
+        #     # print(bce.item())
 
-        # disp_sample_full = einops.rearrange(disp_hr, "b c d h w -> (b c) d h w")
+        if (int(img_name) < 101) and (fixed_keypoints is not None):
+            fitted_grid = disp_sample.permute(0, 4, 1, 2, 3)
 
-        if fsegt is not None and msegt is not None:
-            dice = calc_dice(fsegt, msegt, disp_sample.permute(0, 4, 1, 2, 3))
-            # dice.retain_grad()
-            iteration_losses["dice"] = dice.item()
-            print(dice.item())
+            disp_hr = F.interpolate(
+                fitted_grid * 2,
+                size=(H * 2, W * 2, D * 2),
+                mode="trilinear",
+                align_corners=False,
+            )
+            disp_hr.retain_grad()
 
-            # wsegt = warp_image(disp_sample.permute(0, 4, 1, 2, 3), msegt, mode="nearest")
-            # bce = bce_loss(fsegt, wsegt)
-            # bce.retain_grad()
-            # iteration_losses["bce"] = bce.item()
-            # print(bce.item())
+            disp_sample_full = einops.rearrange(disp_hr, "b c d h w -> (b c) d h w")
 
-        # if (int(img_name) < 101) and (fixed_keypoints is not None):
-        #
-        #     tre = trl(
-        #         fixed_keypoints,
-        #         moving_keypoints,
-        #         disp_sample_full.unsqueeze(0),
-        #         fixed_spacing,
-        #         moving_spacing
-        #     )
-        #     print(tre.item())
-        #     iteration_losses["tre"] = tre.item()
+            tre = trl(
+                fixed_keypoints,
+                moving_keypoints,
+                disp_sample_full.unsqueeze(0),
+                fixed_spacing,
+                moving_spacing
+            )
+            print(tre.item())
+            iteration_losses["tre"] = tre.item()
 
         scale = (torch.tensor([(H - 1) / 2, (W - 1) / 2, (D - 1) / 2, ]).cuda().unsqueeze(0))
         grid_disp = (grid0.view(-1, 3).cuda().float()
@@ -111,6 +111,7 @@ def caLR_loop(H, W, D,
         loss = sampled_cost.mean()
 
         total_loss = loss + reg_loss # + dice  #+ floss
+        # total_loss.retain_grad()
 
         iteration_losses["loss"] = loss.item()
         iteration_losses["reg_loss"] = reg_loss.item()
@@ -124,12 +125,12 @@ def caLR_loop(H, W, D,
         optimizer.step()
 
         if _ > 70:
-            # schedulera.step()
+        #     schedulerb.step()
             if 180<_<250:
                 schedulerb.step()
             else:
                 schedulera.step()
-
+        #     schedulerb.step() if _ > 210 else schedulera.step()
 
 def inst_optimization(
         disp,
@@ -137,9 +138,10 @@ def inst_optimization(
         mind_moving,
         lambda_weight,
         image_shape,
-        norm,
-        img_name, fkp, mkp, fs, checkpoint_dir, grid0,
-        fsegt, msegt, labels=None,
+        checkpoint_dir,
+        img_name,
+        norm=None, fkp=None, mkp=None, fs=None, grid0=None,
+        fsegt=None, msegt=None, labels=None,
 ):
     H, W, D = image_shape
 
@@ -155,22 +157,23 @@ def inst_optimization(
     schedulera = CosineAnnealingLR(optimizer, T_max=200, eta_min=0.1)
     schedulerb = LinearLR(optimizer, start_factor=0.999, end_factor=0.1, total_iters=70)
 
-    labels = fsegt.unique()
+    if fsegt is not None:
+        labels = fsegt.unique()
 
-    fsegs, msegs = [], []
+        fsegs, msegs = [], []
 
-    for i in labels:
-        if i == 0:
-        # if not (i.item() in [1,2,3]):
-            # if i.item() in [0, 16, 18, 32, 34]:
-            continue
-        fseginter, mseginter = (fsegt == i).float(), (msegt == i).float()
-        fsegs.append(fseginter)
-        msegs.append(mseginter)
-    assert len(fsegs) != 0, "No labels found!"
+        for i in labels:
+            if i == 0:
+            # if not (i.item() ==1):
+                # if i.item() in [0, 16, 18, 32, 34]:
+                continue
+            fseginter, mseginter = (fsegt == i).float(), (msegt == i).float()
+            fsegs.append(fseginter)
+            msegs.append(mseginter)
+        assert len(fsegs) != 0, "No labels found!"
 
-    fseg = torch.cat(fsegs, dim=1)
-    mseg = torch.cat(msegs, dim=1)
+        fseg = torch.cat(fsegs, dim=1)
+        mseg = torch.cat(msegs, dim=1)
 
     # fseg = (fsegt==1).float()
     # mseg = (msegt==1).float()
@@ -181,8 +184,11 @@ def inst_optimization(
              lambda_weight,
              iterations=range(270),
              schedulera=schedulera, schedulerb=schedulerb,
-             writer=writer, img_name=img_name, fixed_keypoints=fkp, moving_keypoints=mkp,
+             writer=writer, img_name=img_name,
+             fixed_keypoints=fkp,
+             moving_keypoints=mkp,
              fixed_spacing=fs, moving_spacing=fs,
-            fsegt=fseg, msegt=mseg, labels=None)
+             fsegt=fseg if fsegt is not None else None,
+             msegt=mseg if fsegt is not None else None, labels=None)
 
     return net

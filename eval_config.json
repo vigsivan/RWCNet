@@ -3,7 +3,7 @@
         {
             "res_factor": 4,
             "patch_factor": 4,
-            "checkpoint": "checkpoints/stage1/rnn4x_15000.pth",
+            "checkpoint": "pth_0929/mr_pink_stage1.pth",
             "iters": 12,
             "search_range": 3,
             "diffeomorphic": true
@@ -11,7 +11,7 @@
         {
             "res_factor": 2,
             "patch_factor": 4,
-            "checkpoint": "checkpoints/stage2/rnn2x_15000.pth",
+            "checkpoint": "pth_0929/mr_pink_stage2.pth",
             "iters": 12,
             "search_range": 3,
             "diffeomorphic": true
@@ -19,7 +19,7 @@
         {
             "res_factor": 1,
             "patch_factor": 2,
-            "checkpoint": "checkpoints/stage3/rnn1x_5000.pth",
+            "checkpoint": "pth_0929/mr_pink_stage3.pth",
             "iters": 4,
             "search_range": 2,
             "diffeomorphic": true
@@ -27,7 +27,7 @@
     ],
     "cache_file": "stage2.pkl",
     "instance_opt_res": 2,
-    "save_path": "rapid_val",
+    "save_path": "nlst_wfeats_1027",
     "split": "val",
     "eval_at_each_stage": false
 }
