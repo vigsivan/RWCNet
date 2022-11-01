@@ -9,14 +9,10 @@ from torch.utils.tensorboard.writer import SummaryWriter
 from pathlib import Path
 from typing import Dict
 
-from monai.losses import FocalLoss
 from monai.losses.dice import DiceLoss as monaiDice
 from torch.nn import BCELoss
 
-from common import apply_displacement_field, warp_image
 from differentiable_metrics import TotalRegistrationLoss, DiceLoss
-from metrics import compute_dice
-from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 
 def tb_optimizer(
@@ -51,7 +47,6 @@ def caLR_loop(H, W, D,
 
         disp_sample = F.avg_pool3d(F.avg_pool3d(net[0].weight, 3, stride=1, padding=1), 3, stride=1, padding=1)\
             .permute(0, 2, 3, 4, 1)
-        # disp_sample.retain_grad()
 
         reg_loss = (
                 lambda_weight
@@ -110,27 +105,22 @@ def caLR_loop(H, W, D,
         sampled_cost = (patch_mov_sampled - mind_fixed).pow(2).mean(1) * 12
         loss = sampled_cost.mean()
 
-        total_loss = loss + reg_loss # + dice  #+ floss
-        # total_loss.retain_grad()
+        total_loss = loss + reg_loss
 
         iteration_losses["loss"] = loss.item()
         iteration_losses["reg_loss"] = reg_loss.item()
         iteration_losses["total_loss"] = total_loss.item()
-        # iteration_losses["floss"] = floss.item()
 
         tb_optimizer(writer=writer, losses_dict=iteration_losses, step=_)
         total_loss.backward(retain_graph=True)
-        # bce.backward()
 
         optimizer.step()
 
         if _ > 70:
-        #     schedulerb.step()
             if 180<_<250:
                 schedulerb.step()
             else:
                 schedulera.step()
-        #     schedulerb.step() if _ > 210 else schedulera.step()
 
 def inst_optimization(
         disp,

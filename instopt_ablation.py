@@ -17,8 +17,8 @@ import torch.nn.functional as F
 
 from common import MINDSSC, get_identity_affine_grid #, apply_displacement_field, get_labels
 from metrics import compute_total_registration_error, compute_dice
-# from instopt_loops_ablation import inst_optimization
-from instopt_loops_discretesteps_ablation import lr_step_optimization
+from instopt_loops_ablation import inst_optimization
+# from instopt_loops_discretesteps_ablation import lr_step_optimization
 # from ioa_swa_loops import swa_optimization
 
 app = typer.Typer()
@@ -26,8 +26,8 @@ app = typer.Typer()
 get_spacing = lambda x: np.sqrt(np.sum(x.affine[:3, :3] * x.affine[:3, :3], axis=0))
 add_bc_dim = lambda x: einops.repeat(x, "d h w -> b c d h w", b=1, c=1).float()
 
-# GPU_iden = 1
-# torch.cuda.set_device(GPU_iden)
+GPU_iden = 1
+torch.cuda.set_device(GPU_iden)
 
 @dataclass
 class InstanceOptData:
@@ -86,14 +86,15 @@ def get_paths(
 # rnn_path = './eval_0929/'
 # oasis_pred = "./oasis_1018"
 
+
 def apply_instance_optimization(
-        data_json: Path = Path("./pth0929/NLST.json"),
+        data_json: Path = Path("./pth_0929/NLST.json"),
         initial_disp_root: Path = Path("/home/tvujovic/scratch/NLST_1024/mrpink_outputs"),
-        save_directory: Path = Path("/home/tvujovic/scratch/NLST_1024/io_steps_1521/"),
+        save_directory: Path = Path("./CVIS/"),
         img_shape = (224,192,224),
         split_val: str = "train",
         half_res: bool = False,
-        use_mask: bool = True,
+        use_mask: bool = False,
 ):
 
     # img_shape = (160,224,192)
@@ -116,7 +117,7 @@ def apply_instance_optimization(
 
         fixed_nib = nib.load(data.fixed_image)
         moving_nib = nib.load(data.moving_image)
-        initial_disp_nib = nib.load(data.rnn_disp_path)
+        # initial_disp_nib = nib.load(data.rnn_disp_path)
 
         fixed = add_bc_dim(torch.from_numpy(fixed_nib.get_fdata())).to(device).squeeze()
         moving = add_bc_dim(torch.from_numpy(moving_nib.get_fdata())).to(device).squeeze()
@@ -134,18 +135,18 @@ def apply_instance_optimization(
             fixed = fixed_mask * fixed
             moving = moving_mask * moving
 
-        # if data.fixed_segmentation is not None:
-        #     fixed_seg = (nib.load(data.fixed_segmentation)).get_fdata().astype("float")
-        #     moving_seg = (nib.load(data.moving_segmentation)).get_fdata().astype("float")
-        #
-        #     label_list = get_labels(torch.tensor(fixed_seg), torch.tensor(moving_seg))
-        #
-        #     fixed_segt = torch.tensor(fixed_seg).to(device).unsqueeze(0).unsqueeze(0)
-        #     moving_segt = torch.tensor(moving_seg).to(device).unsqueeze(0).unsqueeze(0)
+        if data.fixed_segmentation is not None:
+            fixed_seg = (nib.load(data.fixed_segmentation)).get_fdata().astype("float")
+            moving_seg = (nib.load(data.moving_segmentation)).get_fdata().astype("float")
 
-        disp_rnn = initial_disp_nib.get_fdata()
-        disp_torch = torch.from_numpy(einops.rearrange(disp_rnn, 'h w d N -> N h w d')).unsqueeze(0).to(device)
-        disp_half = F.interpolate(disp_torch, (H//2, W//2, D//2))
+            # label_list = get_labels(torch.tensor(fixed_seg), torch.tensor(moving_seg))
+
+            fixed_segt = torch.tensor(fixed_seg).to(device).unsqueeze(0).unsqueeze(0)
+            moving_segt = torch.tensor(moving_seg).to(device).unsqueeze(0).unsqueeze(0)
+
+        # disp_rnn = initial_disp_nib.get_fdata()
+        # disp_torch = torch.from_numpy(einops.rearrange(disp_rnn, 'h w d N -> N h w d')).unsqueeze(0).to(device)
+        # disp_half = F.interpolate(disp_torch, (H//2, W//2, D//2))
 
         fixed = (fixed - fixed.min())/(fixed.max() - fixed.min())
         moving = (moving - moving.min())/(moving.max() - moving.min())
@@ -162,19 +163,19 @@ def apply_instance_optimization(
             fixed_segt = F.avg_pool3d(fixed_segt, grid_sp, stride=grid_sp)
             moving_segt = F.avg_pool3d(moving_segt, grid_sp, stride=grid_sp)
 
-        net = lr_step_optimization(
-            disp=disp_half,
+        net = inst_optimization(
+            disp=None,
             mind_fixed=mind_fix_,
             mind_moving=mind_mov_,
             lambda_weight=1.25,
             image_shape=tuple(s//grid_sp for s in img_shape),
-            img_name=image_name, norm=grid_sp,
+            img_name=image_name, norm=None,
             fkp=torch.tensor(fixed_keypoints) if data.fixed_keypoints is not None else None,
             mkp=torch.tensor(moving_keypoints) if data.fixed_keypoints is not None else None,
             fs=torch.tensor(fs) if data.fixed_keypoints is not None else None,
             checkpoint_dir=checkpoint_dir, grid0=grid0,
-            fsegt=fixed_segt if data.fixed_segmentation is not None else None,
-            msegt=moving_segt if data.fixed_segmentation is not None else None,
+            fsegt=fixed_segt if data.fixed_segmentation is not None and half_res else None,
+            msegt=moving_segt if data.fixed_segmentation is not None and half_res else None,
         )
 
         disp_sample = F.avg_pool3d(
