@@ -29,5 +29,5 @@
         }
     ],
     "cache_file": "stage2.pkl",
-    "savedir": "testing_RWCNet_OASIS"
+    "savedir": "~/scratch/test_OASIS"
 }
