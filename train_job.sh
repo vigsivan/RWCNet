@@ -3,7 +3,7 @@
 #SBATCH --account=def-s2mclach
 #SBATCH --mem=32000M            # memory per node
 #SBATCH --gpus-per-node=1
-#SBATCH --cpus-per-task=6       # CPU cores/threads
+#SBATCH --cpus-per-task=10       # CPU cores/threads
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=jh3chu@uwaterloo.ca
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
