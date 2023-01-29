@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --time=0-24:00:00
+#SBATCH --time=0-48:00:00
 #SBATCH --account=def-s2mclach
 #SBATCH --mem=32000M            # memory per node
 #SBATCH --gpus-per-node=1
