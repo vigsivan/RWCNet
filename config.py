@@ -9,9 +9,9 @@ class TrainStageConfig(BaseModel):
     iters: int = 12
     search_range: int = 3
     start_from_last: bool =False
-    save_freq: int=100
+    save_freq: int=500
     log_freq: int=10
-    val_freq: int=100
+    val_freq: int=300
 
 class TrainConfig(BaseModel):
     stages: List[TrainStageConfig]
