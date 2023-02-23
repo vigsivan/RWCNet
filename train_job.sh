@@ -2,7 +2,7 @@
 #SBATCH --time=0-48:00:00
 #SBATCH --account=def-s2mclach
 #SBATCH --mem=32000M            # memory per node
-#SBATCH --gpus-per-node=2
+#SBATCH --gpus-per-node=1
 #SBATCH --cpus-per-task=20       # CPU cores/threads
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=jh3chu@uwaterloo.ca
