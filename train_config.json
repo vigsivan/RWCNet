@@ -6,8 +6,7 @@
             "iters": 12,
             "search_range": 3,
             "steps": 15000,
-            "diffeomorphic": true,
-            "start_from_last": false
+            "diffeomorphic": true
         },
         {
             "res_factor": 2,
@@ -15,8 +14,7 @@
             "iters": 12,
             "search_range": 3,
             "steps": 20000,
-            "diffeomorphic": true,
-            "start_from_last": true
+            "diffeomorphic": true
         },
         {
             "res_factor": 1,
@@ -24,10 +22,11 @@
             "iters": 4,
             "search_range": 2,
             "steps": 5000,
-            "diffeomorphic": true,
-            "start_from_last": false
+            "diffeomorphic": true
         }
     ],
     "cache_file": "stage2.pkl",
-    "savedir": "redoNLST"
+    "savedir": "redoNLST",
+    "dset_min": 0,
+    "dset_max": 1
 }

@@ -4,14 +4,9 @@ from pydantic import BaseModel, validator
 from networks import SomeNet, SomeNetNoCorr, SomeNetNoisy, SomeNetNoisyv2
 import torch
 
-class NetworkConfig(BaseModel):
+class TrainStageConfig(BaseModel):
     iters: int = 12
     search_range: int = 3
-    noisy: bool=False
-
-
-class TrainStageConfig(BaseModel):
-    network: NetworkConfig
     res_factor: int
     patch_factor: int
     steps: int
@@ -45,7 +40,7 @@ class TrainConfig(BaseModel):
     dset_max: float=16e3
 
     @validator("stages")
-    def validate_cache_file(cls, val):
+    def validate_stages(cls, val):
         if len(val) == 0:
             raise ValueError("Expected at least one stage")
         return val
@@ -70,7 +65,7 @@ class EvalConfig(BaseModel):
     device: str = "cuda"
 
     @validator("stages")
-    def validate_cache_file(cls, val):
+    def validate_stages(cls, val):
         if len(val) == 0:
             raise ValueError("Expected at least one stage")
         return val

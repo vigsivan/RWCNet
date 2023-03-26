@@ -1,41 +1,28 @@
-import random
 import json
+import random
 from collections import defaultdict
+from contextlib import contextmanager
 from functools import partial
-from contextlib import contextmanager, nullcontext
 from pathlib import Path
-import einops
-import pickle
-import numpy as np
 from typing import Dict, Optional, Tuple, Union
-from torch.utils.tensorboard.writer import SummaryWriter
+
+import einops
+import nibabel as nib
+import numpy as np
 import torch
 import torch.nn.functional as F
-import nibabel as nib
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader, Dataset
+from torch.utils.tensorboard.writer import SummaryWriter
+from tqdm import trange
 from typer import Typer
+
+from common import (concat_flow, identity_grid_torch, load_keypoints, tb_log,
+                    torch2skimage_disp, warp_image)
 from data import InfiniteDataLoader
-from tqdm import trange, tqdm
-
-from common import (
-    concat_flow,
-    identity_grid_torch,
-    load_keypoints,
-    tb_log,
-    torch2skimage_disp,
-    warp_image,
-)
-from differentiable_metrics import (
-    MSE,
-    DiceLoss,
-    Grad,
-    TotalRegistrationLoss,
-    MutualInformationLoss,
-    NCC,
-)
-from networks import SomeNet, SomeNetNoCorr, SomeNetNoisy
-
-__all__ = ["train", "train_with_artifacts"]
+from differentiable_metrics import (MSE, NCC, DiceLoss, Grad,
+                                    MutualInformationLoss,
+                                    TotalRegistrationLoss)
+from networks import SomeNet, SomeNetNoCorr
 
 app = Typer()
 
@@ -251,7 +238,7 @@ class PatchDatasetWithArtifacts(Dataset):
         hidden = hidden.squeeze(0)
         flow = flow.squeeze(0)
 
-        ret: Dict[str, Union[torch.Tensor, str, Tuple]] = {
+        ret: Dict[str, Union[torch.Tensor, str, Tuple, Path]] = {
             "fixed_image": fixed,
             "moving_image": moving,
             "hidden": hidden,
@@ -956,6 +943,15 @@ def run_model_with_artifiacts_and_get_losses(
                     f"{lk} does not require gradient and will not affect learning"
                 )
 
+    losses = {lk: lv.item() for lk, lv in losses_dict.items()}
+    if writer != None and step != None:
+        tb_log(
+            writer,
+            losses,
+            step=step,
+            moving_fixed_moved=(moving, fixed, moved),
+        )
+
     return losses_dict
 
 
@@ -982,10 +978,8 @@ def train_with_artifacts(
     image_loss_fn: str = "mse",
     iters: int = 2,
     search_range: int = 1,
-    use_mask: bool = False,
     diffeomorphic: bool = False,
     num_workers: int = 4,
-    noisy: bool = False,
 ):
 
     train_dataset = PatchDatasetWithArtifacts(
@@ -1020,12 +1014,7 @@ def train_with_artifacts(
     if search_range == 0:
         model = SomeNetNoCorr(iters=iters, diffeomorphic=diffeomorphic).to(device)
     else:
-        if noisy:
-            modelclass = SomeNetNoisy
-        else:
-            modelclass = SomeNet
-
-        model = modelclass(
+        model = SomeNet(
             search_range=search_range, iters=iters, diffeomorphic=diffeomorphic
         ).to(device)
 
@@ -1059,7 +1048,6 @@ def train_with_artifacts(
             losses_dict = run(model, data)
         total_loss = sum(losses_dict.values())
         assert isinstance(total_loss, torch.Tensor)
-        losses_dict_log = {k: v.item() for k, v in losses_dict.items()}
 
         opt.zero_grad()
         total_loss.backward()
@@ -1140,7 +1128,7 @@ def run_model_and_get_losses(
     if writer != None and step != None:
         tb_log(
             writer,
-            losses,
+            {lk: lv.item() for lk, lv in losses.items()},
             step=step,
             moving_fixed_moved=(moving, fixed, moved),
         )
@@ -1167,12 +1155,10 @@ def train(
     save_freq: int,
     val_freq: int,
     start: Optional[Path] = None,
-    use_mask: bool = False,
     diffeomorphic: bool = True,
     search_range: int = 3,
     num_workers: int = 4,
     starting_step: Optional[int] = None,
-    noisy: bool = False,
     device: str = "cuda",
 ):
     """
@@ -1207,14 +1193,10 @@ def train(
     if search_range == 0:
         model = SomeNetNoCorr(iters=iters, diffeomorphic=diffeomorphic).to(device)
     else:
-        if noisy:
-            modelclass = SomeNetNoisy
-        else:
-            modelclass = SomeNet
-
-        model = modelclass(
+        model = SomeNet(
             search_range=search_range, iters=iters, diffeomorphic=diffeomorphic
         ).to(device)
+
     step_count = 0
     if start is not None:
         model.load_state_dict(torch.load(start))
@@ -1243,7 +1225,6 @@ def train(
 
         total_loss = sum(losses_dict.values())
         assert isinstance(total_loss, torch.Tensor)
-        losses_dict_log = {k: v.item() for k, v in losses_dict.items()}
 
         opt.zero_grad()
         total_loss.backward()
