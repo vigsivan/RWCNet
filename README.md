@@ -1,4 +1,6 @@
-# Optimization Based Registration
+# RWCNet
+
+This is the official repository for RWCNet
 
 ## Setup
 
@@ -6,42 +8,21 @@
 pip install -r requirements.txt
 ```
 
-To evaluate on L2R data, set up L2R eval repo
+## Training
+* Currently, the model caches the hidden tensors as well as the flows at each level. This ends up taking **a lot** of space.
+* The model training can be configured using the train_config.json. The options for the configuration can be inferred from `config.py`
+* When running the full model against L2R data, please use the data format used for the L2R 2022 challenge.
+
+To train the model on L2R data:
 
 ```
-git clone git@github.com:MDL-UzL/L2R.git
-cd L2R/evaluation/surface-distance/
-python setup.py install
+python l2r_train_eval.py l2r_dataset_json.json train_config.json
 ```
 
-## Data Format
+## Publication
 
-The scripts expect the data to be in a JSON format. Please refer to the example for Oasis in the example directory.
-The util script provides a few script for converting L2R data to the required format.
-There is also support for training flownet with unpaired images.
+If you find this repository useful, please cite:
 
-## Running
-
-### ConvexAdam
-
-```
-# for a full list of options
-python convexAdam.py --help
-
-python convexAdam.py ~/optimization-based-registration/oasis.json oasis_ca --split val
-# functionality for running without labels
-python convexAdam.py ~/optimization-based-registration/oasis.json oasis_ca --split val --no-use-labels 
-
-```
-
-### RNN
-
-```
-# for a full list of options
-python run_rnn.py --help
-
-# functionality for training and evaluating without labels
-python run_rnn.py train ~/optimization-based-registration/oasis.json oasis_checkpoints
-python run_rnn.py eval oasis_checkpoints/flownet_step40000.pth ~/optimization-based-registration/oasis.json oasis_checkpoints
-
-```
+    Recurrence With Correlation Network for Medical Image Registration
+    Vignesh Sivan, Teodora Vujovic, Raj Ranabhat, Alexander Wong, Stewart Mclachlin, Michael Hardisty
+    eprint arXiv:2302.02283
