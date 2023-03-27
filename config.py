@@ -1,8 +1,6 @@
 from pathlib import Path
 from typing import List, Optional
 from pydantic import BaseModel, validator
-from networks import SomeNet, SomeNetNoCorr, SomeNetNoisy, SomeNetNoisyv2
-import torch
 
 class TrainStageConfig(BaseModel):
     iters: int = 12
