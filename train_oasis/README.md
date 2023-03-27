@@ -3,7 +3,7 @@
 This directory contains:
 - model weights (\*.pth)
 - evaluation config (eval\_config.json)
-- dataset split used for training and validation (data.json)
+- dataset split used for training and validation (data.json). Note you'll have to change the paths for it to work on your system.
 - metrics (metrics.json)
 
 You can verify the results by running: 
