@@ -1,5 +1,6 @@
 """
-Heavily adapted from code written by Mattias Paul Heinrich
+Heavily adapted from the ConvexAdam codebase:
+    https://github.com/multimodallearning/convexAdam
 """
 
 from collections import defaultdict
@@ -281,6 +282,7 @@ def main(
     with open(save_directory / "measurements.json", "w") as f:
         json.dump(measurements, f)
 
-app()
+if __name__ == "__main__":
+    app()
 # leave for now for Teo's pycharm debugging purposes
 # main(data_json=Path('/home/tvujovic/repos/opt_based_reg_flow/optimization-based-registration/jsons/convAdam_bender_teo/NLST_eval_pairs_0706.json'), save_directory=Path('test_tre'), use_labels=False)

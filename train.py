@@ -52,7 +52,7 @@ def evaluating(net):
 
 class PatchDatasetWithArtifacts(Dataset):
     """
-    Extracts 3D `patches' at a specific resolution
+    Extracts 3D `patches' at a specific resolution with artifacts from previous stage
     """
 
     def __init__(
