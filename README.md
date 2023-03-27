@@ -2,7 +2,7 @@
 
 This is the official repository for RWCNet
 
-<embed src="./RWCNet.pdf" type="application/pdf">
+![RWCNet Diagram](RWCNet.png)
 
 ## Setup
 
