@@ -359,8 +359,8 @@ def eval(data_json: Path, eval_config: Path):
 
         assert flow_agg is not None
         image_metrics = evaluate(data, flow_agg, fixed, moving, 1)
-        dataset_metrics[i]["fixed"] = str(fixed)
-        dataset_metrics[i]["moving"] = str(moving)
+        dataset_metrics[i]["fixed"] = str(data["fixed_name"])
+        dataset_metrics[i]["moving"] = str(data["moving_name"])
         dataset_metrics[i]["metrics"] = image_metrics
 
         # FIXME: instance optimization
