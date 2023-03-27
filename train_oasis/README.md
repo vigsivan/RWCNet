@@ -1,9 +1,9 @@
-# Oasis Reproducibility
+# Oasis Artifacts
 
 This directory contains:
 - model weights (\*.pth)
 - evaluation config (eval\_config.json)
-- dataset split used for training and validation (data.json)
+- dataset split used for training and validation (data.json) (You'll likely have to change the paths for your system)
 - metrics (metrics.json)
 
 You can verify the results by running: 
