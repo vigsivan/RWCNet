@@ -26,7 +26,6 @@ class TrainStageConfig(BaseModel):
 
 class TrainConfig(BaseModel):
     stages: List[TrainStageConfig]
-    cache_file: Path
     savedir: Path
     num_threads: int=4
     device: str = "cuda"
@@ -53,10 +52,9 @@ class EvalStageConfig(BaseModel):
 
 class EvalConfig(BaseModel):
     stages: List[EvalStageConfig]
-    cache_file: Path
     save_path: Path
-    min_int: float
-    max_int: float
+    dset_min: float
+    dset_max: float
     instance_opt_res: int=2
     eval_at_each_stage: bool=False
     split: str = "test"

@@ -1,4 +1,5 @@
 import json
+from collections import defaultdict
 from pathlib import Path
 
 import einops
@@ -222,10 +223,11 @@ def run_model_with_patches(
     return flow_agg, folded_hidden, folded_fixed_f, folded_moving_f
 
 
-def evaluate(data, flow_agg, fixed_res, moving_res, res):
+def evaluate(data, flow_agg, fixed_res, moving_res, res, std_out: bool=False):
     # FIXME: make the image loss configurable
+    metrics = {}
     mi_loss = MSE()(fixed_res, moving_res)
-    print("Mutual Information Loss: ", mi_loss.item())
+    metrics["MSE"] = mi_loss.item()
 
     if "fixed_keypoints" in data:
         fixed_kps = data["fixed_keypoints"] / res
@@ -237,6 +239,7 @@ def evaluate(data, flow_agg, fixed_res, moving_res, res):
             fixed_spacing=data["fixed_spacing"].squeeze(0),
             moving_spacing=data["moving_spacing"].squeeze(0),
         )
+        metrics["TRE"] = tre_loss.item()
 
     if "fixed_segmentation" in data:
         fixed_seg = (
@@ -265,7 +268,12 @@ def evaluate(data, flow_agg, fixed_res, moving_res, res):
             fixed_seg.to(flow_agg.device), moving_seg.to(flow_agg.device), flow_agg
         )
 
-        print("Dice Loss", dice_loss.item())
+        metrics["dice"] = dice_loss.item()
+    if std_out:
+        for k, v in metrics.items():
+            print(f"{k}: {v}")
+
+    return metrics
 
 
 def eval(data_json: Path, eval_config: Path):
@@ -277,9 +285,10 @@ def eval(data_json: Path, eval_config: Path):
     eval_dataset = EvalDataset(
         data_json=data_json,
         split=config.split,
-        max_int=config.max_int,
-        min_int=config.min_int,
+        max_int=config.dset_max,
+        min_int=config.dset_min,
     )
+    dataset_metrics = defaultdict(dict)
     for i in trange(len(eval_dataset)):
         data = eval_dataset[i]
         hidden = None
@@ -342,12 +351,18 @@ def eval(data_json: Path, eval_config: Path):
                 moving_features.append(moving_features_res)
 
             if config.eval_at_each_stage:
-                evaluate(data, flow_agg, fixed_res, moving_res, r)
+                # NOTE: this is only used for debugging, add feature for logging
+                # into metrics file for understanding how the metrics change with stage
+                evaluate(data, flow_agg, fixed_res, moving_res, r, std_out=True)
 
             del fixed_res, moving_res, model
 
         assert flow_agg is not None
-        evaluate(data, flow_agg, fixed, moving, 1)
+        image_metrics = evaluate(data, flow_agg, fixed, moving, 1)
+        dataset_metrics[i]["fixed"] = str(fixed)
+        dataset_metrics[i]["moving"] = str(moving)
+        dataset_metrics[i]["metrics"] = image_metrics
+
         # FIXME: instance optimization
         # fixed = fixed.to(config.device)
         # moving = moving.to(config.device)
@@ -426,6 +441,8 @@ def eval(data_json: Path, eval_config: Path):
 
         nib.save(displacement_nib, config.save_path / disp_name)
 
+    with open(config.save_path / "metrics.json", 'w') as f:
+        json.dump(dataset_metrics, f)
 
 if __name__ == "__main__":
     import sys
