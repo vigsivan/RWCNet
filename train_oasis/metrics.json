@@ -1,0 +1,154 @@
+{
+    "0": {
+        "fixed": "OASIS_0395_0000.nii.gz",
+        "moving": "OASIS_0396_0000.nii.gz",
+        "metrics": {
+            "MSE": 0.0031759780831635,
+            "dice": 0.18783462047576904
+        }
+    },
+    "1": {
+        "fixed": "OASIS_0396_0000.nii.gz",
+        "moving": "OASIS_0397_0000.nii.gz",
+        "metrics": {
+            "MSE": 0.0035267460625618696,
+            "dice": 0.21113014221191406
+        }
+    },
+    "2": {
+        "fixed": "OASIS_0397_0000.nii.gz",
+        "moving": "OASIS_0398_0000.nii.gz",
+        "metrics": {
+            "MSE": 0.003819664241746068,
+            "dice": 0.22736024856567383
+        }
+    },
+    "3": {
+        "fixed": "OASIS_0398_0000.nii.gz",
+        "moving": "OASIS_0399_0000.nii.gz",
+        "metrics": {
+            "MSE": 0.003711062716320157,
+            "dice": 0.20119637250900269
+        }
+    },
+    "4": {
+        "fixed": "OASIS_0399_0000.nii.gz",
+        "moving": "OASIS_0400_0000.nii.gz",
+        "metrics": {
+            "MSE": 0.0031272396445274353,
+            "dice": 0.1895827054977417
+        }
+    },
+    "5": {
+        "fixed": "OASIS_0400_0000.nii.gz",
+        "moving": "OASIS_0401_0000.nii.gz",
+        "metrics": {
+            "MSE": 0.002990806009620428,
+            "dice": 0.184370756149292
+        }
+    },
+    "6": {
+        "fixed": "OASIS_0401_0000.nii.gz",
+        "moving": "OASIS_0402_0000.nii.gz",
+        "metrics": {
+            "MSE": 0.00454390374943614,
+            "dice": 0.18901389837265015
+        }
+    },
+    "7": {
+        "fixed": "OASIS_0402_0000.nii.gz",
+        "moving": "OASIS_0403_0000.nii.gz",
+        "metrics": {
+            "MSE": 0.004187749698758125,
+            "dice": 0.19834965467453003
+        }
+    },
+    "8": {
+        "fixed": "OASIS_0403_0000.nii.gz",
+        "moving": "OASIS_0404_0000.nii.gz",
+        "metrics": {
+            "MSE": 0.003712152363732457,
+            "dice": 0.18458986282348633
+        }
+    },
+    "9": {
+        "fixed": "OASIS_0404_0000.nii.gz",
+        "moving": "OASIS_0405_0000.nii.gz",
+        "metrics": {
+            "MSE": 0.003907437901943922,
+            "dice": 0.20348072052001953
+        }
+    },
+    "10": {
+        "fixed": "OASIS_0405_0000.nii.gz",
+        "moving": "OASIS_0406_0000.nii.gz",
+        "metrics": {
+            "MSE": 0.0032112381886690855,
+            "dice": 0.18833273649215698
+        }
+    },
+    "11": {
+        "fixed": "OASIS_0406_0000.nii.gz",
+        "moving": "OASIS_0407_0000.nii.gz",
+        "metrics": {
+            "MSE": 0.003319443902000785,
+            "dice": 0.19552141427993774
+        }
+    },
+    "12": {
+        "fixed": "OASIS_0407_0000.nii.gz",
+        "moving": "OASIS_0408_0000.nii.gz",
+        "metrics": {
+            "MSE": 0.003886703634634614,
+            "dice": 0.19846707582473755
+        }
+    },
+    "13": {
+        "fixed": "OASIS_0408_0000.nii.gz",
+        "moving": "OASIS_0409_0000.nii.gz",
+        "metrics": {
+            "MSE": 0.0034612040035426617,
+            "dice": 0.18857276439666748
+        }
+    },
+    "14": {
+        "fixed": "OASIS_0409_0000.nii.gz",
+        "moving": "OASIS_0410_0000.nii.gz",
+        "metrics": {
+            "MSE": 0.0035759659949690104,
+            "dice": 0.19821852445602417
+        }
+    },
+    "15": {
+        "fixed": "OASIS_0410_0000.nii.gz",
+        "moving": "OASIS_0411_0000.nii.gz",
+        "metrics": {
+            "MSE": 0.0032306581269949675,
+            "dice": 0.1910960078239441
+        }
+    },
+    "16": {
+        "fixed": "OASIS_0411_0000.nii.gz",
+        "moving": "OASIS_0412_0000.nii.gz",
+        "metrics": {
+            "MSE": 0.003535718657076359,
+            "dice": 0.191728413105011
+        }
+    },
+    "17": {
+        "fixed": "OASIS_0412_0000.nii.gz",
+        "moving": "OASIS_0413_0000.nii.gz",
+        "metrics": {
+            "MSE": 0.0033764082472771406,
+            "dice": 0.18893563747406006
+        }
+    },
+    "18": {
+        "fixed": "OASIS_0413_0000.nii.gz",
+        "moving": "OASIS_0414_0000.nii.gz",
+        "metrics": {
+            "MSE": 0.0038017600309103727,
+            "dice": 0.190784752368927
+        }
+    }
+}

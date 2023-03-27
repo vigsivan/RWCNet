@@ -1,0 +1,34 @@
+{
+    "stages": [
+        {
+            "res_factor": 4,
+            "patch_factor": 4,
+            "checkpoint": "./stage1.pth",
+            "iters": 12,
+            "search_range": 3,
+            "diffeomorphic": true
+        },
+        {
+            "res_factor": 2,
+            "patch_factor": 4,
+            "checkpoint": "./stage2.pth",
+            "iters": 12,
+            "search_range": 3,
+            "diffeomorphic": true
+        },
+        {
+            "res_factor": 1,
+            "patch_factor": 2,
+            "checkpoint": "./stage3.pth",
+            "iters": 4,
+            "search_range": 2,
+            "diffeomorphic": true
+        }
+    ],
+    "dset_max": 1,
+    "dset_min": 0,
+    "instance_opt_res": 2,
+    "save_path": ".",
+    "split": "val",
+    "eval_at_each_stage": true
+}
