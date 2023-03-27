@@ -11,4 +11,4 @@ You can verify the results by running:
 python eval_config.json train_oasis/data.json train_oasis/eval_config.json
 ```
 
-NB: the avg dice is 0.84 vs 0.87 in the paper, which I think is ok (within error). 
+NB: the avg dice is 0.804 vs 0.807 in the paper, which I think is ok (within error). 
