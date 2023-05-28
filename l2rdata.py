@@ -3,7 +3,10 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Optional
 
-def check_data(data: Dict):
+from config import TrainConfig
+
+
+def check_l2r_conformance(data: Dict):
     """
     Raises a value error if l2r json contains unsupported fields
 
@@ -27,9 +30,12 @@ def check_data(data: Dict):
         )
 
 
-def get_split_pairs(data: Dict, root: Path):
+def get_split_pairs(data: Dict, root: Path, config: TrainConfig):
     if data["pairings"] == "paired":
-        split_pairs = get_split_pairs_from_paired_dataset(data, root)
+        if not config.random_pairs:
+            split_pairs = get_split_pairs_from_paired_dataset(data, root)
+        else:
+            split_pairs = get_split_pairs_from_unpaired_dataset(data, root)
 
     elif data["pairings"] == "unpaired":
         split_pairs = get_split_pairs_from_unpaired_dataset(data, root)

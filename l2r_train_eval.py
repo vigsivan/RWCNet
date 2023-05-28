@@ -14,7 +14,7 @@ from typing import Optional
 import torch
 
 from config import TrainConfig
-from l2rdata import check_data, get_split_pairs
+from l2rdata import check_l2r_conformance, get_split_pairs
 from train import eval_stage1, eval_stage2, train, train_with_artifacts
 
 
@@ -73,9 +73,9 @@ def main(dataset_json: Path, config_json: Path):
     if config.gpu_num is not None:
         torch.cuda.set_device(config.gpu_num)
 
-    check_data(data)
+    check_l2r_conformance(data)
     root = dataset_json.parent
-    split_pairs  = get_split_pairs(data, root)
+    split_pairs  = get_split_pairs(data, root, config)
 
     checkpointroot = Path("checkpoints")
     if config.savedir is not None:

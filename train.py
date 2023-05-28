@@ -16,13 +16,24 @@ from torch.utils.tensorboard.writer import SummaryWriter
 from tqdm import trange
 from typer import Typer
 
-from common import (concat_flow, identity_grid_torch, load_keypoints, tb_log,
-                    torch2skimage_disp, warp_image)
+from common import (
+    concat_flow,
+    identity_grid_torch,
+    load_keypoints,
+    tb_log,
+    torch2skimage_disp,
+    warp_image,
+)
 from data import InfiniteDataLoader
-from differentiable_metrics import (MSE, NCC, DiceLoss, Grad,
-                                    MutualInformationLoss,
-                                    TotalRegistrationLoss)
-from networks import SomeNet, SomeNetNoCorr
+from differentiable_metrics import (
+    MSE,
+    NCC,
+    DiceLoss,
+    Grad,
+    MutualInformationLoss,
+    TotalRegistrationLoss,
+)
+from networks import RWCNet, RWCNetNoCorr
 
 app = Typer()
 
@@ -64,6 +75,7 @@ class PatchDatasetWithArtifacts(Dataset):
         split: str,
         dset_min: float,
         dset_max: float,
+        switch: bool = True
     ):
         super().__init__()
         if res_factor not in [1, 2, 4]:
@@ -101,6 +113,7 @@ class PatchDatasetWithArtifacts(Dataset):
         self.chan_split = chan_split
         self.check_artifacts()
         self.split = split
+        self.switch = switch
 
     def __len__(self):
         return len(self.indexes)
@@ -113,11 +126,8 @@ class PatchDatasetWithArtifacts(Dataset):
             f, m = "fixed", "moving"
             fname, mname = Path(data[f"{f}_image"]), Path(data[f"{m}_image"])
             flowpath = self.artifacts / (f"flow-{mname.name}2{fname.name}.pt")
-            hiddenpath = self.artifacts / (f"hidden-{mname.name}2{fname.name}.pt")
             if not flowpath.exists():
                 raise ValueError("Could not find flow ", str(flowpath))
-            if not hiddenpath.exists():
-                raise ValueError("Could not find hidden ", str(hiddenpath))
 
     def fold_(self, inp, res_shape, patch_shape):
         if inp.shape[-1] == 1:
@@ -176,7 +186,6 @@ class PatchDatasetWithArtifacts(Dataset):
         patch_index: int,
         chan_index: int,
     ):
-
         assert len(tensor.shape) == 4, "Expected tensor to have four dimensions"
         tensor_ps = F.unfold(tensor, pshape[-2:], stride=pshape[-2:])
 
@@ -192,7 +201,6 @@ class PatchDatasetWithArtifacts(Dataset):
         return tensor_p
 
     def load_data_(self, data_index):
-
         r = self.res_factor
         p = self.patch_factor
 
@@ -202,10 +210,6 @@ class PatchDatasetWithArtifacts(Dataset):
         fname, mname = Path(data[f"{f}_image"]), Path(data[f"{m}_image"])
         flow = torch.load(
             self.artifacts / (f"flow-{mname.name}2{fname.name}.pt"), map_location="cpu"
-        )
-        hidden = torch.load(
-            self.artifacts / (f"hidden-{mname.name}2{fname.name}.pt"),
-            map_location="cpu",
         )
 
         fixed_nib = nib.load(fname)
@@ -227,21 +231,17 @@ class PatchDatasetWithArtifacts(Dataset):
         factor = rshape[-1] // flow.shape[-1]
 
         flow = flow.squeeze().unsqueeze(0).float()
-        hidden = hidden.squeeze().unsqueeze(0)
 
         flow = F.interpolate(flow, rshape) * factor
-        hidden = F.interpolate(hidden, rshape) * factor
 
         moving_i = moving
         moving = warp_image(flow, moving.unsqueeze(0)).squeeze(0)
 
-        hidden = hidden.squeeze(0)
         flow = flow.squeeze(0)
 
         ret: Dict[str, Union[torch.Tensor, str, Tuple, Path]] = {
             "fixed_image": fixed,
             "moving_image": moving,
-            "hidden": hidden,
             "flow": flow,
             "rshape": rshape,
             "pshape": pshape,
@@ -250,7 +250,6 @@ class PatchDatasetWithArtifacts(Dataset):
         }
 
         if "fixed_segmentation" in data:
-
             fixed_seg_nib = nib.load(data["fixed_segmentation"])
             moving_seg_nib = nib.load(data["moving_segmentation"])
 
@@ -276,7 +275,6 @@ class PatchDatasetWithArtifacts(Dataset):
             ret["moving_segmentation"] = moving_seg
 
         if "fixed_mask" in data:
-
             fixed_mask_nib = nib.load(data["fixed_mask"])
             moving_mask_nib = nib.load(data["moving_mask"])
 
@@ -315,11 +313,10 @@ class PatchDatasetWithArtifacts(Dataset):
         return ret
 
     def get_patch_data(self, data: Dict, chan_index: int, patch_index: int):
-        (fixed, moving, flow, hidden, rshape, pshape, fname, mname) = (
+        (fixed, moving, flow, rshape, pshape, fname, mname) = (
             data["fixed_image"],
             data["moving_image"],
             data["flow"],
-            data["hidden"],
             data["rshape"],
             data["pshape"],
             data["fname"],
@@ -328,15 +325,11 @@ class PatchDatasetWithArtifacts(Dataset):
 
         fixed_p = self.get_patch(fixed, 1, rshape, pshape, patch_index, chan_index)
         moving_p = self.get_patch(moving, 1, rshape, pshape, patch_index, chan_index)
-        hidden_p = self.get_patch(
-            hidden, hidden.shape[0], rshape, pshape, patch_index, chan_index
-        )
         flow_p = self.get_patch(flow, 3, rshape, pshape, patch_index, chan_index)
 
         ret: Dict[str, Union[torch.Tensor, int, str]] = {
             "fixed_image": fixed_p,
             "moving_image": moving_p,
-            "hidden": hidden_p,
             "flowin": flow_p,
         }
 
@@ -357,7 +350,6 @@ class PatchDatasetWithArtifacts(Dataset):
                 ret["moving_spacing"] = data["moving_spacing"]
 
         if "fixed_segmentation" in data:
-
             fixed_seg, moving_seg = (
                 data["fixed_segmentation"],
                 data["moving_segmentation"],
@@ -374,7 +366,6 @@ class PatchDatasetWithArtifacts(Dataset):
             ret["moving_segmentation"] = moving_seg_p.long()
 
         if "fixed_mask" in data:
-
             fixed_mask, moving_mask = data["fixed_mask"], data["moving_mask"]
             fixed_masked, moving_masked = data["fixed_masked"], data["moving_masked"]
 
@@ -403,9 +394,22 @@ class PatchDatasetWithArtifacts(Dataset):
         data_index, chan_index, patch_index = self.indexes[index]
         data = self.load_data_(data_index)
 
-        patch_data = self.get_patch_data(data, chan_index, patch_index)
+        ret = self.get_patch_data(data, chan_index, patch_index)
 
-        return patch_data
+        if self.switch and random.choice([0, 1]) == 0:
+            ret_switched = {}
+            for k, v in ret.items():
+                if "fixed" in k:
+                    new_k = k.replace("fixed", "moving")
+                elif "moving" in k:
+                    new_k = k.replace("moving", "fixed")
+                else:
+                    new_k = k
+                ret_switched[new_k] = v
+
+            ret = ret_switched
+
+        return ret
 
 
 # FIXME: stage1 => patch_size === res_size, so you can simplify the __getitem__
@@ -422,7 +426,7 @@ class PatchDataset(Dataset):
         split: str,
         dset_min: float,
         dset_max: float,
-        switch: bool = False,
+        switch: bool = True,
     ):
         super().__init__()
 
@@ -504,7 +508,6 @@ class PatchDataset(Dataset):
         moving = F.interpolate(moving.unsqueeze(0), rshape).squeeze(0).float()
 
         if r != self.patch_factor:
-
             fixed_ps = F.unfold(fixed, pshape[-2:], stride=pshape[-2:])
             moving_ps = F.unfold(moving, pshape[-2:], stride=pshape[-2:])
 
@@ -633,7 +636,7 @@ def eval_stage3(
 
     savedir.mkdir(exist_ok=True)
 
-    model = SomeNet(
+    model = RWCNet(
         iters=iters, search_range=search_range, diffeomorphic=diffeomorphic
     ).to(device)
     model.load_state_dict(torch.load(checkpoint))
@@ -730,16 +733,16 @@ def eval_stage2(
     savedir.mkdir(exist_ok=True)
 
     if search_range == 0:
-        model = SomeNetNoCorr(iters=iters, diffeomorphic=diffeomorphic).to(device)
+        model = RWCNetNoCorr(iters=iters, diffeomorphic=diffeomorphic).to(device)
     else:
-        model = SomeNet(
+        model = RWCNet(
             search_range=search_range, iters=iters, diffeomorphic=diffeomorphic
         ).to(device)
 
     model.load_state_dict(torch.load(checkpoint))
 
     for i in trange(0, len(dataset), dataset.n_patches * dataset.chan_split):
-        flows, hiddens = defaultdict(list), defaultdict(list)
+        flows, _ = defaultdict(list)
         for j in range(i, i + (dataset.n_patches * dataset.chan_split)):
             data = dataset[j]
             fixed, moving = data["fixed_image"], data["moving_image"]
@@ -749,7 +752,7 @@ def eval_stage2(
                 device
             )
             with torch.no_grad(), evaluating(model):
-                flow, hidden = model(fixed, moving)
+                flow, _ = model(fixed, moving)
 
             savename = f'{data["moving_image_name"]}2{data["fixed_image_name"]}.pt'
             flowin = data["flowin"]
@@ -760,14 +763,10 @@ def eval_stage2(
             flows[savename].append(
                 (data["chan_index"], data["patch_index"], flow.detach().cpu())
             )
-            hiddens[savename].append(
-                (data["chan_index"], data["patch_index"], hidden.detach().cpu())
-            )
 
         assert len(list(flows.keys())) == 1
         for k, v in flows.items():
             fchannels = defaultdict(list)
-            hchannels = defaultdict(list)
 
             for i in v:
                 fchannels[i[0]].append((i[1], i[2]))
@@ -778,17 +777,6 @@ def eval_stage2(
             ]
             fk = torch.cat(ffchannels, dim=2)
 
-            hv = hiddens[k]
-            for i in hv:
-                hchannels[i[0]].append((i[1], i[2]))
-
-            fhchannels = [
-                torch.stack([i[1] for i in sorted(hchan, key=lambda x: x[0])], dim=-1)
-                for hchan in hchannels.values()
-            ]
-
-            hk = torch.cat(fhchannels, dim=2)
-
             pshape = fk.shape[-3:-1]
             res_shape = (fk.shape[2], *[i * 2 for i in pshape])
 
@@ -796,18 +784,12 @@ def eval_stage2(
             fk = einops.rearrange(fk, "c h d w p -> c (h d w) p")
             folded_flow = F.fold(fk, res_shape[-2:], pshape, stride=pshape)
 
-            hk = hk.squeeze(0)
-            hk = einops.rearrange(hk, "c h d w p -> c (h d w) p")
-
             moving, fixed = k.split("z2")
             moving = moving + "z"
             fixed = ".".join(fixed.split(".")[:-1])  # remove .pt
 
-            folded_hidden = F.fold(hk, res_shape[-2:], pshape, stride=pshape)
-
             # torch.save(fk, savedir / (disp_name))
             torch.save(folded_flow, savedir / ("flow-" + k))
-            torch.save(folded_hidden, savedir / ("hidden-" + k))
 
 
 @app.command()
@@ -840,9 +822,9 @@ def eval_stage1(
     savedir.mkdir(exist_ok=True)
 
     if search_range == 0:
-        model = SomeNetNoCorr(iters=iters, diffeomorphic=diffeomorphic).to(device)
+        model = RWCNetNoCorr(iters=iters, diffeomorphic=diffeomorphic).to(device)
     else:
-        model = SomeNet(
+        model = RWCNet(
             search_range=search_range, iters=iters, diffeomorphic=diffeomorphic
         ).to(device)
 
@@ -850,7 +832,7 @@ def eval_stage1(
 
     with evaluating(model):
         for i in trange(0, len(dataset), dataset.n_patches):
-            flows, hiddens = defaultdict(list), defaultdict(list)
+            flows = defaultdict(list)
             for j in range(i, i + dataset.n_patches):
                 data = dataset[j]
                 fixed, moving = data["fixed_image"], data["moving_image"]
@@ -860,25 +842,18 @@ def eval_stage1(
                     device
                 )
                 with torch.no_grad():
-                    flow, hidden = model(fixed, moving)
+                    flow, _ = model(fixed, moving)
                 savename = f'{data["moving_image_name"]}2{data["fixed_image_name"]}.pt'
 
                 flows[savename].append((data["patch_index"], flow.detach().cpu()))
-                hiddens[savename].append((data["patch_index"], hidden.detach().cpu()))
 
             assert len(flows.keys()) == 1, "Expected only one key"
             for k, v in flows.items():
                 fk = torch.stack([i[1] for i in sorted(v, key=lambda x: x[0])], dim=-1)
-                hk = torch.stack(
-                    [i[1] for i in sorted(hiddens[k], key=lambda x: x[0])], dim=-1
-                )
-
                 fk = fk[..., 0]
-                hk = hk[..., 0]
                 torch.save(fk, savedir / ("flow-" + k))
-                torch.save(hk, savedir / ("hidden-" + k))
 
-            del flows, hiddens
+            del flows
 
 
 def run_model_with_artifiacts_and_get_losses(
@@ -894,19 +869,17 @@ def run_model_with_artifiacts_and_get_losses(
     writer=None,
     step=None,
 ):
-    fixed, moving, hidden = (
+    fixed, moving = (
         data["fixed_image"],
         data["moving_image"],
-        data["hidden"],
     )
 
-    fixed, moving, hidden = (
+    fixed, moving = (
         fixed.to(device),
         moving.to(device),
-        hidden.to(device),
     )
 
-    flow, hidden = model(fixed, moving, hidden)
+    flow, _ = model(fixed, moving)
 
     moved = warp_image(flow, moving)
 
@@ -981,7 +954,6 @@ def train_with_artifacts(
     diffeomorphic: bool = False,
     num_workers: int = 4,
 ):
-
     train_dataset = PatchDatasetWithArtifacts(
         data_json,
         res,
@@ -1012,9 +984,9 @@ def train_with_artifacts(
     writer = SummaryWriter(log_dir=checkpoint_dir)
 
     if search_range == 0:
-        model = SomeNetNoCorr(iters=iters, diffeomorphic=diffeomorphic).to(device)
+        model = RWCNetNoCorr(iters=iters, diffeomorphic=diffeomorphic).to(device)
     else:
-        model = SomeNet(
+        model = RWCNet(
             search_range=search_range, iters=iters, diffeomorphic=diffeomorphic
         ).to(device)
 
@@ -1085,6 +1057,7 @@ def run_model_and_get_losses(
     seg_loss_weight,
     writer=None,
     step=None,
+    switch: bool=True
 ):
     losses = {}
     fixed, moving = data["fixed_image"], data["moving_image"]
@@ -1092,31 +1065,27 @@ def run_model_and_get_losses(
     flow, _ = model(fixed, moving)
     moved = warp_image(flow, moving)
 
-    losses["image_loss"] = (
-        image_loss_weight * image_loss(moved.squeeze(), fixed.squeeze())
+    losses["image_loss"] = image_loss_weight * image_loss(
+        moved.squeeze(), fixed.squeeze()
     )
-    losses["grad"] = (reg_loss_weight * Grad()(flow))
+    losses["grad"] = reg_loss_weight * Grad()(flow)
 
     if "fixed_keypoints" in data:
-        losses["keypoints"] = (
-            res
-            * TotalRegistrationLoss()(
-                fixed_landmarks=data["fixed_keypoints"].squeeze(0),
-                moving_landmarks=data["moving_keypoints"].squeeze(0),
-                displacement_field=flow,
-                fixed_spacing=data["fixed_spacing"].squeeze(0),
-                moving_spacing=data["moving_spacing"].squeeze(0),
-            )
+        losses["keypoints"] = res * TotalRegistrationLoss()(
+            fixed_landmarks=data["fixed_keypoints"].squeeze(0),
+            moving_landmarks=data["moving_keypoints"].squeeze(0),
+            displacement_field=flow,
+            fixed_spacing=data["fixed_spacing"].squeeze(0),
+            moving_spacing=data["moving_spacing"].squeeze(0),
         )
 
     if "fixed_segmentation" in data:
         fixed_segmentation = data["fixed_segmentation"].to(device).float()
         moving_segmentation = data["moving_segmentation"].to(device).float()
 
-        losses["dice_loss"] = (
-            seg_loss_weight * DiceLoss()(fixed_segmentation, moving_segmentation, flow)
+        losses["dice_loss"] = seg_loss_weight * DiceLoss()(
+            fixed_segmentation, moving_segmentation, flow
         )
-
 
     if model.training:
         for lk, lv in losses.items():
@@ -1191,9 +1160,9 @@ def train(
     image_loss = get_loss_fn(image_loss_fn)
 
     if search_range == 0:
-        model = SomeNetNoCorr(iters=iters, diffeomorphic=diffeomorphic).to(device)
+        model = RWCNetNoCorr(iters=iters, diffeomorphic=diffeomorphic).to(device)
     else:
-        model = SomeNet(
+        model = RWCNet(
             search_range=search_range, iters=iters, diffeomorphic=diffeomorphic
         ).to(device)
 
@@ -1252,3 +1221,4 @@ def train(
 
 if __name__ == "__main__":
     app()
+

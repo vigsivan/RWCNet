@@ -30,7 +30,7 @@ from differentiable_metrics import (
     MutualInformationLoss,
 )
 from train import PatchDataset
-from networks import SomeNet
+from networks import RWCNet
 
 app1 = Typer()
 
@@ -126,11 +126,11 @@ def train_stage2(
     n_patches = (((r - p) / p) + 1) ** 2
     chan_split = r / p
 
-    model_stage1 = SomeNet(iters=stage1_model_iters, search_range=stage1_model_search_range).to(device)
+    model_stage1 = RWCNet(iters=stage1_model_iters, search_range=stage1_model_search_range).to(device)
     model_stage1 = model_stage1.eval().to(device)
     model_stage1.requires_grad = False
 
-    model = SomeNet(iters=iters, search_range=search_range)
+    model = RWCNet(iters=iters, search_range=search_range)
 
     step_count = 0
     if start is not None:
@@ -263,7 +263,7 @@ def train_stage1(
     train_loader = DataLoader(train_dataset, batch_size=2, shuffle=True) #, num_workers=4)
     val_loader = DataLoader(val_dataset, batch_size=1, shuffle=True) #, num_workers=4)
 
-    model = SomeNet(iters=iters, search_range=search_range).to(device)
+    model = RWCNet(iters=iters, search_range=search_range).to(device)
     step_count = 0
     if start is not None:
         model.load_state_dict(torch.load(start))

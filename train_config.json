@@ -25,7 +25,6 @@
             "diffeomorphic": true
         }
     ],
-    "cache_file": "stage2.pkl",
     "savedir": "redoNLST",
     "dset_min": 0,
     "dset_max": 1

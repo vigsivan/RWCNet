@@ -11,9 +11,6 @@ from torch.utils.data import Dataset
 from tqdm import trange
 
 from common import (
-    MINDSEG,
-    MINDSSC,
-    adam_optimization,
     concat_flow,
     load_keypoints,
     warp_image,
@@ -25,7 +22,7 @@ from differentiable_metrics import (
     MutualInformationLoss,
     TotalRegistrationLoss,
 )
-from networks import SomeNet, SomeNetNoCorr
+from networks import RWCNet, RWCNetNoCorr
 
 get_spacing = lambda x: np.sqrt(np.sum(x.affine[:3, :3] * x.affine[:3, :3], axis=0))
 
@@ -318,11 +315,11 @@ def eval(data_json: Path, eval_config: Path):
                 moving_res = warp_image(flow_agg, moving_res)
 
             if stage.search_range == 0:
-                model = SomeNetNoCorr(
+                model = RWCNetNoCorr(
                     iters=stage.iters, diffeomorphic=stage.diffeomorphic
                 )
             else:
-                model = SomeNet(
+                model = RWCNet(
                     iters=stage.iters,
                     search_range=stage.search_range,
                     diffeomorphic=stage.diffeomorphic,
@@ -362,75 +359,6 @@ def eval(data_json: Path, eval_config: Path):
         dataset_metrics[i]["fixed"] = str(data["fixed_name"])
         dataset_metrics[i]["moving"] = str(data["moving_name"])
         dataset_metrics[i]["metrics"] = image_metrics
-
-        # FIXME: instance optimization
-        # fixed = fixed.to(config.device)
-        # moving = moving.to(config.device)
-        #
-        # shape = fixed_features[-1].shape[-3:]
-        # fixed_features = torch.cat([F.interpolate(f, shape) for f in fixed_features], dim=1).half()
-        # moving_features = torch.cat([F.interpolate(f,shape) for f in moving_features], dim=1).half()
-        #
-        # # fixed_features = fixed_features[-1].half()
-        # # moving_features = moving_features[-1].half()
-        #
-        # fixed_features, moving_features = MINDSSC(fixed,1,2, config.device).half(), MINDSSC(moving,1,2, config.device).half()
-        #
-        # fixed_features, moving_features = fixed.half(), moving.half()
-        # if "fixed_mask" in data:
-        #     fixed_mask = data["fixed_mask"]
-        #     moving_mask = data["moving_mask"]
-        #
-        #     fixed_mask = fixed_mask.to(config.device).unsqueeze(0).float()
-        #     moving_mask = moving_mask.to(config.device).unsqueeze(0).float()
-        #
-        #     fixed_features = fixed_mask * fixed_features
-        #     moving_features = moving_mask * moving_features
-        #
-        # # if "fixed_segmentation" in data:
-        # #     fixed_seg = data["fixed_mask"]
-        # #     moving_seg = data["moving_mask"]
-        # #
-        # #     fixed_seg = fixed_seg.to(config.device).unsqueeze(0).float()
-        # #     moving_seg = moving_seg.to(config.device).unsqueeze(0).float()
-        # #
-        # #     maxlabels = max(torch.unique(fixed_seg.long()).shape[0], torch.unique(moving_seg.long()).shape[0])
-        # #
-        # #     weight = 1 / (
-        # #         torch.bincount(fixed_seg.long().reshape(-1), minlength=maxlabels)
-        # #         + torch.bincount(moving_seg.long().reshape(-1), minlength=maxlabels)
-        # #     ).float().pow(0.3)
-        # #     weight[torch.isinf(weight)]=0.
-        # #
-        # #     fixed_features = MINDSEG(fixed_seg, norm_weight=weight)
-        # #     moving_features = MINDSEG(fixed_seg, norm_weight=weight)
-        #
-        # io_shape = tuple(s//2 for s in fixed.shape[-3:])
-        #
-        #
-        # iores = config.instance_opt_res
-        # net = adam_optimization(
-        #     mind_fixed=F.avg_pool3d(fixed_features, iores, stride=iores),
-        #     mind_moving=F.avg_pool3d(moving_features, iores, stride=iores),
-        #     disp=F.interpolate(flow_agg, io_shape) / iores,
-        #     lambda_weight=1.25,
-        #     norm=iores,
-        #     image_shape= io_shape,
-        #     iterations=100)
-        #
-        # disp_sample = F.avg_pool3d(
-        #     F.avg_pool3d(net[0].weight, 3, stride=1, padding=1), 3, stride=1, padding=1
-        # ).permute(0, 2, 3, 4, 1)
-        #
-        # fitted_grid = disp_sample.permute(0, 4, 1, 2, 3).detach()
-        # disp_hr = F.interpolate(
-        #     fitted_grid * iores,
-        #     size=fixed.shape[-3:],
-        #     mode="trilinear",
-        #     align_corners=False,
-        # )
-
-        # evaluate(data, flow_agg, fixed, moving, 1)
 
         disp_np = flow_agg.detach().cpu().numpy()
         l2r_disp = einops.rearrange(disp_np.squeeze(), "t h w d -> h w d t")
