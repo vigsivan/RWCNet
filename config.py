@@ -36,6 +36,7 @@ class TrainConfig(BaseModel):
     dset_min: float=-4e-3
     dset_max: float=16e3
     random_pairs: bool=False
+    switch: bool=True
 
     @validator("stages")
     def validate_stages(cls, val):

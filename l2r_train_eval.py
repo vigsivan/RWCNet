@@ -15,16 +15,16 @@ import torch
 
 from config import TrainConfig
 from l2rdata import check_l2r_conformance, get_split_pairs
-from train import eval_stage1, eval_stage2, train, train_with_artifacts
+from train import eval, eval_with_artifacts, train, train_with_artifacts
 
 
 @dataclass
-class SomeNetCheckpoint:
+class RWCNetCheckpoint:
     stage: int
     step: int
     checkpoint: Optional[Path]
 
-def find_last_checkpoint(config: TrainConfig, checkpointroot: Path) -> SomeNetCheckpoint:
+def find_last_checkpoint(config: TrainConfig, checkpointroot: Path) -> RWCNetCheckpoint:
     """
     Find the last checkpoint
 
@@ -46,7 +46,7 @@ def find_last_checkpoint(config: TrainConfig, checkpointroot: Path) -> SomeNetCh
             checkpoints = [f.name for f in stage_folder.iterdir() if f.name.endswith('.pth')]
             if len(checkpoints) == 0:
                 # NOTE: we assume that the checkpoints from the previous stage were generated
-                return SomeNetCheckpoint(
+                return RWCNetCheckpoint(
                     stage=stage,
                     step=0,
                     checkpoint=None
@@ -54,7 +54,7 @@ def find_last_checkpoint(config: TrainConfig, checkpointroot: Path) -> SomeNetCh
 
                 # continue
             last_checkpoint = max(checkpoints, key=get_step)
-            return SomeNetCheckpoint(
+            return RWCNetCheckpoint(
                 stage=stage,
                 step=get_step(last_checkpoint),
                 checkpoint=stage_folder / last_checkpoint
@@ -82,7 +82,7 @@ def main(dataset_json: Path, config_json: Path):
         config.savedir.mkdir(exist_ok=True)
         checkpointroot = config.savedir / Path(f"checkpoints")
 
-    resumption_point: Optional[SomeNetCheckpoint] = None
+    resumption_point: Optional[RWCNetCheckpoint] = None
     if checkpointroot.exists() and (checkpointroot/"stage1").exists() and not config.overwrite:
         try:
             resumption_point = find_last_checkpoint(config, checkpointroot)
@@ -123,8 +123,8 @@ def main(dataset_json: Path, config_json: Path):
                 seg_loss_weight=stage.seg_loss_weight,
                 lr=stage.lr,
                 reg_loss_weight=stage.reg_loss_weight,
-                num_workers=config.num_threads
-
+                num_workers=config.num_threads,
+                switch=config.switch
             )
             resumption_point = None
 
@@ -134,7 +134,7 @@ def main(dataset_json: Path, config_json: Path):
 
             print(f"Evaluating stage {i}")
             for split in ("train", "val"):
-                eval_stage1(
+                eval(
                     data_json=data_json,
                     savedir=checkpointroot / f"stage{i+1}_artifacts",
                     res=stage.res_factor,
@@ -170,7 +170,8 @@ def main(dataset_json: Path, config_json: Path):
                 image_loss_weight=stage.image_loss_weight,
                 seg_loss_weight=stage.seg_loss_weight,
                 lr=stage.lr,
-                reg_loss_weight=stage.reg_loss_weight
+                reg_loss_weight=stage.reg_loss_weight,
+                switch=config.switch
             )
 
             resumption_point = None
@@ -182,7 +183,7 @@ def main(dataset_json: Path, config_json: Path):
             if i < len(config.stages)-1:
                 print(f"Evaluating stage {i}")
                 for split in ("train", "val"):
-                    eval_stage2(
+                    eval_with_artifacts(
                         data_json=data_json,
                         savedir=checkpointroot / f"stage{i+1}_artifacts",
                         artifacts=checkpointroot / f"stage{i}_artifacts",

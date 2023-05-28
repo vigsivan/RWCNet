@@ -75,7 +75,7 @@ class PatchDatasetWithArtifacts(Dataset):
         split: str,
         dset_min: float,
         dset_max: float,
-        switch: bool = True
+        switch: bool = False
     ):
         super().__init__()
         if res_factor not in [1, 2, 4]:
@@ -426,7 +426,7 @@ class PatchDataset(Dataset):
         split: str,
         dset_min: float,
         dset_max: float,
-        switch: bool = True,
+        switch: bool = False,
     ):
         super().__init__()
 
@@ -697,7 +697,7 @@ def eval_stage3(
 
 
 @app.command()
-def eval_stage2(
+def eval_with_artifacts(
     data_json: Path,
     savedir: Path,
     artifacts: Path,
@@ -793,7 +793,7 @@ def eval_stage2(
 
 
 @app.command()
-def eval_stage1(
+def eval(
     data_json: Path,
     savedir: Path,
     res: int,
@@ -953,6 +953,7 @@ def train_with_artifacts(
     search_range: int = 1,
     diffeomorphic: bool = False,
     num_workers: int = 4,
+    switch: bool = True
 ):
     train_dataset = PatchDatasetWithArtifacts(
         data_json,
@@ -962,6 +963,7 @@ def train_with_artifacts(
         split="train",
         dset_min=dset_min,
         dset_max=dset_max,
+        switch=switch
     )
     val_dataset = PatchDatasetWithArtifacts(
         data_json,
@@ -1129,6 +1131,7 @@ def train(
     num_workers: int = 4,
     starting_step: Optional[int] = None,
     device: str = "cuda",
+    switch: bool=True
 ):
     """
     Trains the model at a specific resolution without any artifacts
@@ -1139,7 +1142,7 @@ def train(
         res,
         patch_factor,
         split="train",
-        switch=True,
+        switch=switch,
         dset_min=dset_min,
         dset_max=dset_max,
     )
