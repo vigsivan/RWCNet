@@ -921,9 +921,11 @@ def run_model_with_artifiacts_and_get_losses(
         fixed_segmentation = data["fixed_segmentation"].to(device).float()
         moving_segmentation = data["moving_segmentation"].to(device).float()
 
-        losses_dict["dice_loss"] = seg_loss_weight * DiceLoss()(
+        dice_loss = DiceLoss()(
             fixed_segmentation, moving_segmentation, flow
         )
+        if dice_loss:
+            losses_dict["dice_loss"] = seg_loss_weight * dice_loss
 
     if "fixed_keypoints" in data:
         flowin = data["flowin"].to(device)
@@ -1113,9 +1115,11 @@ def run_model_and_get_losses(
         fixed_segmentation = data["fixed_segmentation"].to(device).float()
         moving_segmentation = data["moving_segmentation"].to(device).float()
 
-        losses["dice_loss"] = (
-            seg_loss_weight * DiceLoss()(fixed_segmentation, moving_segmentation, flow)
+        dice_loss = DiceLoss()(
+            fixed_segmentation, moving_segmentation, flow
         )
+        if dice_loss:
+            losses["dice_loss"] = seg_loss_weight * dice_loss
 
 
     if model.training:

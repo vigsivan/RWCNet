@@ -2,7 +2,9 @@
 Implements differentiable loss functions for training
 """
 
+import warnings
 import math
+from collections import defaultdict
 from functools import partial
 from typing import List
 
@@ -38,7 +40,9 @@ class DiceLoss(nn.Module):
             fsegs.append(fseg)
             msegs.append(mseg)
 
-        assert len(fsegs) != 0, "No labels found!"
+        if len(fsegs) == 0:
+            warnings.warn("No labels found!", RuntimeWarning)
+            return None
 
         fseg = torch.cat(fsegs, dim=1)
         mseg = torch.cat(msegs, dim=1)
