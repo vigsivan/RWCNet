@@ -1,6 +1,6 @@
 # RWCNet
 
-This is the official repository for RWCNet
+This is the official repository for RWCNet: [link](https://www.mdpi.com/2076-3417/16/4/2084)
 
 ![RWCNet Diagram](RWCNet.png)
 
@@ -25,6 +25,4 @@ python l2r_train_eval.py l2r_dataset_json.json train_config.json
 
 If you find this repository useful, please cite:
 
-    Recurrence With Correlation Network for Medical Image Registration
-    Vignesh Sivan, Teodora Vujovic, Raj Ranabhat, Alexander Wong, Stewart Mclachlin, Michael Hardisty
-    eprint arXiv:2302.02283
+Sivan, V.; Vujovic, T.; Ranabhat, R.K.; Wong, A.; Mclachlin, S.; Hardisty, M. Recurrence with Correlation Network for Medical Image Registration. Appl. Sci. 2026, 16, 2084. https://doi.org/10.3390/app16042084
